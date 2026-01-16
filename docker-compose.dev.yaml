@@ -1,0 +1,43 @@
+services:
+  app:
+    container_name: polywall-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    env_file: .env.local
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - polywall-node-modules-dev:/app/node_modules
+      - polywall-uploads-dev:/data/uploads
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: 1
+      UPLOAD_ROOT: /data/uploads
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - postgres
+
+  postgres:
+    container_name: polywall-postgres-dev
+    image: postgres:15-alpine
+    env_file: .env.local
+    volumes:
+      - polywall-postgres-data-dev:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  polywall-postgres-data-dev:
+    driver: local
+  polywall-node-modules-dev:
+    driver: local
+  polywall-uploads-dev:
+    driver: local
