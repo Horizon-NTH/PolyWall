@@ -1,0 +1,40 @@
+services:
+  app:
+    container_name: polywall-prod
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    expose:
+      - '3000'
+    volumes:
+      - polywall-uploads-prod:/data/uploads
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: 1
+      UPLOAD_ROOT: /data/uploads
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    container_name: polywall-postgres-prod
+    image: postgres:15-alpine
+    env_file: .env
+    volumes:
+      - polywall-postgres-data-prod:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  polywall-postgres-data-prod:
+    driver: local
+  polywall-uploads-prod:
+    driver: local
