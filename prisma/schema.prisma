@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  PLATFORM_SUPER_ADMIN
+  ORGANIZATION_ADMIN
+  CONTENT_MANAGER
+}
+
+enum ScheduleType {
+  DEFAULT
+  RECURRING
+  EVENT
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum ZoneType {
+  PLAYLIST
+  WIDGET
+  STATIC
+  OVERLAY
+}
+
+model Organization {
+  id          String @id @default(cuid())
+  name        String
+  description String
+
+  users            User[]
+  playlists        Playlist[]
+  channels         Channel[]
+  screens          Screen[]
+  displayTemplates DisplayTemplate[]
+  widgetInstances  WidgetInstance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  fullName     String
+  description  String
+  passwordHash String
+  role         UserRole
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([role])
+}
+
+model Playlist {
+  id          String @id @default(cuid())
+  name        String
+  description String
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  items     PlaylistItem[]
+  schedules PlaylistSchedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@unique([organizationId, name])
+}
+
+model PlaylistItem {
+  id         String @id @default(cuid())
+  orderIndex Int
+
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  playlistId String
+
+  mediaItem   MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  mediaItemId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playlistId, orderIndex])
+  @@index([mediaItemId])
+}
+
+model MediaItem {
+  id              String  @id @default(cuid())
+  title           String
+  description     String
+  durationSeconds Int
+  active          Boolean @default(true)
+
+  playlistItems PlaylistItem[]
+  files         MediaFile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+}
+
+model MediaFile {
+  id            String  @id @default(cuid())
+  storagePath   String
+  mimeType      String
+  fileSizeBytes BigInt
+  checksum      String
+  isPrimary     Boolean @default(false)
+
+  mediaItem   MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  mediaItemId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mediaItemId])
+  @@index([checksum])
+  @@unique([storagePath])
+}
+
+model DisplayTemplate {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  templateKey String
+  resolutionX Int
+  resolutionY Int
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationId String?
+
+  channels Channel[]
+  zones    DisplayZone[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@unique([templateKey])
+}
+
+model DisplayZone {
+  id         String   @id @default(cuid())
+  name       String
+  slotName   String
+  zoneType   ZoneType
+  orderIndex Int
+  positionX  Int
+  positionY  Int
+  width      Int
+  height     Int
+
+  template   DisplayTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateId String
+
+  widgetInstances WidgetInstance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([templateId])
+  @@unique([templateId, slotName])
+  @@unique([templateId, orderIndex])
+}
+
+model Channel {
+  id          String @id @default(cuid())
+  name        String
+  description String
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  displayTemplate   DisplayTemplate @relation(fields: [displayTemplateId], references: [id], onDelete: Restrict)
+  displayTemplateId String
+
+  screens   Screen[]
+  schedules PlaylistSchedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([displayTemplateId])
+  @@unique([organizationId, name])
+}
+
+model Screen {
+  id                       String  @id @default(cuid())
+  name                     String
+  location                 String
+  interactive              Boolean @default(false)
+  interruptionEnabled      Boolean @default(false)
+  interactiveUrl           String?
+  inactivityTimeoutSeconds Int?
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  channelId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([channelId])
+  @@unique([organizationId, name])
+}
+
+model WidgetType {
+  id           String @id @default(cuid())
+  name         String
+  description  String
+  technicalKey String @unique
+
+  instances WidgetInstance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WidgetInstance {
+  id                   String  @id @default(cuid())
+  configurationJson    Json
+  active               Boolean @default(true)
+  refreshPeriodSeconds Int
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  widgetType   WidgetType @relation(fields: [widgetTypeId], references: [id], onDelete: Restrict)
+  widgetTypeId String
+
+  displayZone   DisplayZone @relation(fields: [displayZoneId], references: [id], onDelete: Cascade)
+  displayZoneId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([widgetTypeId])
+  @@index([displayZoneId])
+}
+
+model PlaylistSchedule {
+  id        String       @id @default(cuid())
+  startDate DateTime?    @db.Date
+  endDate   DateTime?    @db.Date
+  type      ScheduleType
+  active    Boolean      @default(true)
+
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  playlistId String
+
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channelId String
+
+  timeSlots ScheduleTimeSlot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([playlistId])
+  @@index([channelId])
+  @@index([type, active])
+}
+
+model ScheduleTimeSlot {
+  id        String    @id @default(cuid())
+  startTime DateTime  @db.Time
+  endTime   DateTime  @db.Time
+  dayOfWeek DayOfWeek
+
+  schedule   PlaylistSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  scheduleId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scheduleId])
+  @@unique([scheduleId, dayOfWeek, startTime, endTime])
+}
