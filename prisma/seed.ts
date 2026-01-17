@@ -1,0 +1,805 @@
+import { promises as fs } from 'fs';
+import path from 'path';
+import { createHash } from 'crypto';
+
+import pino from 'pino';
+import { faker } from '@faker-js/faker';
+import argon2 from 'argon2';
+import mime from 'mime-types';
+
+import { DayOfWeek, Prisma, PrismaClient, ScheduleType, UserRole, ZoneType } from '../generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import 'dotenv/config';
+
+const adapter = new PrismaPg({
+    connectionString: process.env.DATABASE_URL,
+});
+
+const prisma = new PrismaClient({
+    adapter,
+});
+
+const logger = pino({
+    level: process.env.LOG_LEVEL ?? 'info',
+    transport:
+        process.env.PINO_PRETTY === 'false'
+            ? undefined
+            : {
+                target: 'pino-pretty',
+                options: {colorize: true, translateTime: 'SYS:standard'},
+            },
+});
+
+faker.seed(42);
+
+const DEV_PASSWORD = process.env.DEV_PASSWORD ?? 'DevPassword123!';
+const SEED_MEDIA_DIR = path.join(process.cwd(), 'public', 'seed', 'media');
+
+type SeedMode = 'core' | 'dev' | 'prod';
+
+function getSeedMode(): SeedMode {
+    const raw =
+        (process.env.SEED_MODE ??
+            (process.env.NODE_ENV === 'production' ? 'prod' : 'dev')) as string;
+
+    const mode = raw.toLowerCase();
+    if (mode === 'core' || mode === 'dev' || mode === 'prod') return mode;
+    throw new Error(`Invalid SEED_MODE="${raw}". Use core|dev|prod.`);
+}
+
+function dateOnlyUTC(y: number, m: number, d: number) {
+    return new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+}
+
+function timeOfDayUTC(h: number, min: number) {
+    return new Date(Date.UTC(1970, 0, 1, h, min, 0));
+}
+
+function getMime(fileName: string) {
+    return (mime.lookup(fileName) as string) || 'application/octet-stream';
+}
+
+async function sha256File(absPath: string) {
+    const buf = await fs.readFile(absPath);
+    return createHash('sha256').update(buf).digest('hex');
+}
+
+function guessDurationSeconds(fileName: string) {
+    const ext = path.extname(fileName).toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext))
+        return faker.number.int({min: 6, max: 15});
+    if (['.mp4', '.mov', '.webm'].includes(ext))
+        return faker.number.int({min: 20, max: 120});
+    if (ext === '.pdf') return faker.number.int({min: 10, max: 30});
+    return faker.number.int({min: 8, max: 20});
+}
+
+/**
+ * CORE seed (always)
+ * - Stable / reference data
+ * - Idempotent (create if missing)
+ */
+async function seedCore() {
+    logger.info('Seeding CORE (WidgetType)...');
+
+    const widgetTypes = [
+        {technicalKey: 'clock', name: 'Horloge', description: 'Affiche l\'heure'},
+        {technicalKey: 'weather', name: 'Météo', description: 'Affiche la météo (dev/mock)'},
+        {technicalKey: 'rss', name: 'Flux RSS', description: 'Affiche un flux RSS (dev/mock)'},
+    ];
+
+    const created = [];
+    for (const wt of widgetTypes) {
+        const existing = await prisma.widgetType.findUnique({
+            where: {technicalKey: wt.technicalKey},
+        });
+        if (existing) {
+            created.push(existing);
+            continue;
+        }
+
+        const row = await prisma.widgetType.create({data: wt});
+        created.push(row);
+    }
+
+    logger.info({count: created.length}, 'CORE seed done.');
+    return created;
+}
+
+/**
+ * DEV seed (fixtures)
+ * - Create if missing
+ */
+async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
+    logger.info('Seeding DEV fixtures...');
+
+    // Orgs
+    const orgA =
+        (await prisma.organization.findUnique({
+            where: {name: 'PolyWall Demo Org'},
+        })) ??
+        (await prisma.organization.create({
+            data: {name: 'PolyWall Demo Org', description: 'Organisation de démo (DEV)'},
+        }));
+
+    const orgB =
+        (await prisma.organization.findUnique({
+            where: {name: 'PolyWall Second Org'},
+        })) ??
+        (await prisma.organization.create({
+            data: {name: 'PolyWall Second Org', description: 'Deuxième orga (DEV multi-tenant)'},
+        }));
+
+    // Users (hash unique)
+    const passwordHash = await argon2.hash(DEV_PASSWORD);
+
+    const platformAdmin =
+        (await prisma.user.findUnique({
+            where: {email: 'superadmin@polywall.local'},
+        })) ??
+        (await prisma.user.create({
+            data: {
+                email: 'superadmin@polywall.local',
+                fullName: 'Platform Super Admin',
+                description: 'Compte plateforme (DEV)',
+                role: UserRole.PLATFORM_SUPER_ADMIN,
+                passwordHash,
+            },
+        }));
+
+    const orgAAdmin =
+        (await prisma.user.findUnique({
+            where: {email: 'admin@demo.polywall.local'},
+        })) ??
+        (await prisma.user.create({
+            data: {
+                email: 'admin@demo.polywall.local',
+                fullName: 'Admin Demo',
+                description: 'Admin org A (DEV)',
+                role: UserRole.ORGANIZATION_ADMIN,
+                passwordHash,
+                organizationId: orgA.id,
+            },
+        }));
+
+    const orgBAdmin =
+        (await prisma.user.findUnique({
+            where: {email: 'admin@second.polywall.local'},
+        })) ??
+        (await prisma.user.create({
+            data: {
+                email: 'admin@second.polywall.local',
+                fullName: 'Admin Second',
+                description: 'Admin org B (DEV)',
+                role: UserRole.ORGANIZATION_ADMIN,
+                passwordHash,
+                organizationId: orgB.id,
+            },
+        }));
+
+    for (let i = 1; i <= 3; i++) {
+        const email = `manager-${i}@demo.polywall.local`;
+        const existing = await prisma.user.findUnique({where: {email}});
+        if (!existing) {
+            await prisma.user.create({
+                data: {
+                    email,
+                    fullName: faker.person.fullName(),
+                    description: faker.lorem.sentence(),
+                    role: UserRole.CONTENT_MANAGER,
+                    passwordHash,
+                    organizationId: orgA.id,
+                },
+            });
+        }
+    }
+
+    for (let i = 1; i <= 2; i++) {
+        const email = `manager-${i}@second.polywall.local`;
+        const existing = await prisma.user.findUnique({where: {email}});
+        if (!existing) {
+            await prisma.user.create({
+                data: {
+                    email,
+                    fullName: faker.person.fullName(),
+                    description: faker.lorem.sentence(),
+                    role: UserRole.CONTENT_MANAGER,
+                    passwordHash,
+                    organizationId: orgB.id,
+                },
+            });
+        }
+    }
+
+    logger.info(
+        {
+            platformAdmin: platformAdmin.email,
+            orgAAdmin: orgAAdmin.email,
+            orgBAdmin: orgBAdmin.email,
+        },
+        'Users seeded.',
+    );
+
+    // Templates + Zones + Channels + Screens
+    async function seedOrgDisplay(orgId: string, templateKeyPrefix: string) {
+        const templateKey = `${templateKeyPrefix}-dashboard-16x9`;
+        const template =
+            (await prisma.displayTemplate.findUnique({
+                where: {templateKey},
+            })) ??
+            (await prisma.displayTemplate.create({
+                data: {
+                    name: 'Template Dashboard 16:9',
+                    description: 'Zone principale + zone widgets',
+                    templateKey,
+                    resolutionX: 1920,
+                    resolutionY: 1080,
+                    organizationId: orgId,
+                },
+            }));
+
+        const zonesData = [
+            {
+                name: 'Main',
+                slotName: 'main',
+                zoneType: ZoneType.PLAYLIST,
+                orderIndex: 0,
+                positionX: 0,
+                positionY: 0,
+                width: 1520,
+                height: 1080,
+            },
+            {
+                name: 'Sidebar',
+                slotName: 'sidebar',
+                zoneType: ZoneType.WIDGET,
+                orderIndex: 1,
+                positionX: 1520,
+                positionY: 0,
+                width: 400,
+                height: 1080,
+            },
+        ];
+
+        const zones: { id: string; slotName: string }[] = [];
+        for (const zone of zonesData) {
+            const existing = await prisma.displayZone.findUnique({
+                where: {
+                    templateId_slotName: {
+                        templateId: template.id,
+                        slotName: zone.slotName,
+                    },
+                },
+            });
+
+            if (existing) {
+                zones.push(existing);
+                continue;
+            }
+
+            const created = await prisma.displayZone.create({
+                data: {
+                    ...zone,
+                    templateId: template.id,
+                },
+            });
+            zones.push(created);
+        }
+
+        const channelHall =
+            (await prisma.channel.findUnique({
+                where: {
+                    organizationId_name: {
+                        organizationId: orgId,
+                        name: 'Hall principal',
+                    },
+                },
+            })) ??
+            (await prisma.channel.create({
+                data: {
+                    name: 'Hall principal',
+                    description: 'Canal du hall',
+                    organizationId: orgId,
+                    displayTemplateId: template.id,
+                },
+            }));
+
+        const channelCafet =
+            (await prisma.channel.findUnique({
+                where: {
+                    organizationId_name: {
+                        organizationId: orgId,
+                        name: 'Cafétéria',
+                    },
+                },
+            })) ??
+            (await prisma.channel.create({
+                data: {
+                    name: 'Cafétéria',
+                    description: 'Canal de la cafet',
+                    organizationId: orgId,
+                    displayTemplateId: template.id,
+                },
+            }));
+
+        const screens = [
+            {
+                name: 'Écran Hall #1',
+                location: 'Bâtiment A - Entrée',
+                channelId: channelHall.id,
+            },
+            {
+                name: 'Écran Hall #2',
+                location: 'Bâtiment A - Couloir',
+                channelId: channelHall.id,
+            },
+            {
+                name: 'Écran Cafet #1',
+                location: 'Cafétéria - Mur',
+                channelId: channelCafet.id,
+            },
+            {
+                name: 'Écran Cafet #2',
+                location: 'Cafétéria - Comptoir',
+                channelId: channelCafet.id,
+            },
+        ];
+
+        for (const screen of screens) {
+            const existing = await prisma.screen.findUnique({
+                where: {
+                    organizationId_name: {
+                        organizationId: orgId,
+                        name: screen.name,
+                    },
+                },
+            });
+
+            if (existing) continue;
+
+            await prisma.screen.create({
+                data: {
+                    name: screen.name,
+                    location: screen.location,
+                    organizationId: orgId,
+                    channelId: screen.channelId,
+                    interactive: false,
+                    interruptionEnabled: false,
+                },
+            });
+        }
+
+        return {template, zones, channelHall, channelCafet};
+    }
+
+    const a = await seedOrgDisplay(orgA.id, 'orgA');
+    const b = await seedOrgDisplay(orgB.id, 'orgB');
+
+    async function seedWidgetsForOrg(orgId: string, zones: { id: string; slotName: string }[]) {
+        const sidebar = zones.find((z) => z.slotName === 'sidebar');
+        if (!sidebar) return;
+
+        const clock = widgetTypes.find((w) => w.technicalKey === 'clock');
+        const weather = widgetTypes.find((w) => w.technicalKey === 'weather');
+        const rss = widgetTypes.find((w) => w.technicalKey === 'rss');
+
+        const sidebarId = sidebar.id;
+
+        async function ensureWidget(params: {
+            widgetTypeId: string;
+            refreshPeriodSeconds: number;
+            configurationJson: Prisma.InputJsonValue;
+        }) {
+            const existing = await prisma.widgetInstance.findFirst({
+                where: {
+                    organizationId: orgId,
+                    widgetTypeId: params.widgetTypeId,
+                    displayZoneId: sidebarId,
+                },
+            });
+
+            if (existing) return existing;
+
+            return prisma.widgetInstance.create({
+                data: {
+                    organizationId: orgId,
+                    widgetTypeId: params.widgetTypeId,
+                    displayZoneId: sidebarId,
+                    refreshPeriodSeconds: params.refreshPeriodSeconds,
+                    active: true,
+                    configurationJson: params.configurationJson,
+                },
+            });
+        }
+
+        if (clock) {
+            await ensureWidget({
+                widgetTypeId: clock.id,
+                refreshPeriodSeconds: 30,
+                configurationJson: {format: 'HH:mm', timezone: 'Europe/Paris'},
+            });
+        }
+
+        if (weather) {
+            await ensureWidget({
+                widgetTypeId: weather.id,
+                refreshPeriodSeconds: 600,
+                configurationJson: {city: 'Dijon', units: 'metric', provider: 'mock'},
+            });
+        }
+
+        if (rss) {
+            await ensureWidget({
+                widgetTypeId: rss.id,
+                refreshPeriodSeconds: 300,
+                configurationJson: {url: 'https://example.com/rss', maxItems: 5, provider: 'mock'},
+            });
+        }
+    }
+
+    await seedWidgetsForOrg(orgA.id, a.zones);
+    await seedWidgetsForOrg(orgB.id, b.zones);
+
+    async function seedMediaLibrary() {
+        logger.info({dir: SEED_MEDIA_DIR}, 'Seeding media library...');
+
+        let files: string[] = [];
+        try {
+            files = (await fs.readdir(SEED_MEDIA_DIR)).filter((f) => !f.startsWith('.'));
+        } catch {
+            logger.warn(
+                {dir: SEED_MEDIA_DIR},
+                'Folder not found. Create it and add files to generate real media.',
+            );
+        }
+
+        const mediaItems: { id: string }[] = [];
+
+        async function ensureMediaItemForFile(params: {
+            title: string;
+            description: string;
+            durationSeconds: number;
+            storagePath: string;
+            mimeType: string;
+            fileSizeBytes: bigint;
+            checksum: string;
+        }) {
+            const existing = await prisma.mediaFile.findUnique({
+                where: {storagePath: params.storagePath},
+                select: {mediaItemId: true},
+            });
+
+            if (existing) {
+                return {id: existing.mediaItemId};
+            }
+
+            return prisma.mediaItem.create({
+                data: {
+                    title: params.title,
+                    description: params.description,
+                    durationSeconds: params.durationSeconds,
+                    active: true,
+                    files: {
+                        create: {
+                            storagePath: params.storagePath,
+                            mimeType: params.mimeType,
+                            fileSizeBytes: params.fileSizeBytes,
+                            checksum: params.checksum,
+                            isPrimary: true,
+                        },
+                    },
+                },
+                select: {id: true},
+            });
+        }
+
+        if (files.length === 0) {
+            logger.warn('No media files found. Creating placeholders...');
+            for (let i = 1; i <= 12; i++) {
+                const mi = await ensureMediaItemForFile({
+                    title: `Placeholder ${i}`,
+                    description: faker.lorem.sentence(),
+                    durationSeconds: faker.number.int({min: 6, max: 15}),
+                    storagePath: `/seed/media/placeholder-${i}.jpg`,
+                    mimeType: 'image/jpeg',
+                    fileSizeBytes: BigInt(0),
+                    checksum: faker.string.hexadecimal({length: 64, prefix: ''}),
+                });
+                mediaItems.push(mi);
+            }
+            return mediaItems;
+        }
+
+        for (const fileName of files) {
+            const abs = path.join(SEED_MEDIA_DIR, fileName);
+            const stat = await fs.stat(abs);
+            const checksum = await sha256File(abs);
+
+            const mi = await ensureMediaItemForFile({
+                title: path.parse(fileName).name.replace(/[-_]/g, ' '),
+                description: faker.lorem.sentence(),
+                durationSeconds: guessDurationSeconds(fileName),
+                storagePath: `/seed/media/${fileName}`,
+                mimeType: getMime(fileName),
+                fileSizeBytes: BigInt(stat.size),
+                checksum,
+            });
+
+            mediaItems.push(mi);
+        }
+
+        logger.info({count: mediaItems.length}, 'Media library seeded.');
+        return mediaItems;
+    }
+
+    const mediaItems = await seedMediaLibrary();
+
+    // Playlists + Items + Schedules
+    async function seedPlaylistsAndSchedules(orgId: string, channels: { id: string; name: string }[]) {
+        const playlists = await Promise.all([
+            (await prisma.playlist.findUnique({
+                where: {
+                    organizationId_name: {
+                        organizationId: orgId,
+                        name: 'Default',
+                    },
+                },
+            })) ??
+            prisma.playlist.create({
+                data: {
+                    organizationId: orgId,
+                    name: 'Default',
+                    description: 'Playlist par défaut (DEV)',
+                },
+            }),
+            (await prisma.playlist.findUnique({
+                where: {
+                    organizationId_name: {
+                        organizationId: orgId,
+                        name: 'Actus',
+                    },
+                },
+            })) ??
+            prisma.playlist.create({
+                data: {
+                    organizationId: orgId,
+                    name: 'Actus',
+                    description: 'Actualités (DEV)',
+                },
+            }),
+            (await prisma.playlist.findUnique({
+                where: {
+                    organizationId_name: {
+                        organizationId: orgId,
+                        name: 'Événements',
+                    },
+                },
+            })) ??
+            prisma.playlist.create({
+                data: {
+                    organizationId: orgId,
+                    name: 'Événements',
+                    description: 'Événements (DEV)',
+                },
+            }),
+        ]);
+
+        for (const pl of playlists) {
+            const itemCount = pl.name === 'Default' ? 10 : pl.name === 'Actus' ? 6 : 4;
+            const chosen = faker.helpers.arrayElements(mediaItems, Math.min(itemCount, mediaItems.length));
+
+            const existingCount = await prisma.playlistItem.count({
+                where: {playlistId: pl.id},
+            });
+
+            if (existingCount === 0 && chosen.length > 0) {
+                await prisma.playlistItem.createMany({
+                    data: chosen.map((m, idx) => ({
+                        playlistId: pl.id,
+                        mediaItemId: m.id,
+                        orderIndex: idx,
+                    })),
+                    skipDuplicates: true,
+                });
+            }
+        }
+
+        const defaultPlaylist = playlists.find((p) => p.name === 'Default')!;
+        const actusPlaylist = playlists.find((p) => p.name === 'Actus')!;
+        const eventPlaylist = playlists.find((p) => p.name === 'Événements')!;
+
+        const allDays: DayOfWeek[] = [
+            DayOfWeek.MONDAY,
+            DayOfWeek.TUESDAY,
+            DayOfWeek.WEDNESDAY,
+            DayOfWeek.THURSDAY,
+            DayOfWeek.FRIDAY,
+            DayOfWeek.SATURDAY,
+            DayOfWeek.SUNDAY,
+        ];
+
+        const weekDays: DayOfWeek[] = [
+            DayOfWeek.MONDAY,
+            DayOfWeek.TUESDAY,
+            DayOfWeek.WEDNESDAY,
+            DayOfWeek.THURSDAY,
+            DayOfWeek.FRIDAY,
+        ];
+
+        const now = new Date();
+        const y = now.getUTCFullYear();
+        const m = now.getUTCMonth() + 1;
+        const d = now.getUTCDate();
+
+        for (const ch of channels) {
+            // DEFAULT: always
+            const schDefault =
+                (await prisma.playlistSchedule.findFirst({
+                    where: {
+                        channelId: ch.id,
+                        playlistId: defaultPlaylist.id,
+                        type: ScheduleType.DEFAULT,
+                    },
+                })) ??
+                (await prisma.playlistSchedule.create({
+                    data: {
+                        channelId: ch.id,
+                        playlistId: defaultPlaylist.id,
+                        type: ScheduleType.DEFAULT,
+                        active: true,
+                    },
+                }));
+
+            await prisma.scheduleTimeSlot.createMany({
+                data: allDays.map((day) => ({
+                    scheduleId: schDefault.id,
+                    dayOfWeek: day,
+                    startTime: timeOfDayUTC(0, 0),
+                    endTime: timeOfDayUTC(23, 59),
+                })),
+                skipDuplicates: true,
+            });
+
+            // RECURRING: weekday news 08:00-18:00
+            const schRecurring =
+                (await prisma.playlistSchedule.findFirst({
+                    where: {
+                        channelId: ch.id,
+                        playlistId: actusPlaylist.id,
+                        type: ScheduleType.RECURRING,
+                    },
+                })) ??
+                (await prisma.playlistSchedule.create({
+                    data: {
+                        channelId: ch.id,
+                        playlistId: actusPlaylist.id,
+                        type: ScheduleType.RECURRING,
+                        active: true,
+                    },
+                }));
+
+            await prisma.scheduleTimeSlot.createMany({
+                data: weekDays.map((day) => ({
+                    scheduleId: schRecurring.id,
+                    dayOfWeek: day,
+                    startTime: timeOfDayUTC(8, 0),
+                    endTime: timeOfDayUTC(18, 0),
+                })),
+                skipDuplicates: true,
+            });
+
+            // EVENT: 7 days (09:00-17:00)
+            const schEvent =
+                (await prisma.playlistSchedule.findFirst({
+                    where: {
+                        channelId: ch.id,
+                        playlistId: eventPlaylist.id,
+                        type: ScheduleType.EVENT,
+                    },
+                })) ??
+                (await prisma.playlistSchedule.create({
+                    data: {
+                        channelId: ch.id,
+                        playlistId: eventPlaylist.id,
+                        type: ScheduleType.EVENT,
+                        active: true,
+                        startDate: dateOnlyUTC(y, m, d),
+                        endDate: dateOnlyUTC(y, m, d + 7),
+                    },
+                }));
+
+            await prisma.scheduleTimeSlot.createMany({
+                data: allDays.map((day) => ({
+                    scheduleId: schEvent.id,
+                    dayOfWeek: day,
+                    startTime: timeOfDayUTC(9, 0),
+                    endTime: timeOfDayUTC(17, 0),
+                })),
+                skipDuplicates: true,
+            });
+        }
+    }
+
+    await seedPlaylistsAndSchedules(orgA.id, [a.channelHall, a.channelCafet]);
+    await seedPlaylistsAndSchedules(orgB.id, [b.channelHall, b.channelCafet]);
+
+    logger.info('DEV seed complete!');
+    logger.info(
+        {
+            password: DEV_PASSWORD,
+            accounts: [
+                'superadmin@polywall.local',
+                'admin@demo.polywall.local',
+                'admin@second.polywall.local',
+                'manager-1@demo.polywall.local',
+                'manager-1@second.polywall.local',
+            ],
+        },
+        'DEV accounts',
+    );
+    logger.info(
+        {folder: 'public/seed/media'},
+        'Add files here and rerun the seed.',
+    );
+}
+
+/**
+ * PROD seed (bootstrap)
+ * - Idempotent
+ * - Never delete
+ */
+async function seedProd() {
+    logger.info('Seeding PROD bootstrap...');
+
+    const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
+    const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
+
+    if (!email || !password) {
+        logger.warn(
+            'BOOTSTRAP_ADMIN_EMAIL/PASSWORD missing. Not creating a super-admin.',
+        );
+        return;
+    }
+
+    const passwordHash = await argon2.hash(password);
+
+    const existing = await prisma.user.findUnique({where: {email}});
+    if (!existing) {
+        await prisma.user.create({
+            data: {
+                email,
+                fullName: 'Platform Super Admin',
+                description: 'Bootstrap platform admin',
+                role: UserRole.PLATFORM_SUPER_ADMIN,
+                passwordHash,
+            },
+        });
+    }
+
+    logger.info({email}, 'PROD bootstrap admin ensured.');
+}
+
+async function main() {
+    const mode = getSeedMode();
+
+    // safety check
+    if (process.env.NODE_ENV === 'production' && mode === 'dev') {
+        throw new Error('Refusing to run DEV seed in production.');
+    }
+
+    const widgetTypes = await seedCore();
+
+    if (mode === 'dev') await seedDev(widgetTypes);
+    if (mode === 'prod') await seedProd();
+
+    logger.info({mode}, 'Seed finished.');
+}
+
+main()
+    .catch((e) => {
+        logger.error(e, 'Seed failed');
+        process.exit(1);
+    })
+    .finally(async () => {
+        await prisma.$disconnect();
+    });
