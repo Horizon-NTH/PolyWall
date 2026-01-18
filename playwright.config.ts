@@ -72,7 +72,7 @@ export default defineConfig({
 
     webServer: process.env.CI
         ? {
-            command: 'pnpm build && pnpm start',
+            command: 'SKIP_ENV_VALIDATION=1 pnpm build && SKIP_ENV_VALIDATION=1 pnpm start',
             url: 'http://127.0.0.1:3000',
             reuseExistingServer: false,
             timeout: 120_000,
