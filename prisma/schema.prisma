@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -61,6 +61,7 @@ model User {
   description  String
   passwordHash String
   role         UserRole
+  active       Boolean  @default(true)
 
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   organizationId String?
@@ -86,8 +87,8 @@ model Playlist {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([organizationId])
   @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model PlaylistItem {
@@ -137,9 +138,9 @@ model MediaFile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([storagePath])
   @@index([mediaItemId])
   @@index([checksum])
-  @@unique([storagePath])
 }
 
 model DisplayTemplate {
@@ -159,8 +160,8 @@ model DisplayTemplate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([organizationId])
   @@unique([templateKey])
+  @@index([organizationId])
 }
 
 model DisplayZone {
@@ -182,9 +183,9 @@ model DisplayZone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([templateId])
   @@unique([templateId, slotName])
   @@unique([templateId, orderIndex])
+  @@index([templateId])
 }
 
 model Channel {
@@ -204,9 +205,9 @@ model Channel {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, name])
   @@index([organizationId])
   @@index([displayTemplateId])
-  @@unique([organizationId, name])
 }
 
 model Screen {
@@ -227,9 +228,9 @@ model Screen {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, name])
   @@index([organizationId])
   @@index([channelId])
-  @@unique([organizationId, name])
 }
 
 model WidgetType {
@@ -302,6 +303,6 @@ model ScheduleTimeSlot {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([scheduleId])
   @@unique([scheduleId, dayOfWeek, startTime, endTime])
+  @@index([scheduleId])
 }

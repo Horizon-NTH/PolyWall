@@ -7,7 +7,7 @@ import { faker } from '@faker-js/faker';
 import argon2 from 'argon2';
 import mime from 'mime-types';
 
-import { DayOfWeek, Prisma, PrismaClient, ScheduleType, UserRole, ZoneType } from '../generated/prisma/client';
+import { DayOfWeek, Prisma, PrismaClient, ScheduleType, UserRole, ZoneType } from '@/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 
