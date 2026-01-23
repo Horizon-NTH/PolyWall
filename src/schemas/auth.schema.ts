@@ -2,8 +2,9 @@ import { z } from 'zod';
 
 export const credentialsSchema = z.object({
     email: z
-        .email()
+        .string()
         .trim()
+        .check(z.email())
         .toLowerCase()
         .min(1, 'L\'email est requis')
         .max(254, 'L\'email doit contenir au maximum 254 caractères'),

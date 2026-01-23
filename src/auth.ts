@@ -1,11 +1,11 @@
-import NextAuth from 'next-auth';
+import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import argon2 from 'argon2';
 import { prisma } from '@/lib/prisma';
 import { credentialsSchema } from '@/schemas/auth.schema';
 import { env } from '@/env';
 
-export const {handlers, auth, signIn, signOut} = NextAuth({
+export const authConfig = {
     secret: env.AUTH_SECRET,
     trustHost: env.AUTH_TRUST_HOST ?? false,
     session: {
@@ -82,4 +82,6 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
             return session;
         },
     },
-});
+} satisfies NextAuthConfig;
+
+export const {handlers, auth, signIn, signOut} = NextAuth(authConfig);
