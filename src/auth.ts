@@ -2,7 +2,7 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import argon2 from 'argon2';
 import { prisma } from '@/lib/prisma';
-import { credentialsSchema } from '@/schemas/auth.schema';
+import { credentialsSchema } from '@/schemas/auth-schema';
 import { env } from '@/env';
 
 export const authConfig = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { credentialsSchema } from '@/schemas/auth.schema';
+import { credentialsSchema } from '@/schemas/auth-schema';
 
 describe('credentialsSchema', () => {
     it('normalizes email by trimming and lowercasing', () => {

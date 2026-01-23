@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
-import { credentialsSchema } from '@/schemas/auth.schema';
+import { credentialsSchema } from '@/schemas/auth-schema';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
