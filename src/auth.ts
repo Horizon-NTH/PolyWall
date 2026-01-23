@@ -2,10 +2,12 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import argon2 from 'argon2';
 import { prisma } from '@/lib/prisma';
-import { credentialsSchema } from '@/app/schemas/auth.schema';
+import { credentialsSchema } from '@/schemas/auth.schema';
+import { env } from '@/env';
 
 export const {handlers, auth, signIn, signOut} = NextAuth({
-    trustHost: true,
+    secret: env.AUTH_SECRET,
+    trustHost: env.AUTH_TRUST_HOST ?? false,
     session: {
         strategy: 'jwt',
     },
@@ -67,12 +69,13 @@ export const {handlers, auth, signIn, signOut} = NextAuth({
             if (user) {
                 token.role = user.role;
                 token.organizationId = user.organizationId;
+                token.userId = user.id;
             }
             return token;
         },
         async session({session, token}) {
             if (session.user) {
-                session.user.id = token.sub!;
+                session.user.id = token.userId ?? token.sub;
                 session.user.role = token.role;
                 session.user.organizationId = token.organizationId;
             }

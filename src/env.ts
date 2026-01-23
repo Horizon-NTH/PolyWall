@@ -8,6 +8,9 @@ export const env = createEnv({
      */
     server: {
         DATABASE_URL: z.url(),
+        AUTH_SECRET: z.string().min(1),
+        AUTH_TRUST_HOST: z.coerce.boolean().optional(),
+        AUTH_URL: z.url().optional(),
     },
     /*
      * Environment variables available on the client (and server).
@@ -23,5 +26,8 @@ export const env = createEnv({
      */
     runtimeEnv: {
         DATABASE_URL: process.env.DATABASE_URL,
+        AUTH_SECRET: process.env.AUTH_SECRET,
+        AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST,
+        AUTH_URL: process.env.AUTH_URL,
     },
 });
