@@ -32,15 +32,15 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 function ForgotPasswordDialog() {
     return (
         <Dialog>
             <DialogTrigger asChild>
-                <a href="#" className="ml-auto inline-block text-sm underline-offset-4 hover:underline" tabIndex={3}>
+                <button type="button" className="ml-auto inline-block text-sm underline-offset-4 hover:underline" tabIndex={3}>
                     Mot de passe oublié ?
-                </a>
+                </button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
@@ -66,6 +66,7 @@ export function LoginForm({
                           }: React.ComponentProps<'div'>) {
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
 
     const form = useForm<z.infer<typeof credentialsSchema>>({
         resolver: zodResolver(credentialsSchema),
@@ -77,8 +78,10 @@ export function LoginForm({
 
     async function onSubmit(data: z.infer<typeof credentialsSchema>) {
         form.clearErrors('root');
+        const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
         const result = await signIn('credentials', {
             ...data,
+            callbackUrl,
             redirect: false,
         });
 
@@ -87,7 +90,7 @@ export function LoginForm({
             return;
         }
 
-        router.replace('/dashboard');
+        router.replace(result?.url ?? callbackUrl);
     }
 
     return (

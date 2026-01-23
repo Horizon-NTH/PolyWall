@@ -160,6 +160,30 @@ describe('auth config', () => {
         expect(result).toBeNull();
     });
 
+    it('returns null when password verification throws', async () => {
+        const prisma = await getPrismaMock();
+        const argon2 = await getArgon2Mock();
+        prisma.user.findUnique.mockResolvedValueOnce({
+            id: 'user-1',
+            email: 'user@example.com',
+            fullName: 'User Example',
+            passwordHash: 'hash',
+            role: UserRole.CONTENT_MANAGER,
+            organizationId: 'org-1',
+            active: true,
+        });
+        argon2.verify.mockRejectedValueOnce(new Error('boom'));
+
+        const authConfig = await loadAuthConfig();
+        const provider = authConfig.providers.find((item) => item.id === 'credentials');
+        const authorize = provider?.authorize as
+            | ((credentials: Record<string, unknown>) => Promise<unknown>)
+            | undefined;
+
+        const result = await authorize?.({email: 'user@example.com', password: 'password123'});
+        expect(result).toBeNull();
+    });
+
     it('returns user data when credentials are valid', async () => {
         const prisma = await getPrismaMock();
         const argon2 = await getArgon2Mock();

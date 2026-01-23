@@ -50,8 +50,12 @@ export const authConfig = {
                 if (!user?.passwordHash) return null;
                 if (!user.active) return null;
 
-                const ok = await argon2.verify(user.passwordHash, password);
-                if (!ok) return null;
+                try {
+                    const ok = await argon2.verify(user.passwordHash, password);
+                    if (!ok) return null;
+                } catch {
+                    return null;
+                }
 
                 return {
                     id: user.id,

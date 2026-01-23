@@ -37,4 +37,14 @@ test.describe('auth', () => {
         await page.goto('/login');
         await page.waitForURL('**/dashboard', {waitUntil: 'commit'});
     });
+
+    test('redirects to callbackUrl after login', async ({page}) => {
+        await page.goto('/login?callbackUrl=/');
+        await page.getByLabel('Email').fill(TEST_CREDENTIALS.email);
+        await page.getByRole('textbox', {name: 'Mot de passe'}).fill(TEST_CREDENTIALS.password);
+        await page.getByRole('button', {name: 'Se connecter'}).click();
+
+        await page.waitForURL('**/', {waitUntil: 'commit'});
+        await expect(page).not.toHaveURL(/\/dashboard$/);
+    });
 });
