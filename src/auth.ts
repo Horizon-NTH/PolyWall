@@ -1,9 +1,10 @@
-import NextAuth, { type NextAuthConfig } from 'next-auth';
+import NextAuth, { type NextAuthConfig, Session, User } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import argon2 from 'argon2';
 import { prisma } from '@/lib/prisma';
 import { credentialsSchema } from '@/schemas/auth-schema';
 import { env } from '@/env';
+import { JWT } from 'next-auth/jwt';
 
 export const authConfig = {
     secret: env.AUTH_SECRET,
@@ -63,26 +64,30 @@ export const authConfig = {
                     name: user.fullName,
                     role: user.role,
                     organizationId: user.organizationId,
-                };
+                } as User;
             },
         }),
     ],
 
     callbacks: {
-        async jwt({token, user}) {
+        async jwt({token, user}: { token: JWT, user: User | null }) {
             if (user) {
                 token.role = user.role;
                 token.organizationId = user.organizationId;
                 token.userId = user.id;
+                token.name = user.name;
+                token.email = user.email;
             }
             return token;
         },
-        async session({session, token}) {
-            if (session.user) {
-                session.user.id = token.userId ?? token.sub;
-                session.user.role = token.role;
-                session.user.organizationId = token.organizationId;
-            }
+        async session({session, token}: { session: Session, token: JWT }) {
+            session.user = {
+                id: token.userId,
+                email: token.email,
+                name: token.name,
+                role: token.role,
+                organizationId: token.organizationId,
+            };
             return session;
         },
     },
