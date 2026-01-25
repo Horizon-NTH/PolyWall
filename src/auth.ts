@@ -1,4 +1,4 @@
-import NextAuth, { type NextAuthConfig, Session, User } from 'next-auth';
+import NextAuth, { type NextAuthConfig, type Session, type User } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import argon2 from 'argon2';
 import { prisma } from '@/lib/prisma';
@@ -70,13 +70,16 @@ export const authConfig = {
     ],
 
     callbacks: {
-        async jwt({token, user}: { token: JWT, user: User | null }) {
+        async jwt({token, user, trigger, session}) {
             if (user) {
                 token.role = user.role;
                 token.organizationId = user.organizationId;
                 token.userId = user.id;
                 token.name = user.name;
                 token.email = user.email;
+            }
+            if (trigger === 'update' && session?.user?.organizationId !== undefined) {
+                token.organizationId = session.user.organizationId;
             }
             return token;
         },
@@ -93,4 +96,4 @@ export const authConfig = {
     },
 } satisfies NextAuthConfig;
 
-export const {handlers, auth, signIn, signOut} = NextAuth(authConfig);
+export const {handlers, auth, signIn, signOut, unstable_update} = NextAuth(authConfig);
