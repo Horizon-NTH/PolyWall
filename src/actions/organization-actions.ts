@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { auth, unstable_update } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { isSuperAdmin } from '@/lib/rbac';
+import { defineAbilityFor } from '@/lib/casl/ability';
 
 const switchOrganizationSchema = z.object({
     organizationId: z.string().min(1),
@@ -17,12 +17,12 @@ export async function switchOrganization(organizationId: string) {
     }
 
     const session = await auth();
-    if (!session) {
+    if (!session?.user) {
         return {ok: false};
     }
 
-    const isUserSuperAdmin = isSuperAdmin(session);
-    if (!isUserSuperAdmin && session.user.organizationId !== organizationId) {
+    const ability = defineAbilityFor(session.user);
+    if (!ability.can('switch', 'Organization')) {
         return {ok: false};
     }
 

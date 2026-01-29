@@ -19,6 +19,9 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@casl/ability": "^6.8.0",
+    "@casl/prisma": "^1.6.1",
+    "@casl/react": "^5.0.1",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
@@ -35,7 +38,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
-    "next": "16.1.1",
+    "next": "16.1.5",
     "next-auth": "5.0.0-beta.30",
     "next-themes": "^0.4.6",
     "pg": "^8.17.1",

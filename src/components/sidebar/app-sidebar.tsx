@@ -3,16 +3,17 @@
 import { auth } from '@/auth';
 import { AppSidebarClient } from '@/components/sidebar/app-sidebar-client';
 import { prisma } from '@/lib/prisma';
-import { isSuperAdmin } from '@/lib/rbac';
+import { defineAbilityFor } from '@/lib/casl/ability';
 
 export async function AppSidebar() {
     const session = await auth();
     if (!session) return null;
 
-    const isUserSuperAdmin = isSuperAdmin(session);
+    const ability = defineAbilityFor(session.user);
+    const canSwitchOrganizations = ability.can('switch', 'Organization');
 
     const organizations =
-        isUserSuperAdmin
+        canSwitchOrganizations
             ? await prisma.organization.findMany({
                 select: {id: true, name: true},
                 orderBy: {name: 'asc'},
@@ -28,7 +29,8 @@ export async function AppSidebar() {
         <AppSidebarClient
             organizations={organizations}
             currentOrganizationId={session.user.organizationId}
-            canSwitchOrganizations={isUserSuperAdmin}
+            userRole={session.user.role}
+            userOrganizationId={session.user.organizationId}
             user={{
                 name: session.user.name,
                 email: session.user.email,
