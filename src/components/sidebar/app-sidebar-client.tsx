@@ -2,23 +2,21 @@
 
 import * as React from 'react';
 import {
-    BookOpen,
-    Bot,
+    Building2,
+    CalendarClock,
     Check,
     ChevronsUpDown,
-    Frame,
-    LifeBuoy,
-    Map,
-    PieChart,
-    Send,
-    Settings2,
-    SquareTerminal,
+    Image as ImageIcon,
+    LayoutDashboard,
+    ListMusic,
+    Monitor,
+    MoreHorizontal,
+    Radio,
+    Users,
 } from 'lucide-react';
 
 import { switchOrganization } from '@/actions/organization-actions';
-import { NavMain } from '@/components/sidebar/nav-main';
-import { NavProjects } from '@/components/sidebar/nav-projects';
-import { NavSecondary } from '@/components/sidebar/nav-secondary';
+import { NavCreate, NavSection, NavSingle } from '@/components/sidebar/nav-sections';
 import { NavUser } from '@/components/sidebar/nav-user';
 import {
     DropdownMenu,
@@ -41,122 +39,21 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
-const data = {
-    navMain: [
-        {
-            title: 'Playground',
-            url: '#',
-            icon: SquareTerminal,
-            isActive: true,
-            items: [
-                {
-                    title: 'History',
-                    url: '#',
-                },
-                {
-                    title: 'Starred',
-                    url: '#',
-                },
-                {
-                    title: 'Settings',
-                    url: '#',
-                },
-            ],
-        },
-        {
-            title: 'Models',
-            url: '#',
-            icon: Bot,
-            items: [
-                {
-                    title: 'Genesis',
-                    url: '#',
-                },
-                {
-                    title: 'Explorer',
-                    url: '#',
-                },
-                {
-                    title: 'Quantum',
-                    url: '#',
-                },
-            ],
-        },
-        {
-            title: 'Documentation',
-            url: '#',
-            icon: BookOpen,
-            items: [
-                {
-                    title: 'Introduction',
-                    url: '#',
-                },
-                {
-                    title: 'Get Started',
-                    url: '#',
-                },
-                {
-                    title: 'Tutorials',
-                    url: '#',
-                },
-                {
-                    title: 'Changelog',
-                    url: '#',
-                },
-            ],
-        },
-        {
-            title: 'Settings',
-            url: '#',
-            icon: Settings2,
-            items: [
-                {
-                    title: 'General',
-                    url: '#',
-                },
-                {
-                    title: 'Team',
-                    url: '#',
-                },
-                {
-                    title: 'Billing',
-                    url: '#',
-                },
-                {
-                    title: 'Limits',
-                    url: '#',
-                },
-            ],
-        },
+const sidebarItems = {
+    main: [{ title: 'Tableau de bord', url: '/dashboard', icon: LayoutDashboard }],
+    contenus: [
+        { title: 'Médias', url: '#', icon: ImageIcon },
+        { title: 'Playlists', url: '#', icon: ListMusic },
+        { title: 'Plus', url: '#', icon: MoreHorizontal },
     ],
-    navSecondary: [
-        {
-            title: 'Support',
-            url: '#',
-            icon: LifeBuoy,
-        },
-        {
-            title: 'Feedback',
-            url: '#',
-            icon: Send,
-        },
+    diffusion: [
+        { title: 'Planification', url: '#', icon: CalendarClock },
+        { title: 'Canaux', url: '#', icon: Radio },
+        { title: 'Écrans', url: '#', icon: Monitor },
     ],
-    projects: [
-        {
-            name: 'Design Engineering',
-            url: '#',
-            icon: Frame,
-        },
-        {
-            name: 'Sales & Marketing',
-            url: '#',
-            icon: PieChart,
-        },
-        {
-            name: 'Travel',
-            url: '#',
-            icon: Map,
-        },
+    administration: [
+        { title: 'Entités', url: '#', icon: Building2 },
+        { title: 'Utilisateurs', url: '#', icon: Users },
     ],
 };
 
@@ -268,9 +165,11 @@ export function AppSidebarClient({
                 </SidebarMenu>
             </SidebarHeader>
             <SidebarContent>
-                <NavMain items={data.navMain} />
-                <NavProjects projects={data.projects} />
-                <NavSecondary items={data.navSecondary} className="mt-auto" />
+                <NavCreate />
+                <NavSingle items={sidebarItems.main} />
+                <NavSection label="Contenus" items={sidebarItems.contenus} />
+                <NavSection label="Diffusion" items={sidebarItems.diffusion} />
+                <NavSection label="Administration" items={sidebarItems.administration} className="mb-4" />
             </SidebarContent>
             <SidebarFooter>
                 <NavUser user={user} />
