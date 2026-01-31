@@ -10,7 +10,7 @@ import mime from 'mime-types';
 import { DayOfWeek, Prisma, PrismaClient, ScheduleType, UserRole, ZoneType } from '@/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
-import { TEST_CREDENTIALS } from '@/test/fixtures/auth-test-credentials';
+import { ADMIN_CREDENTIALS } from '@/test/fixtures/auth-test-credentials';
 
 const adapter = new PrismaPg({
     connectionString: process.env.DATABASE_URL,
@@ -33,7 +33,7 @@ const logger = pino({
 
 faker.seed(42);
 
-const DEV_PASSWORD = process.env.DEV_PASSWORD ?? TEST_CREDENTIALS.password;
+const DEV_PASSWORD = process.env.DEV_PASSWORD ?? ADMIN_CREDENTIALS.password;
 const SEED_MEDIA_DIR = path.join(process.cwd(), 'public', 'seed', 'media');
 
 type SeedMode = 'core' | 'dev' | 'prod';
@@ -150,11 +150,11 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
 
     const orgAAdmin =
         (await prisma.user.findUnique({
-            where: {email: TEST_CREDENTIALS.email},
+            where: {email: ADMIN_CREDENTIALS.email},
         })) ??
         (await prisma.user.create({
             data: {
-                email: TEST_CREDENTIALS.email,
+                email: ADMIN_CREDENTIALS.email,
                 fullName: 'Admin Demo',
                 description: 'Admin org A (DEV)',
                 role: UserRole.ORGANIZATION_ADMIN,
@@ -730,7 +730,7 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
             password: DEV_PASSWORD,
             accounts: [
                 'superadmin@polywall.local',
-                TEST_CREDENTIALS.email,
+                ADMIN_CREDENTIALS.email,
                 'admin@second.polywall.local',
                 'manager-1@demo.polywall.local',
                 'manager-1@second.polywall.local',

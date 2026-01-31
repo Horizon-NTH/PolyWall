@@ -8,6 +8,7 @@ export const mockPrismaModule = () => {
             },
             organization: {
                 findUnique: vi.fn(),
+                findMany: vi.fn(),
             },
         },
     }));
@@ -21,6 +22,7 @@ export const getPrismaMock = async () => {
         };
         organization: {
             findUnique: ReturnType<typeof vi.fn>;
+            findMany: ReturnType<typeof vi.fn>;
         };
     };
 };

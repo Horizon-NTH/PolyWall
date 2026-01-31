@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { TEST_CREDENTIALS } from '@/test/fixtures/auth-test-credentials';
+import { ADMIN_CREDENTIALS } from '@/test/fixtures/auth-test-credentials';
 
 test.describe('auth', () => {
     test.beforeEach(async ({context}) => {
@@ -28,20 +28,26 @@ test.describe('auth', () => {
 
     test('redirects when authenticated', async ({page}) => {
         await page.goto('/login');
-        await page.getByLabel('Email').fill(TEST_CREDENTIALS.email);
-        await page.getByRole('textbox', {name: 'Mot de passe'}).fill(TEST_CREDENTIALS.password);
+        await page.getByLabel('Email').fill(ADMIN_CREDENTIALS.email);
+        await page.getByRole('textbox', {name: 'Mot de passe'}).fill(ADMIN_CREDENTIALS.password);
         await page.getByRole('button', {name: 'Se connecter'}).click();
 
-        await page.waitForURL('**/dashboard', {waitUntil: 'commit'});
+        await expect(page.getByText('Tableau de bord')).toBeVisible();
 
         await page.goto('/login');
-        await page.waitForURL('**/dashboard', {waitUntil: 'commit'});
+        await expect(page.getByText('Tableau de bord')).toBeVisible();
+    });
+
+    test('redirects unauthenticated users to login from dashboard', async ({page}) => {
+        await page.goto('/dashboard');
+        await page.waitForURL('**/login', {waitUntil: 'commit'});
+        await expect(page.getByText('Bon retour')).toBeVisible();
     });
 
     test('redirects to callbackUrl after login', async ({page}) => {
         await page.goto('/login?callbackUrl=/');
-        await page.getByLabel('Email').fill(TEST_CREDENTIALS.email);
-        await page.getByRole('textbox', {name: 'Mot de passe'}).fill(TEST_CREDENTIALS.password);
+        await page.getByLabel('Email').fill(ADMIN_CREDENTIALS.email);
+        await page.getByRole('textbox', {name: 'Mot de passe'}).fill(ADMIN_CREDENTIALS.password);
         await page.getByRole('button', {name: 'Se connecter'}).click();
 
         await page.waitForURL('**/', {waitUntil: 'commit'});
