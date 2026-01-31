@@ -1,13 +1,11 @@
 'use client';
 
 import {
-    BadgeCheck,
-    Bell,
     ChevronsUpDown,
-    CreditCard,
     LogOut,
-    Sparkles,
+    User,
 } from 'lucide-react';
+import Link from 'next/link';
 
 import {
     Avatar,
@@ -74,6 +72,7 @@ export function NavUser({
                         side={isMobile ? 'bottom' : 'right'}
                         align="end"
                         sideOffset={4}
+                        onCloseAutoFocus={(event) => event.preventDefault()}
                     >
                         <DropdownMenuLabel className="p-0 font-normal">
                             <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
@@ -89,24 +88,11 @@ export function NavUser({
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <Sparkles />
-                                Upgrade to Pro
-                            </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                            <DropdownMenuItem>
-                                <BadgeCheck />
-                                Account
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <CreditCard />
-                                Billing
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                                <Bell />
-                                Notifications
+                            <DropdownMenuItem asChild>
+                                <Link href="/dashboard/account">
+                                    <User />
+                                    Compte
+                                </Link>
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
@@ -116,7 +102,7 @@ export function NavUser({
                             }}
                         >
                             <LogOut />
-                            Log out
+                            Déconnexion
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

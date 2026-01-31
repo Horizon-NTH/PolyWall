@@ -10,7 +10,7 @@ import {
     ListMusic,
     Monitor,
     MoreHorizontal,
-    Radio, Shield, UserCog,
+    Radio, Shield, Users,
 } from 'lucide-react';
 
 import { NavCreate, NavSection, NavSingle } from '@/components/sidebar/nav-sections';
@@ -45,7 +45,7 @@ const sidebarItems = {
     ],
     organizationAdmin: [
         {title: 'Mon organisation', url: '#', icon: Building},
-        {title: 'Utilisateurs', url: '#', icon: UserCog},
+        {title: 'Utilisateurs', url: '#', icon: Users},
     ],
 };
 
