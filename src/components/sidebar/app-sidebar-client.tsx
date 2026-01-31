@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import {
+    Building,
     Building2,
     CalendarClock,
     Image as ImageIcon,
@@ -9,8 +10,7 @@ import {
     ListMusic,
     Monitor,
     MoreHorizontal,
-    Radio,
-    Users,
+    Radio, Shield, UserCog,
 } from 'lucide-react';
 
 import { NavCreate, NavSection, NavSingle } from '@/components/sidebar/nav-sections';
@@ -28,20 +28,24 @@ import { AbilityContext, Can } from '@/lib/casl/ability-context';
 import { UserRole } from '@/generated/prisma/enums';
 
 const sidebarItems = {
-    main: [{ title: 'Tableau de bord', url: '/dashboard', icon: LayoutDashboard }],
+    main: [{title: 'Tableau de bord', url: '/dashboard', icon: LayoutDashboard}],
     contenus: [
-        { title: 'Médias', url: '#', icon: ImageIcon },
-        { title: 'Playlists', url: '#', icon: ListMusic },
-        { title: 'Plus', url: '#', icon: MoreHorizontal },
+        {title: 'Médias', url: '#', icon: ImageIcon},
+        {title: 'Playlists', url: '#', icon: ListMusic},
+        {title: 'Plus', url: '#', icon: MoreHorizontal},
     ],
     diffusion: [
-        { title: 'Planification', url: '#', icon: CalendarClock },
-        { title: 'Canaux', url: '#', icon: Radio },
-        { title: 'Écrans', url: '#', icon: Monitor },
+        {title: 'Planification', url: '#', icon: CalendarClock},
+        {title: 'Canaux', url: '#', icon: Radio},
+        {title: 'Écrans', url: '#', icon: Monitor},
     ],
-    administration: [
-        { title: 'Entités', url: '#', icon: Building2 },
-        { title: 'Utilisateurs', url: '#', icon: Users },
+    superAdmin: [
+        {title: 'Entités', url: '#', icon: Building2},
+        {title: 'Administrateurs', url: '#', icon: Shield},
+    ],
+    organizationAdmin: [
+        {title: 'Mon organisation', url: '#', icon: Building},
+        {title: 'Utilisateurs', url: '#', icon: UserCog},
     ],
 };
 
@@ -62,8 +66,8 @@ export function AppSidebarClient({
                                      currentOrganizationId,
                                      userRole,
                                      userOrganizationId,
-                                 user,
-                                 ...props
+                                     user,
+                                     ...props
                                  }: AppSidebarClientProps) {
     const ability = React.useMemo(
         () => defineAbilityFor({role: userRole, organizationId: userOrganizationId}),
@@ -82,14 +86,17 @@ export function AppSidebarClient({
                     </SidebarMenu>
                 </SidebarHeader>
                 <SidebarContent>
-                <NavCreate />
-                <NavSingle items={sidebarItems.main} />
-                <NavSection label="Contenus" items={sidebarItems.contenus} />
-                <NavSection label="Diffusion" items={sidebarItems.diffusion} />
-                <Can I="view" a="AdminSection">
-                    <NavSection label="Administration" items={sidebarItems.administration} className="mb-4" />
-                </Can>
-            </SidebarContent>
+                    <NavCreate />
+                    <NavSingle items={sidebarItems.main} />
+                    <NavSection label="Contenus" items={sidebarItems.contenus} />
+                    <NavSection label="Diffusion" items={sidebarItems.diffusion} />
+                    <Can I="view" a="SuperAdminSection">
+                        <NavSection label="Administration" items={sidebarItems.superAdmin} />
+                    </Can>
+                    <Can I="view" a="OrganizationAdminSection">
+                        <NavSection label="Organisation" items={sidebarItems.organizationAdmin} className="mb-4" />
+                    </Can>
+                </SidebarContent>
                 <SidebarFooter>
                     <NavUser user={user} />
                 </SidebarFooter>

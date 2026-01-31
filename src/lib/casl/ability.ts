@@ -3,8 +3,21 @@ import { createPrismaAbility, PrismaQuery } from '@casl/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { UserRole } from '@/generated/prisma/enums';
 
-export type AppAction = 'manage' | 'create' | 'read' | 'update' | 'delete' | 'switch' | 'view';
-export type AppSubject = Prisma.ModelName | 'all' | 'AdminSection';
+export type AppAction =
+    | 'manage'
+    | 'create'
+    | 'read'
+    | 'update'
+    | 'delete'
+    | 'switch'
+    | 'view';
+
+export type AppSubject =
+    | Prisma.ModelName
+    | 'all'
+    | 'SuperAdminSection'
+    | 'OrganizationAdminSection';
+
 export type AppAbility = PureAbility<[AppAction, AppSubject], PrismaQuery>;
 
 type AbilityUser = {
@@ -12,13 +25,42 @@ type AbilityUser = {
     organizationId: string | null;
 };
 
+const CRUD_ACTIONS: AppAction[] = ['create', 'read', 'update', 'delete'];
+
 export function defineAbilityFor(user: AbilityUser): AppAbility {
     const {can, build} = new AbilityBuilder<AppAbility>(createPrismaAbility);
+    const allowCrud = (subject: AppSubject, condition?: PrismaQuery) => {
+        can(CRUD_ACTIONS, subject, condition);
+    };
+    const allowRead = (subject: AppSubject, condition?: PrismaQuery) => {
+        can('read', subject, condition);
+    };
+    const applyContentManagerRules = (organizationId: string) => {
+        allowCrud('MediaItem', {organizationId});
+        allowCrud('MediaFile', {mediaItem: {organizationId}});
+
+        allowCrud('Playlist', {organizationId});
+        allowCrud('PlaylistItem', {playlist: {organizationId}});
+
+        allowCrud('PlaylistSchedule', {channel: {organizationId}});
+        allowCrud('ScheduleTimeSlot', {playlistSchedule: {channel: {organizationId}}});
+
+        allowRead('Channel', {organizationId});
+        allowRead('Screen', {organizationId});
+
+        allowRead('DisplayTemplate', {organizationId: null});
+        allowRead('DisplayTemplate', {organizationId});
+        allowRead('DisplayZone', {displayTemplate: {organizationId: null}});
+        allowRead('DisplayZone', {displayTemplate: {organizationId}});
+
+        allowRead('WidgetType');
+        allowRead('WidgetInstance', {organizationId});
+    };
 
     if (user.role === UserRole.PLATFORM_SUPER_ADMIN) {
         can('manage', 'all');
+        can('view', 'SuperAdminSection');
         can('switch', 'Organization');
-        can('view', 'AdminSection');
         return build();
     }
 
@@ -28,26 +70,33 @@ export function defineAbilityFor(user: AbilityUser): AppAbility {
 
     const organizationId = user.organizationId;
 
-    can('read', 'Organization', {id: organizationId});
+    allowRead('Organization', {id: organizationId});
 
     if (user.role === UserRole.ORGANIZATION_ADMIN) {
-        can(['create', 'read', 'update', 'delete'], 'Playlist', {organizationId});
-        can(['create', 'read', 'update', 'delete'], 'Channel', {organizationId});
-        can(['create', 'read', 'update', 'delete'], 'Screen', {organizationId});
-        can(['create', 'read', 'update', 'delete'], 'WidgetInstance', {organizationId});
-        can(['create', 'read', 'update', 'delete'], 'DisplayTemplate', {organizationId});
+        can('view', 'OrganizationAdminSection');
+
+        applyContentManagerRules(organizationId);
+
+        allowCrud('User', {organizationId});
+        allowCrud('Screen', {organizationId});
+        allowCrud('Channel', {organizationId});
+
         can(['read', 'update'], 'Organization', {id: organizationId});
-        can(['create', 'read', 'update', 'delete'], 'User', {organizationId});
+
+        allowRead('DisplayTemplate', {organizationId: null});
+        allowCrud('DisplayTemplate', {organizationId});
+
+        allowRead('DisplayZone', {displayTemplate: {organizationId: null}});
+        allowCrud('DisplayZone', {displayTemplate: {organizationId}});
+
+        allowCrud('WidgetInstance', {organizationId});
+
         return build();
     }
 
     if (user.role === UserRole.CONTENT_MANAGER) {
-        can(['read'], 'Playlist', {organizationId});
-        can(['read'], 'Channel', {organizationId});
-        can(['read'], 'Screen', {organizationId});
-        can(['read'], 'WidgetInstance', {organizationId});
-        can(['read'], 'DisplayTemplate', {organizationId});
-        can(['read'], 'Organization', {id: organizationId});
+        applyContentManagerRules(organizationId);
+
         return build();
     }
 
