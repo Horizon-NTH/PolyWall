@@ -1,15 +1,4 @@
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
-import { Separator } from '@/components/ui/separator';
-import {
-    SidebarTrigger,
-} from '@/components/ui/sidebar';
+import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
@@ -44,28 +33,12 @@ export default async function Page() {
 
     return (
         <>
-            <header className="flex h-16 shrink-0 items-center gap-2">
-                <div className="flex items-center gap-2 px-4">
-                    <SidebarTrigger className="-ml-1" />
-                    <Separator
-                        orientation="vertical"
-                        className="mr-2 data-[orientation=vertical]:h-4"
-                    />
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem className="hidden md:block">
-                                <BreadcrumbLink href="/dashboard">
-                                    Tableau de bord
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator className="hidden md:block" />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>Compte</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
-                </div>
-            </header>
+            <DashboardHeader
+                items={[
+                    {label: 'Tableau de bord', href: '/dashboard'},
+                    {label: 'Compte'},
+                ]}
+            />
             <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
                 <div className="flex flex-col gap-1 px-1">
                     <h1 className="text-xl font-semibold">Compte</h1>
