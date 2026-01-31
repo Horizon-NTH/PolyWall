@@ -5,6 +5,12 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
     ...nextVitals,
     ...nextTs,
+    {
+        files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+        rules: {
+            "@next/next/no-img-element": "off",
+        },
+    },
     // Override default ignores of eslint-config-next.
     globalIgnores([
         // Default ignores of eslint-config-next:
@@ -13,6 +19,7 @@ const eslintConfig = defineConfig([
         "build/**",
         "next-env.d.ts",
         "coverage/**",
+        "src/components/ui/**"
     ]),
 ]);
 

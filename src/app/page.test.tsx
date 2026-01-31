@@ -1,10 +1,14 @@
 import React from 'react';
+import type { ImageProps } from 'next/image';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
-    default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
-        const { src, alt, ...rest } = props;
+    default: (props: ImageProps) => {
+        const cleanedProps = Object.fromEntries(
+            Object.entries(props).filter(([key]) => key !== 'priority'),
+        ) as ImageProps;
+        const {src, alt, ...rest} = cleanedProps;
         return <img src={typeof src === 'string' ? src : ''} alt={alt ?? ''} {...rest} />;
     },
 }));

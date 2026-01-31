@@ -1,13 +1,9 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { UserRole } from '@/generated/prisma/enums';
 
-vi.mock('@/lib/prisma', () => ({
-    prisma: {
-        user: {
-            findUnique: vi.fn(),
-        },
-    },
-}));
+import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+
+mockPrismaModule();
 
 vi.mock('@/env', () => ({
     env: {
@@ -45,15 +41,6 @@ vi.mock('argon2', () => ({
 const loadAuthConfig = async () => {
     const mod = await import('@/auth');
     return mod.authConfig;
-};
-
-const getPrismaMock = async () => {
-    const {prisma} = await import('@/lib/prisma');
-    return prisma as unknown as {
-        user: {
-            findUnique: ReturnType<typeof vi.fn>;
-        };
-    };
 };
 
 const getArgon2Mock = async () => {
@@ -217,9 +204,17 @@ describe('auth config', () => {
     it('adds role and organization data to the token and session', async () => {
         const authConfig = await loadAuthConfig();
         const token = await authConfig.callbacks?.jwt?.({
-            token: {},
+            token: {
+                userId: 'user-1',
+                name: 'User Example',
+                email: 'user@example.com',
+                role: UserRole.CONTENT_MANAGER,
+                organizationId: null,
+            },
             user: {
                 id: 'user-1',
+                email: 'user@example.com',
+                name: 'User Example',
                 role: UserRole.ORGANIZATION_ADMIN,
                 organizationId: 'org-1',
             },
@@ -236,23 +231,15 @@ describe('auth config', () => {
                 user: {
                     id: 'user-1',
                     email: 'user@example.com',
-                    emailVerified: null,
+                    name: 'User Example',
                     role: UserRole.ORGANIZATION_ADMIN,
                     organizationId: 'org-1',
                 },
-                sessionToken: 'session-token',
-                userId: 'user-1',
-                expires: new Date() as unknown as Date & string,
+                expires: new Date().toISOString(),
             },
-            user: {
-                id: 'user-1',
-                email: 'user@example.com',
-                emailVerified: null,
-                role: UserRole.ORGANIZATION_ADMIN,
-                organizationId: 'org-1',
-            },
-            newSession: {},
             token: {
+                name: 'User Example',
+                email: 'user@example.com',
                 role: UserRole.ORGANIZATION_ADMIN,
                 organizationId: 'org-1',
                 userId: 'user-1',
