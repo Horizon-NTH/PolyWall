@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { LayoutDashboard } from 'lucide-react';
@@ -19,17 +19,6 @@ const items = [
 function renderWithSidebar(ui: ReactElement) {
     return render(<SidebarProvider>{ui}</SidebarProvider>);
 }
-
-beforeAll(() => {
-    Object.defineProperty(window, 'matchMedia', {
-        writable: true,
-        value: vi.fn().mockImplementation(() => ({
-            matches: false,
-            addEventListener: vi.fn(),
-            removeEventListener: vi.fn(),
-        })),
-    });
-});
 
 beforeEach(() => {
     pathname = '/dashboard';

@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -60,17 +60,6 @@ function renderSwitcher({
         </SidebarProvider>,
     );
 }
-
-beforeAll(() => {
-    Object.defineProperty(window, 'matchMedia', {
-        writable: true,
-        value: vi.fn().mockImplementation(() => ({
-            matches: false,
-            addEventListener: vi.fn(),
-            removeEventListener: vi.fn(),
-        })),
-    });
-});
 
 beforeEach(() => {
     refreshMock.mockReset();

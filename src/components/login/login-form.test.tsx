@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { LoginForm } from '@/components/login-form';
+import { LoginForm } from '@/components/login/login-form';
 
 const replaceMock = vi.fn();
 const signInMock = vi.fn();

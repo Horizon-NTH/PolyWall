@@ -32,10 +32,10 @@ test.describe('auth', () => {
         await page.getByRole('textbox', {name: 'Mot de passe'}).fill(ADMIN_CREDENTIALS.password);
         await page.getByRole('button', {name: 'Se connecter'}).click();
 
-        await expect(page.getByText('Tableau de bord')).toBeVisible();
+        await expect(page.getByLabel('breadcrumb').getByRole('link', {name: 'Tableau de bord'})).toBeVisible();
 
         await page.goto('/login');
-        await expect(page.getByText('Tableau de bord')).toBeVisible();
+        await expect(page.getByLabel('breadcrumb').getByRole('link', {name: 'Tableau de bord'})).toBeVisible();
     });
 
     test('redirects unauthenticated users to login from dashboard', async ({page}) => {
