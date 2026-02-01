@@ -40,7 +40,7 @@ const sidebarItems = {
         {title: 'Écrans', url: '#', icon: Monitor},
     ],
     superAdmin: [
-        {title: 'Entités', url: '#', icon: Building2},
+        {title: 'Entités', url: '/dashboard/organizations', icon: Building2},
         {title: 'Administrateurs', url: '#', icon: Shield},
     ],
     organizationAdmin: [
