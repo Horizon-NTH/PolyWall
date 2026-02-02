@@ -5,10 +5,14 @@ export const mockPrismaModule = () => {
         prisma: {
             user: {
                 findUnique: vi.fn(),
+                update: vi.fn(),
             },
             organization: {
                 findUnique: vi.fn(),
                 findMany: vi.fn(),
+                create: vi.fn(),
+                update: vi.fn(),
+                delete: vi.fn(),
             },
         },
     }));
@@ -19,10 +23,14 @@ export const getPrismaMock = async () => {
     return prisma as unknown as {
         user: {
             findUnique: ReturnType<typeof vi.fn>;
+            update: ReturnType<typeof vi.fn>;
         };
         organization: {
             findUnique: ReturnType<typeof vi.fn>;
             findMany: ReturnType<typeof vi.fn>;
+            create: ReturnType<typeof vi.fn>;
+            update: ReturnType<typeof vi.fn>;
+            delete: ReturnType<typeof vi.fn>;
         };
     };
 };

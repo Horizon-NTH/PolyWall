@@ -2,8 +2,10 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { UserRole } from '@/generated/prisma/enums';
 
 import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+import { getArgon2Mock, mockArgon2Module } from '@/test/mocks/auth';
 
 mockPrismaModule();
+mockArgon2Module();
 
 vi.mock('@/env', () => ({
     env: {
@@ -32,27 +34,15 @@ vi.mock('next-auth/providers/credentials', () => ({
     }),
 }));
 
-vi.mock('argon2', () => ({
-    default: {
-        verify: vi.fn(),
-    },
-}));
-
 const loadAuthConfig = async () => {
     const mod = await import('@/auth');
     return mod.authConfig;
 };
 
-const getArgon2Mock = async () => {
-    const argon2 = (await import('argon2')).default;
-    return argon2 as unknown as {
-        verify: ReturnType<typeof vi.fn>;
-    };
-};
-
 describe('auth config', () => {
     beforeEach(() => {
         vi.resetModules();
+        vi.unmock('@/auth');
         process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db?schema=public';
         process.env.AUTH_SECRET = 'test-secret';
         process.env.AUTH_TRUST_HOST = 'false';
