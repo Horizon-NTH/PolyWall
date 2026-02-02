@@ -29,7 +29,7 @@ type OrganizationSwitcherProps = {
     currentOrganizationId: string | null
 }
 
-function Logo({ organizationLabel }: { organizationLabel: string }) {
+function Logo({organizationLabel}: { organizationLabel: string }) {
     return (
         <>
             <Image src="/logo.svg" alt="Logo PolyWall" width={32} height={32} className="size-8" />
@@ -42,9 +42,9 @@ function Logo({ organizationLabel }: { organizationLabel: string }) {
 }
 
 export function OrganizationSwitcher({
-    organizations,
-    currentOrganizationId,
-}: OrganizationSwitcherProps) {
+                                         organizations,
+                                         currentOrganizationId,
+                                     }: OrganizationSwitcherProps) {
     const router = useRouter();
     const [isPending, startTransition] = React.useTransition();
 
@@ -88,7 +88,7 @@ export function OrganizationSwitcher({
                                                     router.refresh();
                                                     return;
                                                 }
-                                                toast.error('Impossible de changer d’organisation.');
+                                                toast.error('Impossible de changer d\'organisation.');
                                             });
                                         }}
                                         disabled={isPending}

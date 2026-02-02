@@ -23,12 +23,16 @@ export function DataTableRowActions({
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon-xs">
+                <Button variant="ghost" size="sm">
                     <MoreHorizontal />
                     <span className="sr-only">Ouvrir le menu</span>
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent
+                align="end"
+                className="w-48"
+                onCloseAutoFocus={(event) => event.preventDefault()}
+            >
                 <DropdownMenuLabel>{label}</DropdownMenuLabel>
                 {children}
             </DropdownMenuContent>

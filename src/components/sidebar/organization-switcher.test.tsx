@@ -120,7 +120,7 @@ describe('OrganizationSwitcher', () => {
 
         await waitFor(() => {
             expect(toastErrorMock).toHaveBeenCalledWith(
-                'Impossible de changer d’organisation.',
+                'Impossible de changer d\'organisation.',
             );
         });
     });

@@ -4,8 +4,7 @@ import { auth } from '@/auth';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
-
-import { OrganizationsTable, type OrganizationRow } from './organizations-table';
+import { OrganizationsTable, type OrganizationRow } from '@/components/organizations/organizations-table';
 
 export default async function Page() {
     const session = await auth();

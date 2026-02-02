@@ -42,11 +42,17 @@ export function DashboardHeader({items}: DashboardHeaderProps) {
                                 <React.Fragment key={`${item.label}-${index}`}>
                                     <BreadcrumbItem className={shouldHide ? 'hidden md:block' : undefined}>
                                         {item.href && !isLast ? (
-                                            <BreadcrumbLink href={item.href}>
-                                                {label}
+                                            <BreadcrumbLink href={item.href} title={label}>
+                                                <span className="block max-w-50 truncate">
+                                                    {label}
+                                                </span>
                                             </BreadcrumbLink>
                                         ) : (
-                                            <BreadcrumbPage>{label}</BreadcrumbPage>
+                                            <BreadcrumbPage title={label}>
+                                                <span className="block max-w-50 truncate">
+                                                    {label}
+                                                </span>
+                                            </BreadcrumbPage>
                                         )}
                                     </BreadcrumbItem>
                                     {!isLast && (

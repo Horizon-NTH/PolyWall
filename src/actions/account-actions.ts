@@ -76,7 +76,7 @@ export async function changePassword(
         return {
             ok: false,
             field: 'root',
-            message: 'Aucun mot de passe local n’est configuré.',
+            message: 'Aucun mot de passe local n\'est configuré.',
         };
     }
 

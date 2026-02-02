@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +24,7 @@ import { DataTableRowActions } from '@/components/table/data-table-row-actions';
 import { DataTableToolbar } from '@/components/table/data-table-toolbar';
 import { DataTableView } from '@/components/table/data-table';
 import { useDataTable } from '@/hooks/use-data-table';
+import { formatDate } from '@/lib/utils';
 
 export type OrganizationRow = {
     id: string;
@@ -46,11 +48,6 @@ const countPresenceFilter: FilterFn<OrganizationRow> = (
     return true;
 };
 
-const formatDate = (value: string) =>
-    new Intl.DateTimeFormat('fr-FR', {dateStyle: 'medium'}).format(
-        new Date(value),
-    );
-
 export const columns: ColumnDef<OrganizationRow>[] = [
     {
         accessorKey: 'name',
@@ -61,9 +58,18 @@ export const columns: ColumnDef<OrganizationRow>[] = [
         cell: ({row}) => {
             const description = row.original.description;
             return (
-                <div className="space-y-1">
-                    <div className="font-medium">{row.getValue('name')}</div>
-                    <div className="text-muted-foreground max-w-90 truncate text-sm">
+                <div className="space-y-1 min-w-0 max-w-60">
+                    <Link
+                        href={`/dashboard/organizations/${row.original.id}`}
+                        className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
+                        title={row.original.name}
+                    >
+                        {row.getValue('name')}
+                    </Link>
+                    <div
+                        className="text-muted-foreground truncate text-sm"
+                        title={description}
+                    >
                         {description}
                     </div>
                 </div>
@@ -116,7 +122,7 @@ export const columns: ColumnDef<OrganizationRow>[] = [
         ),
         cell: ({row}) => (
             <div className="text-muted-foreground text-sm">
-                {formatDate(row.getValue('createdAt'))}
+                {formatDate(new Date(row.getValue('createdAt')))}
             </div>
         ),
     },
@@ -129,7 +135,11 @@ export const columns: ColumnDef<OrganizationRow>[] = [
             return (
                 <DataTableRowActions>
                     <DropdownMenuItem
-                        onClick={() => navigator.clipboard.writeText(organization.id)}
+                        onClick={() => {
+                            navigator.clipboard.writeText(organization.id)
+                                .then(() => toast.success('ID copié.'))
+                                .catch(() => toast.error('Impossible de copier l\'ID.'));
+                        }}
                     >
                         Copier l&apos;ID
                     </DropdownMenuItem>
@@ -139,7 +149,11 @@ export const columns: ColumnDef<OrganizationRow>[] = [
                             Voir la fiche
                         </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem disabled>Modifier</DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/organizations/${organization.id}/edit`}>
+                            Modifier
+                        </Link>
+                    </DropdownMenuItem>
                 </DataTableRowActions>
             );
         },
@@ -185,6 +199,11 @@ export function OrganizationsTable({data}: OrganizationsTableProps) {
                 searchColumnId="name"
                 searchPlaceholder="Rechercher une organisation..."
                 onReset={resetFilters}
+                actions={
+                    <Button asChild>
+                        <Link href="/dashboard/organizations/new">Créer</Link>
+                    </Button>
+                }
                 filters={
                     <>
                         <DropdownMenu>
