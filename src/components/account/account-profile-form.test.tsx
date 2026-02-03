@@ -4,6 +4,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AccountProfileForm } from '@/components/account/account-profile-form';
 
 const updateProfileMock = vi.fn();
+const refreshMock = vi.fn();
+
+vi.mock('next/navigation', () => ({
+    useRouter: () => ({
+        refresh: refreshMock,
+    }),
+}));
 
 vi.mock('@/actions/account-actions', () => ({
     updateProfile: (...args: unknown[]) => updateProfileMock(...args),
@@ -12,6 +19,7 @@ vi.mock('@/actions/account-actions', () => ({
 describe('AccountProfileForm', () => {
     beforeEach(() => {
         updateProfileMock.mockReset();
+        refreshMock.mockReset();
     });
 
     it('shows validation error for invalid name', async () => {

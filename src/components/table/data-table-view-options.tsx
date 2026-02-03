@@ -34,7 +34,8 @@ export function DataTableViewOptions<TData>({table}: { table: Table<TData> }) {
                     .map((column) => {
                         const label =
                             (column.columnDef.meta as { label?: string } | undefined)
-                                ?.label ?? column.id;
+                                ?.label;
+                        if (!label) return null;
                         return (
                             <DropdownMenuCheckboxItem
                                 key={column.id}

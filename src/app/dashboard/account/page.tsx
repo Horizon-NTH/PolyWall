@@ -11,13 +11,8 @@ import {
 } from '@/components/ui/card';
 import { AccountProfileForm } from '@/components/account/account-profile-form';
 import { AccountPasswordForm } from '@/components/account/account-password-form';
-import { UserRole } from '@/generated/prisma/enums';
+import { getRoleLabel } from '@/lib/roles';
 
-const roleLabels: Record<UserRole, string> = {
-    PLATFORM_SUPER_ADMIN: 'Super admin plateforme',
-    ORGANIZATION_ADMIN: 'Admin organisation',
-    CONTENT_MANAGER: 'Gestionnaire de contenu',
-};
 
 export default async function Page() {
     const session = await auth();
@@ -67,14 +62,15 @@ export default async function Page() {
                             <CardContent className="grid gap-3 text-sm">
                                 <div>
                                     <p className="text-muted-foreground">Organisation</p>
-                                    <p className="font-medium">
+                                    <p className="font-medium max-w-60 truncate"
+                                       title={organization?.name ?? 'Aucune organisation'}>
                                         {organization?.name ?? 'Aucune organisation'}
                                     </p>
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Role</p>
                                     <p className="font-medium">
-                                        {roleLabels[session.user.role]}
+                                        {getRoleLabel(session.user.role)}
                                     </p>
                                 </div>
                             </CardContent>

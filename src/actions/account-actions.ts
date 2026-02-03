@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { auth, unstable_update } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { changePasswordSchema, profileSchema } from '@/schemas/account-schema';
+import { getFirstZodIssue } from '@/actions/action-utils';
 
 type ProfileField = keyof z.infer<typeof profileSchema> | 'root';
 type PasswordField = keyof z.infer<typeof changePasswordSchema> | 'root';
@@ -17,18 +18,6 @@ export type ProfileActionResult =
 export type PasswordActionResult =
     | { ok: true }
     | { ok: false; field?: PasswordField; message: string };
-
-function getFirstZodIssue(error: z.ZodError) {
-    const issue = error.issues[0];
-    if (!issue) {
-        return {field: 'root', message: 'Données invalides.'};
-    }
-
-    return {
-        field: issue.path[0] ? String(issue.path[0]) : 'root',
-        message: issue.message,
-    };
-}
 
 export async function updateProfile(
     data: z.infer<typeof profileSchema>,

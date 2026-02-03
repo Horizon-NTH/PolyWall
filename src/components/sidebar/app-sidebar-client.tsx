@@ -39,13 +39,13 @@ const sidebarItems = {
         {title: 'Canaux', url: '#', icon: Radio},
         {title: 'Écrans', url: '#', icon: Monitor},
     ],
-    superAdmin: [
-        {title: 'Entités', url: '/dashboard/organizations', icon: Building2},
-        {title: 'Administrateurs', url: '#', icon: Shield},
-    ],
     organizationAdmin: [
         {title: 'Mon organisation', url: '#', icon: Building},
         {title: 'Utilisateurs', url: '#', icon: Users},
+    ],
+    superAdmin: [
+        {title: 'Entités', url: '/dashboard/organizations', icon: Building2},
+        {title: 'Administrateurs', url: '/dashboard/administrators', icon: Shield},
     ],
 };
 
@@ -85,16 +85,16 @@ export function AppSidebarClient({
                         />
                     </SidebarMenu>
                 </SidebarHeader>
-                <SidebarContent>
+                <SidebarContent className="gap-1">
                     <NavCreate />
                     <NavSingle items={sidebarItems.main} />
                     <NavSection label="Contenus" items={sidebarItems.contenus} />
                     <NavSection label="Diffusion" items={sidebarItems.diffusion} />
-                    <Can I="view" a="SuperAdminSection">
-                        <NavSection label="Administration" items={sidebarItems.superAdmin} />
-                    </Can>
                     <Can I="view" a="OrganizationAdminSection">
                         <NavSection label="Organisation" items={sidebarItems.organizationAdmin} className="mb-4" />
+                    </Can>
+                    <Can I="view" a="SuperAdminSection">
+                        <NavSection label="Administration" items={sidebarItems.superAdmin} />
                     </Can>
                 </SidebarContent>
                 <SidebarFooter>

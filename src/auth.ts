@@ -78,8 +78,16 @@ export const authConfig = {
                 token.name = user.name;
                 token.email = user.email;
             }
-            if (trigger === 'update' && session?.user?.organizationId !== undefined) {
-                token.organizationId = session.user.organizationId;
+            if (trigger === 'update' && session?.user) {
+                if (session.user.organizationId !== undefined) {
+                    token.organizationId = session.user.organizationId;
+                }
+                if (session.user.name !== undefined) {
+                    token.name = session.user.name;
+                }
+                if (session.user.email !== undefined) {
+                    token.email = session.user.email;
+                }
             }
             return token;
         },

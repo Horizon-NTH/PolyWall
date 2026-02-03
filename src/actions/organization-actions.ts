@@ -6,6 +6,7 @@ import { auth, unstable_update } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { organizationSchema } from '@/schemas/organization-schema';
+import { getFirstZodIssue } from '@/actions/action-utils';
 
 const switchOrganizationSchema = z.object({
     organizationId: z.string().min(1),
@@ -49,18 +50,6 @@ type OrganizationField = keyof z.infer<typeof organizationSchema> | 'root';
 export type OrganizationActionResult =
     | { ok: true; organizationId?: string }
     | { ok: false; field?: OrganizationField; message: string };
-
-function getFirstZodIssue(error: z.ZodError) {
-    const issue = error.issues[0];
-    if (!issue) {
-        return {field: 'root', message: 'Données invalides.'};
-    }
-
-    return {
-        field: issue.path[0] ? String(issue.path[0]) : 'root',
-        message: issue.message,
-    };
-}
 
 function mapPrismaError(error: unknown): { field?: OrganizationField; message: string } {
     if (error && typeof error === 'object' && 'code' in error) {

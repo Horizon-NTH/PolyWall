@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,6 +33,7 @@ type AccountProfileFormProps = {
 
 export function AccountProfileForm({user}: AccountProfileFormProps) {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const router = useRouter();
     const form = useForm<z.infer<typeof profileSchema>>({
         resolver: zodResolver(profileSchema),
         defaultValues: {
@@ -49,6 +51,7 @@ export function AccountProfileForm({user}: AccountProfileFormProps) {
         }
 
         setSuccessMessage('Profil mis à jour.');
+        router.refresh();
     }
 
     return (
