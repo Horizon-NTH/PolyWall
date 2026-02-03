@@ -23,7 +23,9 @@ test.describe('auth', () => {
         await page.getByRole('textbox', {name: 'Mot de passe'}).fill('wrong-password-123');
         await page.getByRole('button', {name: 'Se connecter'}).click();
 
-        await expect(page.getByText('Email ou mot de passe incorrect')).toBeVisible();
+        const formAlert = page.locator('form').getByRole('alert');
+        await expect(formAlert).toBeVisible();
+        await expect(formAlert).toContainText('Email ou mot de passe incorrect');
     });
 
     test('redirects when authenticated', async ({page}) => {
