@@ -1,12 +1,9 @@
 'use client';
 
-import * as React from 'react';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 
-import { switchOrganization } from '@/actions/organization-actions';
+import { useOrganizationSwitch } from '@/hooks/use-organization-switch';
 import { Can } from '@/lib/casl/ability-context';
 import { cn } from '@/lib/utils';
 import {
@@ -45,8 +42,7 @@ export function OrganizationSwitcher({
                                          organizations,
                                          currentOrganizationId,
                                      }: OrganizationSwitcherProps) {
-    const router = useRouter();
-    const [isPending, startTransition] = React.useTransition();
+    const {isPending, switchTo} = useOrganizationSwitch();
 
     const currentOrganization =
         organizations.find((org) => org.id === currentOrganizationId) ?? null;
@@ -82,14 +78,7 @@ export function OrganizationSwitcher({
                                     <DropdownMenuItem
                                         key={organization.id}
                                         onSelect={() => {
-                                            startTransition(async () => {
-                                                const result = await switchOrganization(organization.id);
-                                                if (result?.ok) {
-                                                    router.refresh();
-                                                    return;
-                                                }
-                                                toast.error('Impossible de changer d\'organisation.');
-                                            });
+                                            switchTo(organization.id);
                                         }}
                                         disabled={isPending}
                                         className={cn(

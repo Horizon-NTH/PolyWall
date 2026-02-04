@@ -54,6 +54,7 @@ describe('AppSidebarClient', () => {
         await renderSidebar(UserRole.PLATFORM_SUPER_ADMIN, null);
 
         expect(screen.getByText('Administration')).toBeInTheDocument();
+        expect(screen.getByText('Organisation')).toBeInTheDocument();
     });
 
     it('shows the organization admin section only for organization admins', async () => {

@@ -3,18 +3,11 @@ import { notFound, redirect } from 'next/navigation';
 
 import { auth } from '@/auth';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
+import { OrganizationOverview } from '@/components/organizations/organization-overview';
 import { OrganizationDeleteCard } from '@/components/organizations/organization-delete-card';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
-import { formatDate } from '@/lib/utils';
 
 type OrganizationDetailsPageProps = {
     params: Promise<{ organizationId: string }>
@@ -68,78 +61,21 @@ export default async function Page({params}: OrganizationDetailsPageProps) {
                 ]}
             />
             <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="min-w-0">
-                        <h1 className="text-xl font-semibold break-all max-w-120">
-                            {organization.name}
-                        </h1>
-                        <p className="text-muted-foreground text-sm">
-                            Dernière mise à jour le {formatDate(organization.updatedAt)}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button asChild variant="outline">
-                            <Link href="/dashboard/organizations">Retour</Link>
-                        </Button>
-                        <Button asChild>
-                            <Link href={`/dashboard/organizations/${organization.id}/edit`}>
-                                Modifier
-                            </Link>
-                        </Button>
-                    </div>
-                </div>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Présentation</CardTitle>
-                        <CardDescription>
-                            Informations principales de l&apos;organisation.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div>
-                            <p className="text-muted-foreground text-xs uppercase">Description</p>
-                            <p className="text-sm break-all">{organization.description}</p>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2">
-                            <div>
-                                <p className="text-muted-foreground text-xs uppercase">Créée le</p>
-                                <p className="text-sm">{formatDate(organization.createdAt)}</p>
-                            </div>
-                            <div>
-                                <p className="text-muted-foreground text-xs uppercase">ID</p>
-                                <p className="text-sm break-all">{organization.id}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <div className="grid gap-4 md:grid-cols-4">
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Utilisateurs</CardDescription>
-                            <CardTitle>{organization._count.users}</CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Écrans</CardDescription>
-                            <CardTitle>{organization._count.screens}</CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Canaux</CardDescription>
-                            <CardTitle>{organization._count.channels}</CardTitle>
-                        </CardHeader>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardDescription>Playlists</CardDescription>
-                            <CardTitle>{organization._count.playlists}</CardTitle>
-                        </CardHeader>
-                    </Card>
-                </div>
+                <OrganizationOverview
+                    organization={organization}
+                    actions={
+                        <>
+                            <Button asChild variant="outline">
+                                <Link href="/dashboard/organizations">Retour</Link>
+                            </Button>
+                            <Button asChild>
+                                <Link href={`/dashboard/organizations/${organization.id}/edit`}>
+                                    Modifier
+                                </Link>
+                            </Button>
+                        </>
+                    }
+                />
 
                 <OrganizationDeleteCard
                     organizationId={organization.id}
