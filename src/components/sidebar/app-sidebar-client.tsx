@@ -41,7 +41,7 @@ const sidebarItems = {
     ],
     organizationAdmin: [
         {title: 'Mon organisation', url: '/dashboard/organization', icon: Building},
-        {title: 'Utilisateurs', url: '#', icon: Users},
+        {title: 'Utilisateurs', url: '/dashboard/users', icon: Users},
     ],
     superAdmin: [
         {title: 'Entités', url: '/dashboard/organizations', icon: Building2},

@@ -15,6 +15,7 @@ export type UseDataTableOptions<TData, TValue> = {
     initialPageSize?: number;
     enableRowSelection?: boolean;
     enablePagination?: boolean;
+    initialColumnVisibility?: VisibilityState;
 };
 
 export function useDataTable<TData, TValue>({
@@ -23,9 +24,10 @@ export function useDataTable<TData, TValue>({
                                                 initialPageSize = 10,
                                                 enableRowSelection = false,
                                                 enablePagination = true,
+                                                initialColumnVisibility = {},
                                             }: UseDataTableOptions<TData, TValue>) {
     const [rowSelection, setRowSelection] = React.useState({});
-    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(initialColumnVisibility);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [sorting, setSorting] = React.useState<SortingState>([]);
 

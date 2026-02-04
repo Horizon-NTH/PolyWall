@@ -6,6 +6,7 @@ import { AdminForm } from '@/components/admins/admin-form';
 import { UserRole } from '@/generated/prisma/enums';
 
 const pushMock = vi.fn();
+const refreshMock = vi.fn();
 const createAdminMock = vi.fn();
 const updateAdminMock = vi.fn();
 const toastSuccessMock = vi.fn();
@@ -13,6 +14,7 @@ const toastSuccessMock = vi.fn();
 vi.mock('next/navigation', () => ({
     useRouter: () => ({
         push: pushMock,
+        refresh: refreshMock,
     }),
 }));
 
@@ -57,6 +59,7 @@ describe('AdminForm', () => {
 
     beforeEach(() => {
         pushMock.mockReset();
+        refreshMock.mockReset();
         createAdminMock.mockReset();
         updateAdminMock.mockReset();
         toastSuccessMock.mockReset();

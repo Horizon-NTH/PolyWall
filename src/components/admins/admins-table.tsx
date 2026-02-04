@@ -225,12 +225,11 @@ export function AdminsTable({data, organizations}: AdminsTableProps) {
         columns,
         initialPageSize: 10,
         enablePagination: true,
+        initialColumnVisibility: {
+            searchText: false,
+            organizationId: false,
+        },
     });
-
-    React.useEffect(() => {
-        table.getColumn('searchText')?.toggleVisibility(false);
-        table.getColumn('organizationId')?.toggleVisibility(false);
-    }, [table]);
 
     React.useEffect(() => {
         table

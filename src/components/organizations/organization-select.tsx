@@ -25,10 +25,18 @@ export function OrganizationSelect({organizations}: OrganizationSelectProps) {
             <SelectTrigger className="w-full" data-testid="organization-select-trigger">
                 <SelectValue placeholder="Sélectionner une organisation" />
             </SelectTrigger>
-            <SelectContent>
+
+            <SelectContent
+                position="popper"
+                className="max-w-(--radix-select-trigger-width)"
+            >
                 {organizations.map((organization) => (
-                    <SelectItem key={organization.id} value={organization.id}>
-                        {organization.name}
+                    <SelectItem key={organization.id} value={organization.id} title={organization.name}>
+                        <span
+                            className="truncate max-w-[calc(var(--radix-select-trigger-width)*0.9)]"
+                        >
+                            {organization.name}
+                        </span>
                     </SelectItem>
                 ))}
             </SelectContent>
