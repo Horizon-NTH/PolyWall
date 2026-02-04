@@ -125,6 +125,7 @@ test.describe('organizations', () => {
                     readText: async () => store.text,
                 },
             });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (window as any).__clipboardStore = store;
         });
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
@@ -171,6 +172,7 @@ test.describe('organizations', () => {
         await page.getByRole('menuitem', {name: 'Copier l\'ID'}).click();
 
         await expect(page.getByText('ID copié.')).toBeVisible();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const clipboardId = await page.evaluate(() => (window as any).__clipboardStore.text);
         expect(clipboardId).toBe(expectedId);
 
@@ -237,16 +239,12 @@ test.describe('organizations', () => {
         await page.getByLabel('Description').fill('B');
         await page.getByRole('button', {name: 'Enregistrer'}).click();
 
-        if (testInfo.project.name !== 'webkit') {
-            await expect(
-                page.getByText('Le nom doit contenir au moins 2 caractères.'),
-            ).toBeVisible();
-            await expect(
-                page.getByText('La description doit contenir au moins 2 caractères.'),
-            ).toBeVisible();
-        } else {
-            await expect(page).toHaveURL(new RegExp(`/dashboard/organizations/${orgId}/edit$`));
-        }
+        await expect(
+            page.getByText('Le nom doit contenir au moins 2 caractères.'),
+        ).toBeVisible();
+        await expect(
+            page.getByText('La description doit contenir au moins 2 caractères.'),
+        ).toBeVisible();
 
         await page.getByLabel('Nom').fill(DEMO_ORG_NAME);
         await page.getByLabel('Description').fill('Tentative de doublon.');

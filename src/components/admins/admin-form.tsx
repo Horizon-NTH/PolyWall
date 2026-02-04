@@ -3,7 +3,7 @@
 import { useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Controller, type Resolver, useForm } from 'react-hook-form';
+import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -79,7 +79,7 @@ export function AdminForm({
         },
     });
 
-    const role = form.watch('role');
+    const role = useWatch({ control: form.control, name: 'role' });
     const shouldShowOrganization = role === UserRole.ORGANIZATION_ADMIN;
 
     useEffect(() => {

@@ -30,6 +30,7 @@ test.describe('auth', () => {
 
     test('redirects when authenticated', async ({page}) => {
         await page.goto('/login');
+        await page.waitForLoadState('networkidle');
         await page.getByLabel('Email').fill(ADMIN_CREDENTIALS.email);
         await page.getByRole('textbox', {name: 'Mot de passe'}).fill(ADMIN_CREDENTIALS.password);
         await page.getByRole('button', {name: 'Se connecter'}).click();
