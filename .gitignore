@@ -42,7 +42,7 @@ next-env.d.ts
 
 # IDE
 .idea
-/generated/prisma
+/src/generated
 
 !.env.example
 

@@ -15,9 +15,12 @@ services:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
       UPLOAD_ROOT: /data/uploads
+      REDIS_URL: redis://redis:6379
     restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   postgres:
@@ -28,6 +31,16 @@ services:
       - polywall-postgres-data-prod:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    container_name: polywall-redis-prod
+    image: redis:7-alpine
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
