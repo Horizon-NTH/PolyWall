@@ -1,10 +1,39 @@
-import NextAuth, { type NextAuthConfig, type Session, type User } from 'next-auth';
+import NextAuth, { CredentialsSignin, type NextAuthConfig, type Session, type User } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import argon2 from 'argon2';
 import { prisma } from '@/lib/prisma';
 import { credentialsSchema } from '@/schemas/auth-schema';
 import { env } from '@/env';
 import { JWT } from 'next-auth/jwt';
+import { consumeLoginAttempt, RateLimitExceeded, resetLoginAttempt } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
+
+class RateLimitedError extends CredentialsSignin {
+    code = 'rate_limited';
+}
+
+function isRateLimitExceeded(error: unknown): error is RateLimitExceeded {
+    if (error instanceof RateLimitExceeded) {
+        return true;
+    }
+    return error instanceof Error && error.message === 'rate_limited';
+}
+
+function getRequestIp(request: Request): string | null {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) {
+        const first = forwarded.split(',')[0]?.trim();
+        if (first) return first;
+    }
+
+    const realIp = request.headers.get('x-real-ip');
+    if (realIp) return realIp;
+
+    const cfIp = request.headers.get('cf-connecting-ip');
+    if (cfIp) return cfIp;
+
+    return null;
+}
 
 export const authConfig = {
     secret: env.AUTH_SECRET,
@@ -28,12 +57,22 @@ export const authConfig = {
                     type: 'password',
                 },
             },
-            async authorize(raw) {
+            async authorize(raw, request) {
                 const parsed = credentialsSchema.safeParse(raw);
                 if (!parsed.success) return null;
 
                 const email = parsed.data.email.toLowerCase();
                 const password = parsed.data.password;
+                const ip = request ? getRequestIp(request) ?? 'unknown' : 'unknown';
+
+                try {
+                    await consumeLoginAttempt({ip, email});
+                } catch (error) {
+                    if (isRateLimitExceeded(error)) {
+                        throw new RateLimitedError();
+                    }
+                    logger.error({error}, 'Rate limiter unavailable during login');
+                }
 
                 const user = await prisma.user.findUnique({
                     where: {email},
@@ -58,6 +97,7 @@ export const authConfig = {
                     return null;
                 }
 
+                await resetLoginAttempt({ip, email});
                 return {
                     id: user.id,
                     email: user.email,

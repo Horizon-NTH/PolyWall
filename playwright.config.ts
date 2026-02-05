@@ -76,11 +76,17 @@ export default defineConfig({
             url: 'http://localhost:3000',
             reuseExistingServer: false,
             timeout: 120_000,
+            env: {
+                RATE_LIMIT_DISABLED: 'true',
+            },
         }
         : {
             command: 'pnpm dev',
             url: 'http://localhost:3000',
             reuseExistingServer: true,
             timeout: 120_000,
+            env: {
+                RATE_LIMIT_DISABLED: 'true',
+            },
         },
 });

@@ -11,6 +11,8 @@ vi.mock('@/env', () => ({
     env: {
         AUTH_SECRET: 'test-secret',
         AUTH_TRUST_HOST: false,
+        REDIS_URL: undefined,
+        RATE_LIMIT_DISABLED: false,
     },
 }));
 
@@ -21,13 +23,16 @@ vi.mock('next-auth', () => ({
         signIn: vi.fn(),
         signOut: vi.fn(),
     })),
+    CredentialsSignin: class CredentialsSignin extends Error {
+        code = 'credentials';
+    },
 }));
 
 vi.mock('next-auth/providers/credentials', () => ({
     default: (config: {
         name: string;
         credentials: Record<string, unknown>;
-        authorize: (raw: Record<string, unknown>) => Promise<unknown>;
+        authorize: (raw: Record<string, unknown>, request?: Request) => Promise<unknown>;
     }) => ({
         id: 'credentials',
         ...config,
@@ -39,8 +44,26 @@ const loadAuthConfig = async () => {
     return mod.authConfig;
 };
 
+const setupRateLimitMocks = async () => {
+    const mod = await import('@/lib/rate-limit');
+    const consumeLoginAttempt = vi
+        .spyOn(mod, 'consumeLoginAttempt')
+        .mockResolvedValue(undefined);
+    const resetLoginAttempt = vi
+        .spyOn(mod, 'resetLoginAttempt')
+        .mockResolvedValue(undefined);
+
+    return {
+        consumeLoginAttempt,
+        resetLoginAttempt,
+        RateLimitExceeded: mod.RateLimitExceeded,
+    };
+};
+
 describe('auth config', () => {
-    beforeEach(() => {
+    let rateLimitMocks: Awaited<ReturnType<typeof setupRateLimitMocks>>;
+
+    beforeEach(async () => {
         vi.resetModules();
         vi.unmock('@/auth');
         process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db?schema=public';
@@ -48,6 +71,7 @@ describe('auth config', () => {
         process.env.AUTH_TRUST_HOST = 'false';
         process.env.AUTH_URL = 'http://localhost:3000';
         vi.clearAllMocks();
+        rateLimitMocks = await setupRateLimitMocks();
     });
 
     it('rejects invalid credentials before hitting the database', async () => {
@@ -63,6 +87,7 @@ describe('auth config', () => {
         const result = await authorize?.({email: 'invalid', password: 'password123'});
         expect(result).toBeNull();
         expect(prisma.user.findUnique).not.toHaveBeenCalled();
+        expect(rateLimitMocks.consumeLoginAttempt).not.toHaveBeenCalled();
     });
 
     it('returns null when the user does not exist', async () => {
@@ -77,6 +102,10 @@ describe('auth config', () => {
 
         const result = await authorize?.({email: 'user@example.com', password: 'password123'});
         expect(result).toBeNull();
+        expect(rateLimitMocks.consumeLoginAttempt).toHaveBeenCalledWith({
+            email: 'user@example.com',
+            ip: 'unknown',
+        });
         expect(prisma.user.findUnique).toHaveBeenCalledWith({
             where: {email: 'user@example.com'},
             select: {
@@ -188,6 +217,36 @@ describe('auth config', () => {
             name: 'User Example',
             role: UserRole.CONTENT_MANAGER,
             organizationId: 'org-1',
+        });
+        expect(rateLimitMocks.resetLoginAttempt).toHaveBeenCalledWith({
+            email: 'user@example.com',
+            ip: 'unknown',
+        });
+    });
+
+    it('throws a rate limited error when limiter blocks the login', async () => {
+        const prisma = await getPrismaMock();
+        const authConfig = await loadAuthConfig();
+        const provider = authConfig.providers.find((item) => item.id === 'credentials');
+        const authorize = provider?.authorize as
+            | ((credentials: Record<string, unknown>, request?: Request) => Promise<unknown>)
+            | undefined;
+
+        rateLimitMocks.consumeLoginAttempt.mockRejectedValueOnce(new rateLimitMocks.RateLimitExceeded(1000));
+
+        const request = new Request('https://example.com', {
+            headers: {
+                'x-forwarded-for': '203.0.113.5',
+            },
+        });
+
+        await expect(
+            authorize?.({email: 'user@example.com', password: 'password123'}, request),
+        ).rejects.toMatchObject({code: 'rate_limited'});
+        expect(prisma.user.findUnique).not.toHaveBeenCalled();
+        expect(rateLimitMocks.consumeLoginAttempt).toHaveBeenCalledWith({
+            email: 'user@example.com',
+            ip: '203.0.113.5',
         });
     });
 

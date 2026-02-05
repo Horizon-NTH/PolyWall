@@ -13,6 +13,8 @@ export const env = createEnv({
         AUTH_URL: z.url().optional(),
         LOG_LEVEL: z.string().min(1).optional(),
         LOG_PRETTY: z.coerce.boolean().optional(),
+        REDIS_URL: z.string().url().optional(),
+        RATE_LIMIT_DISABLED: z.coerce.boolean().optional(),
     },
     /*
      * Environment variables available on the client (and server).
@@ -33,5 +35,7 @@ export const env = createEnv({
         AUTH_URL: process.env.AUTH_URL,
         LOG_LEVEL: process.env.LOG_LEVEL,
         LOG_PRETTY: process.env.LOG_PRETTY,
+        REDIS_URL: process.env.REDIS_URL,
+        RATE_LIMIT_DISABLED: process.env.RATE_LIMIT_DISABLED,
     },
 });

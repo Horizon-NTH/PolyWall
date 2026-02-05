@@ -86,6 +86,10 @@ export function LoginForm({
         });
 
         if (result?.error) {
+            if (result.code === 'rate_limited') {
+                form.setError('root', {message: 'Trop de tentatives. Réessayez dans quelques minutes.'});
+                return;
+            }
             form.setError('root', {message: 'Email ou mot de passe incorrect'});
             return;
         }
