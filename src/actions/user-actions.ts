@@ -7,6 +7,7 @@ import { auth } from '@/auth';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
 import { getFirstZodIssue } from '@/actions/action-utils';
+import { createActionLogger } from '@/actions/action-logging';
 import { userCreateSchema, userUpdateSchema } from '@/schemas/user-schema';
 import { UserRole } from '@/generated/prisma/enums';
 
@@ -54,14 +55,21 @@ async function ensureUserTarget(userId: string, organizationId: string) {
 export async function createUser(
     data: z.infer<typeof userCreateSchema>,
 ): Promise<UserActionResult> {
+    const log = createActionLogger({event: 'user.create', action: 'create'});
     const access = await ensureUserAccess();
     if (!access.ok) {
+        log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
     }
 
     const parsed = userCreateSchema.safeParse(data);
     if (!parsed.success) {
         const issue = getFirstZodIssue(parsed.error);
+        log.invalid({
+            field: issue.field,
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+        });
         return {ok: false, field: issue.field as UserField, message: issue.message};
     }
 
@@ -81,10 +89,20 @@ export async function createUser(
             select: {id: true},
         });
 
+        log.success({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: created.id,
+        });
         return {ok: true, userId: created.id};
     } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'P2002') {
+            log.invalid({
+                field: 'email',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+            });
             return {
                 ok: false,
                 field: 'email',
@@ -92,6 +110,10 @@ export async function createUser(
             };
         }
 
+        log.error(error, {
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+        });
         return {ok: false, field: 'root', message: 'Impossible de créer cet utilisateur.'};
     }
 }
@@ -100,23 +122,37 @@ export async function updateUser(
     userId: string,
     data: z.infer<typeof userUpdateSchema>,
 ): Promise<UserActionResult> {
+    const log = createActionLogger({event: 'user.update', action: 'update', targetId: userId});
     const access = await ensureUserAccess();
     if (!access.ok) {
+        log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
     }
 
     if (!userId) {
+        log.invalid({actorUserId: access.session.user.id});
         return {ok: false, field: 'root', message: 'Utilisateur introuvable.'};
     }
 
     const parsed = userUpdateSchema.safeParse(data);
     if (!parsed.success) {
         const issue = getFirstZodIssue(parsed.error);
+        log.invalid({
+            field: issue.field,
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: userId,
+        });
         return {ok: false, field: issue.field as UserField, message: issue.message};
     }
 
     const user = await ensureUserTarget(userId, access.session.user.organizationId!);
     if (!user) {
+        log.invalid({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: userId,
+        });
         return {ok: false, field: 'root', message: 'Utilisateur introuvable.'};
     }
 
@@ -132,10 +168,21 @@ export async function updateUser(
             select: {id: true},
         });
 
+        log.success({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: updated.id,
+        });
         return {ok: true, userId: updated.id};
     } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'P2002') {
+            log.invalid({
+                field: 'email',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+                targetId: userId,
+            });
             return {
                 ok: false,
                 field: 'email',
@@ -143,6 +190,11 @@ export async function updateUser(
             };
         }
 
+        log.error(error, {
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: userId,
+        });
         return {ok: false, field: 'root', message: 'Impossible de mettre à jour cet utilisateur.'};
     }
 }
@@ -150,21 +202,35 @@ export async function updateUser(
 export async function toggleUserActive(
     userId: string,
 ): Promise<UserActionResult> {
+    const log = createActionLogger({event: 'user.toggle', action: 'toggle', targetId: userId});
     const access = await ensureUserAccess();
     if (!access.ok) {
+        log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
     }
 
     if (!userId) {
+        log.invalid({actorUserId: access.session.user.id});
         return {ok: false, field: 'root', message: 'Utilisateur introuvable.'};
     }
 
     if (userId === access.session.user.id) {
+        log.denied({
+            reason: 'self_action',
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: userId,
+        });
         return {ok: false, field: 'root', message: 'Vous ne pouvez pas modifier votre propre statut.'};
     }
 
     const user = await ensureUserTarget(userId, access.session.user.organizationId!);
     if (!user) {
+        log.invalid({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: userId,
+        });
         return {ok: false, field: 'root', message: 'Utilisateur introuvable.'};
     }
 
@@ -174,27 +240,46 @@ export async function toggleUserActive(
         select: {id: true},
     });
 
+    log.success({
+        actorUserId: access.session.user.id,
+        organizationId: access.session.user.organizationId,
+        targetId: updated.id,
+    });
     return {ok: true, userId: updated.id};
 }
 
 export async function deleteUser(
     userId: string,
 ): Promise<UserActionResult> {
+    const log = createActionLogger({event: 'user.delete', action: 'delete', targetId: userId});
     const access = await ensureUserAccess();
     if (!access.ok) {
+        log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
     }
 
     if (!userId) {
+        log.invalid({actorUserId: access.session.user.id});
         return {ok: false, field: 'root', message: 'Utilisateur introuvable.'};
     }
 
     if (userId === access.session.user.id) {
+        log.denied({
+            reason: 'self_action',
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: userId,
+        });
         return {ok: false, field: 'root', message: 'Vous ne pouvez pas supprimer votre propre compte.'};
     }
 
     const user = await ensureUserTarget(userId, access.session.user.organizationId!);
     if (!user) {
+        log.invalid({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: userId,
+        });
         return {ok: false, field: 'root', message: 'Utilisateur introuvable.'};
     }
 
@@ -202,5 +287,10 @@ export async function deleteUser(
         where: {id: user.id},
     });
 
+    log.success({
+        actorUserId: access.session.user.id,
+        organizationId: access.session.user.organizationId,
+        targetId: user.id,
+    });
     return {ok: true};
 }

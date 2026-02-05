@@ -7,6 +7,7 @@ import { auth } from '@/auth';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
 import { getFirstZodIssue } from '@/actions/action-utils';
+import { createActionLogger } from '@/actions/action-logging';
 import {
     adminCreateSchema,
     adminDeleteSchema,
@@ -70,20 +71,32 @@ async function countOtherActiveSuperAdmins(excludeId: string) {
 export async function createAdmin(
     data: z.infer<typeof adminCreateSchema>,
 ): Promise<AdminActionResult> {
+    const log = createActionLogger({event: 'admin.create', action: 'create'});
     const access = await ensureSuperAdminAccess();
     if (!access.ok) {
+        log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
     }
 
     const parsed = adminCreateSchema.safeParse(data);
     if (!parsed.success) {
         const issue = getFirstZodIssue(parsed.error);
+        log.invalid({
+            field: issue.field,
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+        });
         return {ok: false, field: issue.field as AdminField, message: issue.message};
     }
 
     const {role, organizationId} = parsed.data;
     if (role === UserRole.ORGANIZATION_ADMIN) {
         if (!organizationId) {
+            log.invalid({
+                field: 'organizationId',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+            });
             return {
                 ok: false,
                 field: 'organizationId',
@@ -92,6 +105,11 @@ export async function createAdmin(
         }
         const orgExists = await ensureOrganizationExists(organizationId);
         if (!orgExists) {
+            log.invalid({
+                field: 'organizationId',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+            });
             return {
                 ok: false,
                 field: 'organizationId',
@@ -119,10 +137,20 @@ export async function createAdmin(
             select: {id: true},
         });
 
+        log.success({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: created.id,
+        });
         return {ok: true, adminId: created.id};
     } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'P2002') {
+            log.invalid({
+                field: 'email',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+            });
             return {
                 ok: false,
                 field: 'email',
@@ -130,6 +158,10 @@ export async function createAdmin(
             };
         }
 
+        log.error(error, {
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+        });
         return {ok: false, field: 'root', message: 'Impossible de créer cet administrateur.'};
     }
 }
@@ -138,23 +170,37 @@ export async function updateAdmin(
     adminId: string,
     data: z.infer<typeof adminUpdateSchema>,
 ): Promise<AdminActionResult> {
+    const log = createActionLogger({event: 'admin.update', action: 'update', targetId: adminId});
     const access = await ensureSuperAdminAccess();
     if (!access.ok) {
+        log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
     }
 
     if (!adminId) {
+        log.invalid({actorUserId: access.session.user.id});
         return {ok: false, field: 'root', message: 'Administrateur introuvable.'};
     }
 
     const parsed = adminUpdateSchema.safeParse(data);
     if (!parsed.success) {
         const issue = getFirstZodIssue(parsed.error);
+        log.invalid({
+            field: issue.field,
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: adminId,
+        });
         return {ok: false, field: issue.field as AdminField, message: issue.message};
     }
 
     const admin = await ensureAdminTarget(adminId);
     if (!admin) {
+        log.invalid({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: adminId,
+        });
         return {ok: false, field: 'root', message: 'Administrateur introuvable.'};
     }
 
@@ -164,6 +210,12 @@ export async function updateAdmin(
     ) {
         const otherSuperAdmins = await countOtherActiveSuperAdmins(adminId);
         if (otherSuperAdmins === 0) {
+            log.denied({
+                reason: 'last_super_admin',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+                targetId: adminId,
+            });
             return {
                 ok: false,
                 field: 'role',
@@ -179,6 +231,12 @@ export async function updateAdmin(
     ) {
         const otherSuperAdmins = await countOtherActiveSuperAdmins(adminId);
         if (otherSuperAdmins === 0) {
+            log.denied({
+                reason: 'last_super_admin',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+                targetId: adminId,
+            });
             return {
                 ok: false,
                 field: 'active',
@@ -189,6 +247,12 @@ export async function updateAdmin(
 
     if (parsed.data.role === UserRole.ORGANIZATION_ADMIN) {
         if (!parsed.data.organizationId) {
+            log.invalid({
+                field: 'organizationId',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+                targetId: adminId,
+            });
             return {
                 ok: false,
                 field: 'organizationId',
@@ -197,6 +261,12 @@ export async function updateAdmin(
         }
         const orgExists = await ensureOrganizationExists(parsed.data.organizationId);
         if (!orgExists) {
+            log.invalid({
+                field: 'organizationId',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+                targetId: adminId,
+            });
             return {
                 ok: false,
                 field: 'organizationId',
@@ -222,10 +292,21 @@ export async function updateAdmin(
             select: {id: true},
         });
 
+        log.success({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: updated.id,
+        });
         return {ok: true, adminId: updated.id};
     } catch (error) {
         const code = (error as { code?: string }).code;
         if (code === 'P2002') {
+            log.invalid({
+                field: 'email',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+                targetId: adminId,
+            });
             return {
                 ok: false,
                 field: 'email',
@@ -233,6 +314,11 @@ export async function updateAdmin(
             };
         }
 
+        log.error(error, {
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: adminId,
+        });
         return {ok: false, field: 'root', message: 'Impossible de mettre à jour cet administrateur.'};
     }
 }
@@ -240,29 +326,53 @@ export async function updateAdmin(
 export async function toggleAdminActive(
     adminId: string,
 ): Promise<AdminActionResult> {
+    const log = createActionLogger({event: 'admin.toggle', action: 'toggle', targetId: adminId});
     const access = await ensureSuperAdminAccess();
     if (!access.ok) {
+        log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
     }
 
     const parsed = adminToggleActiveSchema.safeParse({adminId});
     if (!parsed.success) {
         const issue = getFirstZodIssue(parsed.error);
+        log.invalid({
+            field: issue.field,
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+        });
         return {ok: false, field: issue.field as AdminField, message: issue.message};
     }
 
     if (parsed.data.adminId === access.session.user.id) {
+        log.denied({
+            reason: 'self_action',
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: parsed.data.adminId,
+        });
         return {ok: false, field: 'root', message: 'Vous ne pouvez pas modifier votre propre statut.'};
     }
 
     const admin = await ensureAdminTarget(parsed.data.adminId);
     if (!admin) {
+        log.invalid({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: parsed.data.adminId,
+        });
         return {ok: false, field: 'root', message: 'Administrateur introuvable.'};
     }
 
     if (admin.role === UserRole.PLATFORM_SUPER_ADMIN && admin.active) {
         const otherSuperAdmins = await countOtherActiveSuperAdmins(admin.id);
         if (otherSuperAdmins === 0) {
+            log.denied({
+                reason: 'last_super_admin',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+                targetId: admin.id,
+            });
             return {
                 ok: false,
                 field: 'active',
@@ -277,35 +387,64 @@ export async function toggleAdminActive(
         select: {id: true},
     });
 
+    log.success({
+        actorUserId: access.session.user.id,
+        organizationId: access.session.user.organizationId,
+        targetId: updated.id,
+    });
     return {ok: true, adminId: updated.id};
 }
 
 export async function deleteAdmin(
     adminId: string,
 ): Promise<AdminActionResult> {
+    const log = createActionLogger({event: 'admin.delete', action: 'delete', targetId: adminId});
     const access = await ensureSuperAdminAccess();
     if (!access.ok) {
+        log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
     }
 
     const parsed = adminDeleteSchema.safeParse({adminId});
     if (!parsed.success) {
         const issue = getFirstZodIssue(parsed.error);
+        log.invalid({
+            field: issue.field,
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+        });
         return {ok: false, field: issue.field as AdminField, message: issue.message};
     }
 
     if (parsed.data.adminId === access.session.user.id) {
+        log.denied({
+            reason: 'self_action',
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: parsed.data.adminId,
+        });
         return {ok: false, field: 'root', message: 'Vous ne pouvez pas supprimer votre propre compte.'};
     }
 
     const admin = await ensureAdminTarget(parsed.data.adminId);
     if (!admin) {
+        log.invalid({
+            actorUserId: access.session.user.id,
+            organizationId: access.session.user.organizationId,
+            targetId: parsed.data.adminId,
+        });
         return {ok: false, field: 'root', message: 'Administrateur introuvable.'};
     }
 
     if (admin.role === UserRole.PLATFORM_SUPER_ADMIN) {
         const otherSuperAdmins = await countOtherActiveSuperAdmins(admin.id);
         if (otherSuperAdmins === 0) {
+            log.denied({
+                reason: 'last_super_admin',
+                actorUserId: access.session.user.id,
+                organizationId: access.session.user.organizationId,
+                targetId: admin.id,
+            });
             return {
                 ok: false,
                 field: 'root',
@@ -318,5 +457,10 @@ export async function deleteAdmin(
         where: {id: admin.id},
     });
 
+    log.success({
+        actorUserId: access.session.user.id,
+        organizationId: access.session.user.organizationId,
+        targetId: admin.id,
+    });
     return {ok: true};
 }

@@ -11,6 +11,8 @@ export const env = createEnv({
         AUTH_SECRET: z.string().min(1),
         AUTH_TRUST_HOST: z.coerce.boolean().optional(),
         AUTH_URL: z.url().optional(),
+        LOG_LEVEL: z.string().min(1).optional(),
+        LOG_PRETTY: z.coerce.boolean().optional(),
     },
     /*
      * Environment variables available on the client (and server).
@@ -29,5 +31,7 @@ export const env = createEnv({
         AUTH_SECRET: process.env.AUTH_SECRET,
         AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST,
         AUTH_URL: process.env.AUTH_URL,
+        LOG_LEVEL: process.env.LOG_LEVEL,
+        LOG_PRETTY: process.env.LOG_PRETTY,
     },
 });
