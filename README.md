@@ -1,2 +1,3 @@
 # PolyWall
-Le mur d’affichage numérique de Polytech Dijon
+
+Le mur d'affichage numérique de Polytech Dijon

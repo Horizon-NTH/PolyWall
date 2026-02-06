@@ -36,12 +36,23 @@ enum ZoneType {
   OVERLAY
 }
 
+enum MediaStorageProvider {
+  S3
+}
+
+enum MediaFileStatus {
+  PENDING
+  READY
+  FAILED
+}
+
 model Organization {
   id          String @id @default(cuid())
   name        String
   description String
 
   users            User[]
+  mediaItems       MediaItem[]
   playlists        Playlist[]
   channels         Channel[]
   screens          Screen[]
@@ -115,6 +126,9 @@ model MediaItem {
   durationSeconds Int
   active          Boolean @default(true)
 
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
   playlistItems PlaylistItem[]
   files         MediaFile[]
 
@@ -122,15 +136,21 @@ model MediaItem {
   updatedAt DateTime @updatedAt
 
   @@index([active])
+  @@index([organizationId, createdAt])
 }
 
 model MediaFile {
   id            String  @id @default(cuid())
-  storagePath   String
+  storageBucket String
+  objectKey     String
+  originalFileName String
+  storageProvider  MediaStorageProvider @default(S3)
+  status           MediaFileStatus      @default(PENDING)
   mimeType      String
   fileSizeBytes BigInt
   checksum      String
   isPrimary     Boolean @default(false)
+  metaJson      Json?
 
   mediaItem   MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
   mediaItemId String
@@ -138,9 +158,10 @@ model MediaFile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([storagePath])
+  @@unique([storageBucket, objectKey])
   @@index([mediaItemId])
   @@index([checksum])
+  @@index([mediaItemId, isPrimary])
 }
 
 model DisplayTemplate {

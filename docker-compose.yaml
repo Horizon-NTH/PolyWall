@@ -8,20 +8,28 @@ services:
       - '3000:3000'
     expose:
       - '3000'
-    volumes:
-      - polywall-uploads-prod:/data/uploads
     env_file: .env
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
-      UPLOAD_ROOT: /data/uploads
       REDIS_URL: redis://redis:6379
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-eu-west-3}
+      S3_BUCKET: ${S3_BUCKET:-polywall-prod}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-polywall}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-polywallsecret}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
 
   postgres:
     container_name: polywall-postgres-prod
@@ -46,8 +54,33 @@ services:
       retries: 5
     restart: unless-stopped
 
+  minio:
+    container_name: polywall-minio-prod
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-polywall}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-polywallsecret}
+    volumes:
+      - polywall-minio-data-prod:/data
+    restart: unless-stopped
+
+  minio-init:
+    container_name: polywall-minio-init-prod
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID:-polywall} ${S3_SECRET_ACCESS_KEY:-polywallsecret} &&
+      mc mb --ignore-existing local/${S3_BUCKET:-polywall-prod} &&
+      mc anonymous set none local/${S3_BUCKET:-polywall-prod}
+      "
+
 volumes:
   polywall-postgres-data-prod:
     driver: local
-  polywall-uploads-prod:
+  polywall-minio-data-prod:
     driver: local

@@ -7,7 +7,15 @@ import { faker } from '@faker-js/faker';
 import argon2 from 'argon2';
 import mime from 'mime-types';
 
-import { DayOfWeek, Prisma, PrismaClient, ScheduleType, UserRole, ZoneType } from '@/generated/prisma/client';
+import {
+    DayOfWeek,
+    MediaFileStatus,
+    Prisma,
+    PrismaClient,
+    ScheduleType,
+    UserRole,
+    ZoneType,
+} from '@/generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import 'dotenv/config';
 import { ADMIN_CREDENTIALS } from '@/test/fixtures/auth-test-credentials';
@@ -441,8 +449,8 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
     await seedWidgetsForOrg(orgA.id, a.zones);
     await seedWidgetsForOrg(orgB.id, b.zones);
 
-    async function seedMediaLibrary() {
-        logger.info({dir: SEED_MEDIA_DIR}, 'Seeding media library...');
+    async function seedMediaLibrary(orgId: string) {
+        logger.info({dir: SEED_MEDIA_DIR, organizationId: orgId}, 'Seeding media library...');
 
         let files: string[] = [];
         try {
@@ -457,16 +465,24 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         const mediaItems: { id: string }[] = [];
 
         async function ensureMediaItemForFile(params: {
+            organizationId: string;
             title: string;
             description: string;
             durationSeconds: number;
-            storagePath: string;
+            storageBucket: string;
+            objectKey: string;
+            originalFileName: string;
             mimeType: string;
             fileSizeBytes: bigint;
             checksum: string;
         }) {
             const existing = await prisma.mediaFile.findUnique({
-                where: {storagePath: params.storagePath},
+                where: {
+                    storageBucket_objectKey: {
+                        storageBucket: params.storageBucket,
+                        objectKey: params.objectKey,
+                    },
+                },
                 select: {mediaItemId: true},
             });
 
@@ -476,17 +492,21 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
 
             return prisma.mediaItem.create({
                 data: {
+                    organizationId: params.organizationId,
                     title: params.title,
                     description: params.description,
                     durationSeconds: params.durationSeconds,
                     active: true,
                     files: {
                         create: {
-                            storagePath: params.storagePath,
+                            storageBucket: params.storageBucket,
+                            objectKey: params.objectKey,
+                            originalFileName: params.originalFileName,
                             mimeType: params.mimeType,
                             fileSizeBytes: params.fileSizeBytes,
                             checksum: params.checksum,
                             isPrimary: true,
+                            status: MediaFileStatus.READY,
                         },
                     },
                 },
@@ -498,10 +518,13 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
             logger.warn('No media files found. Creating placeholders...');
             for (let i = 1; i <= 12; i++) {
                 const mi = await ensureMediaItemForFile({
+                    organizationId: orgId,
                     title: `Placeholder ${i}`,
                     description: faker.lorem.sentence(),
                     durationSeconds: faker.number.int({min: 6, max: 15}),
-                    storagePath: `/seed/media/placeholder-${i}.jpg`,
+                    storageBucket: 'seed',
+                    objectKey: `org/${orgId}/seed/media/placeholder-${i}.jpg`,
+                    originalFileName: `placeholder-${i}.jpg`,
                     mimeType: 'image/jpeg',
                     fileSizeBytes: BigInt(0),
                     checksum: faker.string.hexadecimal({length: 64, prefix: ''}),
@@ -517,10 +540,13 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
             const checksum = await sha256File(abs);
 
             const mi = await ensureMediaItemForFile({
+                organizationId: orgId,
                 title: path.parse(fileName).name.replace(/[-_]/g, ' '),
                 description: faker.lorem.sentence(),
                 durationSeconds: guessDurationSeconds(fileName),
-                storagePath: `/seed/media/${fileName}`,
+                storageBucket: 'seed',
+                objectKey: `org/${orgId}/seed/media/${fileName}`,
+                originalFileName: fileName,
                 mimeType: getMime(fileName),
                 fileSizeBytes: BigInt(stat.size),
                 checksum,
@@ -533,10 +559,15 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         return mediaItems;
     }
 
-    const mediaItems = await seedMediaLibrary();
+    const mediaItemsOrgA = await seedMediaLibrary(orgA.id);
+    const mediaItemsOrgB = await seedMediaLibrary(orgB.id);
 
     // Playlists + Items + Schedules
-    async function seedPlaylistsAndSchedules(orgId: string, channels: { id: string; name: string }[]) {
+    async function seedPlaylistsAndSchedules(
+        orgId: string,
+        channels: { id: string; name: string }[],
+        mediaItems: { id: string }[],
+    ) {
         const playlists = await Promise.all([
             (await prisma.playlist.findUnique({
                 where: {
@@ -721,8 +752,8 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         }
     }
 
-    await seedPlaylistsAndSchedules(orgA.id, [a.channelHall, a.channelCafet]);
-    await seedPlaylistsAndSchedules(orgB.id, [b.channelHall, b.channelCafet]);
+    await seedPlaylistsAndSchedules(orgA.id, [a.channelHall, a.channelCafet], mediaItemsOrgA);
+    await seedPlaylistsAndSchedules(orgB.id, [b.channelHall, b.channelCafet], mediaItemsOrgB);
 
     logger.info('DEV seed complete!');
     logger.info(
