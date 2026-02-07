@@ -3,13 +3,8 @@ import 'dotenv/config';
 import { Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { env } from '@/env';
-import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
-
-type MediaProcessingJobData = {
-    mediaFileId: string;
-    organizationId: string;
-};
+import { processMediaFile, type MediaProcessingJobData } from '@/lib/media/process-media-file';
 
 if (!env.REDIS_URL) {
     throw new Error('REDIS_URL is required to run media processing worker.');
@@ -22,31 +17,7 @@ const connection = new IORedis(env.REDIS_URL, {
 const worker = new Worker<MediaProcessingJobData>(
     'media-processing',
     async (job) => {
-        const mediaFile = await prisma.mediaFile.findUnique({
-            where: {id: job.data.mediaFileId},
-            select: {id: true, status: true, metaJson: true},
-        });
-
-        if (!mediaFile) {
-            logger.warn(
-                {event: 'media.processing', mediaFileId: job.data.mediaFileId},
-                'Media file not found.',
-            );
-            return;
-        }
-
-        await prisma.mediaFile.update({
-            where: {id: job.data.mediaFileId},
-            data: {
-                status: 'READY',
-                metaJson: {
-                    ...(mediaFile.metaJson && typeof mediaFile.metaJson === 'object'
-                        ? mediaFile.metaJson
-                        : {}),
-                    processedAt: new Date().toISOString(),
-                },
-            },
-        });
+        await processMediaFile(job.data);
     },
     {connection},
 );
@@ -57,14 +28,23 @@ worker.on('ready', () => {
 
 worker.on('completed', (job) => {
     logger.info(
-        {event: 'media.processing.completed', mediaFileId: job.data.mediaFileId},
+        {
+            event: 'media.processing.completed',
+            mediaFileId: job.data.mediaFileId,
+            organizationId: job.data.organizationId,
+        },
         'Media processing completed.',
     );
 });
 
 worker.on('failed', (job, error) => {
     logger.error(
-        {event: 'media.processing.failed', mediaFileId: job?.data.mediaFileId, error},
+        {
+            event: 'media.processing.failed',
+            mediaFileId: job?.data.mediaFileId,
+            organizationId: job?.data.organizationId,
+            error,
+        },
         'Media processing failed.',
     );
 });

@@ -36,6 +36,12 @@ export interface StorageService {
 
     getObjectSample(bucket: string, key: string, maxBytes: number): Promise<Buffer | null>;
 
+    getObjectToFile(params: {
+        bucket: string;
+        key: string;
+        filePath: string;
+    }): Promise<void>;
+
     copyObject(params: {
         bucket: string;
         sourceKey: string;

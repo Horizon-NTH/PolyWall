@@ -55,7 +55,13 @@ export async function GET(_: Request, {params}: Params) {
         return NextResponse.json({error: 'Accès refusé.'}, {status: 403});
     }
 
-    if (mediaFile.status !== 'READY') {
+    const canDownloadOriginal = (
+        mediaFile.status === 'UPLOADED' ||
+        mediaFile.status === 'PROCESSING' ||
+        mediaFile.status === 'READY'
+    );
+
+    if (!canDownloadOriginal) {
         log.invalid({reason: 'media_not_ready', status: mediaFile.status});
         return NextResponse.json({error: 'Le média n\'est pas prêt.'}, {status: 409});
     }

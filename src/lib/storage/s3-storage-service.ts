@@ -1,5 +1,3 @@
-import 'server-only';
-
 import {
     CopyObjectCommand,
     DeleteObjectCommand,
@@ -8,6 +6,8 @@ import {
     PutObjectCommand,
     S3Client,
 } from '@aws-sdk/client-s3';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '@/env';
 import type { HeadObjectResult, PresignGetParams, PresignPutParams, StorageService } from '@/lib/storage/types';
@@ -111,6 +111,27 @@ export class S3StorageService implements StorageService {
         } catch {
             return null;
         }
+    }
+
+    async getObjectToFile(params: {
+        bucket: string;
+        key: string;
+        filePath: string;
+    }) {
+        const response = await this.client.send(
+            new GetObjectCommand({
+                Bucket: params.bucket,
+                Key: params.key,
+            }),
+        );
+
+        if (!response.Body) {
+            throw new Error('S3 object has no body.');
+        }
+
+        await mkdir(dirname(params.filePath), {recursive: true});
+        const bytes = await response.Body.transformToByteArray();
+        await writeFile(params.filePath, bytes);
     }
 
     async copyObject(params: {

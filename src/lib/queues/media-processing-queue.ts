@@ -4,11 +4,8 @@ import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { env } from '@/env';
 import { logger } from '@/lib/logger';
-
-export type MediaProcessingJobData = {
-    mediaFileId: string;
-    organizationId: string;
-};
+import type { MediaProcessingJobData } from '@/lib/media/process-media-file';
+import { MEDIA_PROCESSING_VERSION } from '@/lib/media/processing-version';
 
 let queue: Queue<MediaProcessingJobData> | null = null;
 
@@ -38,7 +35,10 @@ export async function enqueueMediaProcessing(data: MediaProcessingJobData) {
         return;
     }
 
+    const jobId = `media:${data.mediaFileId}:${MEDIA_PROCESSING_VERSION}`;
+
     await q.add('process', data, {
+        jobId,
         attempts: 5,
         backoff: {
             type: 'exponential',

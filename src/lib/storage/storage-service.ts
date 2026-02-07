@@ -1,5 +1,3 @@
-import 'server-only';
-
 import { env } from '@/env';
 import { S3StorageService } from '@/lib/storage/s3-storage-service';
 import type { StorageService } from '@/lib/storage/types';

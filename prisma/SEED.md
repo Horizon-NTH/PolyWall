@@ -25,6 +25,13 @@ pnpm prisma db seed
 - `BOOTSTRAP_ADMIN_PASSWORD`: Password for the bootstrap admin.
 - `LOG_LEVEL`: Pino log level (default: `info`).
 - `PINO_PRETTY`: Set to `false` to disable pretty logs.
+- `STORAGE_DRIVER`: Defaults to `s3`.
+- `S3_ENDPOINT`: Defaults to `http://localhost:9000` (MinIO local).
+- `S3_REGION`: Defaults to `eu-west-3`.
+- `S3_BUCKET`: Defaults to `polywall-dev`.
+- `S3_ACCESS_KEY_ID`: Defaults to `polywall`.
+- `S3_SECRET_ACCESS_KEY`: Defaults to `polywallsecret`.
+- `S3_FORCE_PATH_STYLE`: Defaults to `true` (recommended for MinIO).
 
 ## What it does
 
@@ -52,5 +59,15 @@ public/seed/media
 ```
 
 - If the folder is empty or missing, placeholder media items are created.
-- If files exist, media items are created only when a file's storage path is not
-  already present in the database.
+- If files exist:
+    - each file is uploaded to object storage (`S3_BUCKET`) under
+      `org/{organizationId}/seed/media/{fileName}`
+    - media rows are created only when `(storageBucket, objectKey)` does not
+      already exist in the database.
+
+Recommended sample files for UI testing:
+
+- images: `.jpg`, `.png`, `.webp`, `.gif`
+- video: `.mp4`
+- document: `.pdf`
+- slides: `.pptx`

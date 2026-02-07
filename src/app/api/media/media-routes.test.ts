@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => {
             headObject: vi.fn(),
             deleteObject: vi.fn(),
             getObjectSample: vi.fn(),
+            getObjectToFile: vi.fn(),
             putObject: vi.fn(),
             copyObject: vi.fn(),
         },
@@ -268,7 +269,7 @@ describe('media API routes', () => {
             });
             expect(mocks.prisma.mediaFile.update).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    data: expect.objectContaining({status: 'READY', mimeType: 'image/png'}),
+                    data: expect.objectContaining({status: 'UPLOADED', mimeType: 'image/png'}),
                 }),
             );
         });
@@ -279,7 +280,7 @@ describe('media API routes', () => {
             mocks.auth.mockResolvedValueOnce(buildSession());
             mocks.prisma.mediaFile.findUnique.mockResolvedValueOnce({
                 id: 'mf-1',
-                status: 'PENDING',
+                status: 'AWAITING_UPLOAD',
                 storageBucket: 'polywall-dev',
                 objectKey: 'obj-key',
                 mediaItem: {organizationId: 'org-1'},
@@ -294,11 +295,11 @@ describe('media API routes', () => {
             expect(mocks.storage.presignGet).not.toHaveBeenCalled();
         });
 
-        it('returns signed download URL when ready', async () => {
+        it('returns signed download URL when uploaded', async () => {
             mocks.auth.mockResolvedValueOnce(buildSession());
             mocks.prisma.mediaFile.findUnique.mockResolvedValueOnce({
                 id: 'mf-1',
-                status: 'READY',
+                status: 'UPLOADED',
                 storageBucket: 'polywall-dev',
                 objectKey: 'obj-key',
                 mediaItem: {organizationId: 'org-1'},

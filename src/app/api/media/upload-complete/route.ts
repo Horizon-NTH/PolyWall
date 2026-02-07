@@ -40,6 +40,7 @@ export async function POST(request: Request) {
             objectKey: true,
             storageBucket: true,
             mimeType: true,
+            status: true,
             mediaItem: {
                 select: {
                     id: true,
@@ -61,6 +62,25 @@ export async function POST(request: Request) {
     ) {
         log.denied({reason: 'cross_organization_access', mediaFileId});
         return NextResponse.json({error: 'Accès refusé.'}, {status: 403});
+    }
+
+    if (mediaFile.status === 'FAILED') {
+        log.invalid({reason: 'media_file_failed', mediaFileId});
+        return NextResponse.json({error: 'Le fichier média est en erreur.'}, {status: 409});
+    }
+
+    if (mediaFile.status === 'READY' || mediaFile.status === 'PROCESSING') {
+        log.success({targetId: mediaFile.id, alreadyProcessed: true});
+        return NextResponse.json({ok: true});
+    }
+
+    if (mediaFile.status === 'UPLOADED') {
+        await enqueueMediaProcessing({
+            mediaFileId: mediaFile.id,
+            organizationId: mediaFile.mediaItem.organizationId,
+        });
+        log.success({targetId: mediaFile.id, alreadyValidated: true});
+        return NextResponse.json({ok: true});
     }
 
     try {
@@ -128,7 +148,7 @@ export async function POST(request: Request) {
         await prisma.mediaFile.update({
             where: {id: mediaFile.id},
             data: {
-                status: 'READY',
+                status: 'UPLOADED',
                 fileSizeBytes:
                     head.contentLength !== null
                         ? BigInt(head.contentLength)

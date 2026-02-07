@@ -4,11 +4,13 @@ function randomKeyPart(size = 16) {
     return crypto.randomUUID().replace(/-/g, '').slice(0, size);
 }
 
+export type MediaObjectVariant = 'original' | 'thumb' | 'render';
+
 export function buildMediaObjectKey(params: {
     organizationId: string;
     mediaItemId: string;
     originalFileName: string;
-    variant?: 'original' | 'thumb' | 'poster' | 'webp' | 'derived';
+    variant?: MediaObjectVariant;
 }) {
     const sanitized = sanitizeFilename(params.originalFileName)
         .replace(/\.\.+/g, '.')
@@ -19,4 +21,23 @@ export function buildMediaObjectKey(params: {
     const keySuffix = `${Date.now()}-${randomKeyPart()}-${safe}`;
 
     return `org/${params.organizationId}/media/${params.mediaItemId}/${variant}/${keySuffix}`;
+}
+
+export function buildDerivedMediaObjectKey(params: {
+    organizationId: string;
+    mediaItemId: string;
+    sourceMediaFileId: string;
+    variant: Exclude<MediaObjectVariant, 'original'>;
+    variantIndex?: number;
+    extension: string;
+}) {
+    const extension = params.extension.replace(/^\.+/, '').toLowerCase() || 'bin';
+    const index = params.variantIndex ?? 0;
+
+    return [
+        `org/${params.organizationId}/media/${params.mediaItemId}`,
+        params.variant,
+        `src-${params.sourceMediaFileId}`,
+        `${index}.${extension}`,
+    ].join('/');
 }

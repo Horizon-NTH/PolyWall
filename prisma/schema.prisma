@@ -41,9 +41,17 @@ enum MediaStorageProvider {
 }
 
 enum MediaFileStatus {
-  PENDING
+  AWAITING_UPLOAD
+  UPLOADED
+  PROCESSING
   READY
   FAILED
+}
+
+enum MediaFileVariant {
+  ORIGINAL
+  THUMB
+  RENDER
 }
 
 model Organization {
@@ -140,28 +148,35 @@ model MediaItem {
 }
 
 model MediaFile {
-  id            String  @id @default(cuid())
-  storageBucket String
-  objectKey     String
+  id               String  @id @default(cuid())
+  storageBucket    String
+  objectKey        String
   originalFileName String
   storageProvider  MediaStorageProvider @default(S3)
-  status           MediaFileStatus      @default(PENDING)
-  mimeType      String
-  fileSizeBytes BigInt
-  checksum      String
-  isPrimary     Boolean @default(false)
-  metaJson      Json?
+  status           MediaFileStatus      @default(AWAITING_UPLOAD)
+  variant          MediaFileVariant     @default(ORIGINAL)
+  variantIndex     Int                  @default(0)
+  sourceMediaFileId String?
+  mimeType         String
+  fileSizeBytes    BigInt
+  checksum         String
+  isPrimary        Boolean @default(false)
+  metaJson         Json?
 
   mediaItem   MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
   mediaItemId String
+  sourceFile  MediaFile? @relation("MediaFileDerivatives", fields: [sourceMediaFileId], references: [id], onDelete: Cascade)
+  derivedFiles MediaFile[] @relation("MediaFileDerivatives")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([storageBucket, objectKey])
+  @@unique([sourceMediaFileId, variant, variantIndex])
   @@index([mediaItemId])
   @@index([checksum])
   @@index([mediaItemId, isPrimary])
+  @@index([sourceMediaFileId, variant])
 }
 
 model DisplayTemplate {
