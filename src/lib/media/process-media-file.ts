@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,6 +10,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { buildDerivedMediaObjectKey } from '@/lib/storage/object-key';
 import { getStorageService } from '@/lib/storage/storage-service';
+import { asRecord } from '@/lib/media/media-view-model';
 
 export type MediaProcessingJobData = {
     mediaFileId: string;
@@ -117,6 +117,7 @@ export async function processMediaFile(job: MediaProcessingJobData) {
     try {
         const head = await storage.headObject(mediaFile.storageBucket, mediaFile.objectKey);
         if (!head) {
+            // noinspection ExceptionCaughtLocallyJS
             throw new UnrecoverableError('Object not found in storage.');
         }
         metadata.etag = head.etag;
@@ -251,6 +252,7 @@ export async function processMediaFile(job: MediaProcessingJobData) {
                 });
             }
         } else {
+            // noinspection ExceptionCaughtLocallyJS
             throw new UnrecoverableError(`Unsupported mime type for processing: ${mediaFile.mimeType}`);
         }
 
@@ -298,13 +300,6 @@ export async function processMediaFile(job: MediaProcessingJobData) {
     } finally {
         await fs.rm(tempDir, {recursive: true, force: true});
     }
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return {};
-    }
-    return value as Record<string, unknown>;
 }
 
 async function probeMedia(filePath: string) {
@@ -482,8 +477,6 @@ async function upsertDerived(params: {
     });
 
     const body = await fs.readFile(params.localFilePath);
-    const checksum = createHash('sha256').update(body).digest('hex');
-
     const storage = getStorageService();
     await storage.putObject({
         bucket: params.storageBucket,
@@ -507,14 +500,11 @@ async function upsertDerived(params: {
         storageBucket: params.storageBucket,
         objectKey,
         originalFileName: params.originalFileName,
-        storageProvider: 'S3' as const,
         status: 'READY' as const,
         variant: params.variant,
         variantIndex: params.variantIndex,
         mimeType: params.mimeType,
         fileSizeBytes: BigInt(body.byteLength),
-        checksum,
-        isPrimary: false,
     };
 
     if (existing) {

@@ -7,7 +7,6 @@ describe('uploadIntentSchema', () => {
             fileName: 'video.mp4',
             mimeType: 'video/mp4',
             fileSizeBytes: 1024,
-            checksum: 'a'.repeat(64),
             title: 'Video',
             description: 'Desc',
             durationSeconds: 12,
@@ -16,12 +15,11 @@ describe('uploadIntentSchema', () => {
         expect(parsed.success).toBe(true);
     });
 
-    it('rejects invalid checksum and file size', () => {
+    it('rejects invalid file size', () => {
         const parsed = uploadIntentSchema.safeParse({
             fileName: 'file.png',
             mimeType: 'image/png',
             fileSizeBytes: 0,
-            checksum: 'bad',
         });
 
         expect(parsed.success).toBe(false);

@@ -36,10 +36,6 @@ enum ZoneType {
   OVERLAY
 }
 
-enum MediaStorageProvider {
-  S3
-}
-
 enum MediaFileStatus {
   AWAITING_UPLOAD
   UPLOADED
@@ -152,15 +148,12 @@ model MediaFile {
   storageBucket    String
   objectKey        String
   originalFileName String
-  storageProvider  MediaStorageProvider @default(S3)
   status           MediaFileStatus      @default(AWAITING_UPLOAD)
   variant          MediaFileVariant     @default(ORIGINAL)
   variantIndex     Int                  @default(0)
   sourceMediaFileId String?
   mimeType         String
   fileSizeBytes    BigInt
-  checksum         String
-  isPrimary        Boolean @default(false)
   metaJson         Json?
 
   mediaItem   MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
@@ -174,8 +167,6 @@ model MediaFile {
   @@unique([storageBucket, objectKey])
   @@unique([sourceMediaFileId, variant, variantIndex])
   @@index([mediaItemId])
-  @@index([checksum])
-  @@index([mediaItemId, isPrimary])
   @@index([sourceMediaFileId, variant])
 }
 

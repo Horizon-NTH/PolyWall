@@ -104,6 +104,14 @@ export async function createOrganization(
         });
         return {ok: false, field: 'root', message: 'Accès refusé.'};
     }
+    if (!ability.can('create', 'Organization')) {
+        log.denied({
+            reason: 'forbidden_action',
+            actorUserId: session.user.id,
+            organizationId: session.user.organizationId,
+        });
+        return {ok: false, field: 'root', message: 'Accès refusé.'};
+    }
 
     const parsed = organizationSchema.safeParse(data);
     if (!parsed.success) {
@@ -172,6 +180,15 @@ export async function updateOrganization(
     if (!ability.can('view', 'SuperAdminSection')) {
         log.denied({
             reason: 'forbidden',
+            actorUserId: session.user.id,
+            organizationId: session.user.organizationId,
+            targetId: organizationId,
+        });
+        return {ok: false, field: 'root', message: 'Accès refusé.'};
+    }
+    if (!ability.can('update', 'Organization')) {
+        log.denied({
+            reason: 'forbidden_action',
             actorUserId: session.user.id,
             organizationId: session.user.organizationId,
             targetId: organizationId,
@@ -250,6 +267,15 @@ export async function deleteOrganization(
     if (!ability.can('view', 'SuperAdminSection')) {
         log.denied({
             reason: 'forbidden',
+            actorUserId: session.user.id,
+            organizationId: session.user.organizationId,
+            targetId: parsed.data.organizationId,
+        });
+        return {ok: false, field: 'root', message: 'Accès refusé.'};
+    }
+    if (!ability.can('delete', 'Organization')) {
+        log.denied({
+            reason: 'forbidden_action',
             actorUserId: session.user.id,
             organizationId: session.user.organizationId,
             targetId: parsed.data.organizationId,

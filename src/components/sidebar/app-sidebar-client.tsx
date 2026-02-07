@@ -30,7 +30,7 @@ import { UserRole } from '@/generated/prisma/enums';
 const sidebarItems = {
     main: [{title: 'Tableau de bord', url: '/dashboard', icon: LayoutDashboard}],
     contenus: [
-        {title: 'Médias', url: '#', icon: ImageIcon},
+        {title: 'Médias', url: '/dashboard/media', icon: ImageIcon},
         {title: 'Playlists', url: '#', icon: ListMusic},
         {title: 'Plus', url: '#', icon: MoreHorizontal},
     ],

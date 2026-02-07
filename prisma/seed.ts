@@ -2,7 +2,6 @@ import 'dotenv/config';
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import { createHash } from 'crypto';
 
 import pino from 'pino';
 import { faker } from '@faker-js/faker';
@@ -74,11 +73,6 @@ function timeOfDayUTC(h: number, min: number) {
 
 function getMime(fileName: string) {
     return (mime.lookup(fileName) as string) || 'application/octet-stream';
-}
-
-async function sha256File(absPath: string) {
-    const buf = await fs.readFile(absPath);
-    return createHash('sha256').update(buf).digest('hex');
 }
 
 function guessDurationSeconds(fileName: string) {
@@ -550,7 +544,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
             originalFileName: string;
             mimeType: string;
             fileSizeBytes: bigint;
-            checksum: string;
             initialStatus: MediaFileStatus;
         }) {
             const safeFileName = sanitizeFilename(params.originalFileName).trim() || 'seed-file.bin';
@@ -558,7 +551,8 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
 
             const existing = await prisma.mediaFile.findFirst({
                 where: {
-                    isPrimary: true,
+                    variant: 'ORIGINAL',
+                    sourceMediaFileId: null,
                     originalFileName: params.originalFileName,
                     mediaItem: {organizationId: params.organizationId},
                     objectKey: {endsWith: `/original/${seedOriginalName}`},
@@ -606,8 +600,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
                     originalFileName: params.originalFileName,
                     mimeType: params.mimeType,
                     fileSizeBytes: params.fileSizeBytes,
-                    checksum: params.checksum,
-                    isPrimary: true,
                     status: params.initialStatus,
                     variant: 'ORIGINAL',
                     variantIndex: 0,
@@ -630,7 +622,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
                     originalFileName: `placeholder-${i}.jpg`,
                     mimeType: 'image/jpeg',
                     fileSizeBytes: BigInt(0),
-                    checksum: faker.string.hexadecimal({length: 64, prefix: ''}),
                     initialStatus: MediaFileStatus.READY,
                 });
                 mediaItems.push(mi);
@@ -641,7 +632,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         for (const fileName of files) {
             const abs = path.join(SEED_MEDIA_DIR, fileName);
             const stat = await fs.stat(abs);
-            const checksum = await sha256File(abs);
             const mimeType = getMime(fileName);
 
             const mi = await ensureMediaItemForFile({
@@ -653,7 +643,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
                 originalFileName: fileName,
                 mimeType,
                 fileSizeBytes: BigInt(stat.size),
-                checksum,
                 initialStatus: MediaFileStatus.UPLOADED,
             });
 

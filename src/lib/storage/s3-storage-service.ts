@@ -14,16 +14,26 @@ import type { HeadObjectResult, PresignGetParams, PresignPutParams, StorageServi
 
 export class S3StorageService implements StorageService {
     private readonly client: S3Client;
+    private readonly presignClient: S3Client;
 
     constructor() {
-        this.client = new S3Client({
+        const sharedConfig = {
             region: env.S3_REGION,
-            endpoint: env.S3_ENDPOINT,
             forcePathStyle: env.S3_FORCE_PATH_STYLE ?? true,
             credentials: {
                 accessKeyId: env.S3_ACCESS_KEY_ID,
                 secretAccessKey: env.S3_SECRET_ACCESS_KEY,
             },
+        };
+
+        this.client = new S3Client({
+            ...sharedConfig,
+            endpoint: env.S3_ENDPOINT,
+        });
+
+        this.presignClient = new S3Client({
+            ...sharedConfig,
+            endpoint: env.S3_PUBLIC_BASE_URL ?? env.S3_ENDPOINT,
         });
     }
 
@@ -51,7 +61,7 @@ export class S3StorageService implements StorageService {
             ContentLength: params.contentLength,
         });
 
-        return getSignedUrl(this.client, command, {
+        return getSignedUrl(this.presignClient, command, {
             expiresIn: params.expiresInSeconds,
         });
     }
@@ -62,7 +72,7 @@ export class S3StorageService implements StorageService {
             Key: params.key,
         });
 
-        return getSignedUrl(this.client, command, {
+        return getSignedUrl(this.presignClient, command, {
             expiresIn: params.expiresInSeconds,
         });
     }
