@@ -1,3 +1,4 @@
+import { promises as fs } from 'fs';
 import path from 'path';
 import { expect, test } from '@playwright/test';
 
@@ -67,6 +68,22 @@ async function createMedia(
         durationSeconds?: string;
     },
 ) {
+    await page.route('**/*', async (route) => {
+        if (route.request().method() === 'PUT') {
+            await route.fulfill({status: 200, body: ''});
+            return;
+        }
+        await route.continue();
+    });
+
+    await page.route('**/api/media/upload-complete', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ok: true}),
+        });
+    });
+
     await page.goto('/dashboard/media/new');
     await page.getByLabel('Titre').fill(params.title);
     await page.getByLabel('Description').fill(params.description);
@@ -82,6 +99,10 @@ async function createMedia(
 
     const mediaId = extractMediaId(page.url());
     await expect(page.getByRole('heading', {name: params.title})).toBeVisible();
+
+    await page.unroute('**/api/media/upload-complete');
+    await page.unroute('**/*');
+
     return mediaId;
 }
 
@@ -101,9 +122,18 @@ async function deleteMediaById(page: Parameters<typeof login>[0], mediaId: strin
 test.describe('media', () => {
     const uploadImagePath = path.join(
         process.cwd(),
-        'public/seed/media/abstract-whale-png.png',
+        '.playwright',
+        'fixtures',
+        'media-upload-fixture.png',
     );
     const disallowedSvgPath = path.join(process.cwd(), 'public/logo.svg');
+    const onePixelPngBase64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO3ZzVQAAAAASUVORK5CYII=';
+
+    test.beforeAll(async () => {
+        await fs.mkdir(path.dirname(uploadImagePath), {recursive: true});
+        await fs.writeFile(uploadImagePath, Buffer.from(onePixelPngBase64, 'base64'));
+    });
 
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
@@ -117,6 +147,10 @@ test.describe('media', () => {
             await deleteMediaById(page, mediaId);
         }
         createdMediaIds.length = 0;
+    });
+
+    test.afterAll(async () => {
+        await fs.unlink(uploadImagePath).catch(() => undefined);
     });
 
     test('super admin must select an organization before accessing media page', async ({
