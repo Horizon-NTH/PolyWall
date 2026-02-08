@@ -18,7 +18,7 @@ export default defineConfig({
     /* Fail the build on CI if you accidentally left test.only in the source code. */
     forbidOnly: !!process.env.CI,
     /* Retry on CI only */
-    retries: process.env.CI ? 1 : 0,
+    retries: 0,
     /* Opt out of parallel tests on CI. */
     workers: process.env.CI ? 1 : undefined,
     /* Reporter to use. See https://playwright.dev/docs/test-reporters */
@@ -65,7 +65,7 @@ export default defineConfig({
 
     webServer: process.env.CI
         ? {
-            command: 'pnpm build && node .next/standalone/server.js',
+            command: 'pnpm build && pnpm start',
             url: 'http://localhost:3000',
             reuseExistingServer: false,
             timeout: 120_000,
