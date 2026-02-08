@@ -12,7 +12,6 @@ jobs:
       AUTH_SECRET: 'ci-auth-secret'
       AUTH_URL: http://localhost:3000
       SEED_MODE: dev
-      CI: true
       AUTH_TRUST_HOST: true
     services:
       postgres:
@@ -30,11 +29,16 @@ jobs:
           --health-retries=5
     steps:
       - uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 20
+          cache: pnpm
       - name: Install dependencies
-        run: npm install -g pnpm && pnpm install
+        run: pnpm install --frozen-lockfile
       - name: Setup Prisma
         run: pnpm prisma generate
       - name: Migrate database
