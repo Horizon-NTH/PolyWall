@@ -1,9 +1,8 @@
 name: Playwright Tests
 on:
-  push:
-    branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
 jobs:
   test:
     timeout-minutes: 60
@@ -13,6 +12,7 @@ jobs:
       AUTH_SECRET: 'ci-auth-secret'
       AUTH_URL: http://localhost:3000
       SEED_MODE: dev
+      CI: true
     services:
       postgres:
         image: postgres:15-alpine
@@ -41,12 +41,15 @@ jobs:
       - name: Seed database
         run: pnpm db:seed
       - name: Install Playwright Browsers
-        run: pnpm exec playwright install --with-deps
+        run: pnpm exec playwright install --with-deps chromium
       - name: Run Playwright tests
         run: pnpm exec playwright test
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
           retention-days: 30

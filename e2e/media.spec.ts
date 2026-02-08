@@ -1,4 +1,3 @@
-import { promises as fs } from 'fs';
 import path from 'path';
 import { expect, test } from '@playwright/test';
 
@@ -64,7 +63,7 @@ async function createMedia(
     params: {
         title: string;
         description: string;
-        filePath: string;
+        file: string | { name: string; mimeType: string; buffer: Buffer };
         durationSeconds?: string;
     },
 ) {
@@ -90,7 +89,7 @@ async function createMedia(
     if (params.durationSeconds) {
         await page.getByLabel('Durée (secondes)').fill(params.durationSeconds);
     }
-    await page.getByLabel('Fichier média').setInputFiles(params.filePath);
+    await page.getByLabel('Fichier média').setInputFiles(params.file);
     await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
     await page.waitForURL(
         (url) => /^\/dashboard\/media\/[^/]+$/.test(url.pathname) && !url.pathname.endsWith('/new'),
@@ -120,20 +119,15 @@ async function deleteMediaById(page: Parameters<typeof login>[0], mediaId: strin
 }
 
 test.describe('media', () => {
-    const uploadImagePath = path.join(
-        process.cwd(),
-        '.playwright',
-        'fixtures',
-        'media-upload-fixture.png',
-    );
     const disallowedSvgPath = path.join(process.cwd(), 'public/logo.svg');
-    const onePixelPngBase64 =
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO3ZzVQAAAAASUVORK5CYII=';
-
-    test.beforeAll(async () => {
-        await fs.mkdir(path.dirname(uploadImagePath), {recursive: true});
-        await fs.writeFile(uploadImagePath, Buffer.from(onePixelPngBase64, 'base64'));
-    });
+    const uploadImageFile = {
+        name: 'media-upload-fixture.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO3ZzVQAAAAASUVORK5CYII=',
+            'base64',
+        ),
+    } as const;
 
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
@@ -147,10 +141,6 @@ test.describe('media', () => {
             await deleteMediaById(page, mediaId);
         }
         createdMediaIds.length = 0;
-    });
-
-    test.afterAll(async () => {
-        await fs.unlink(uploadImagePath).catch(() => undefined);
     });
 
     test('super admin must select an organization before accessing media page', async ({
@@ -181,7 +171,7 @@ test.describe('media', () => {
         const mediaId = await createMedia(page, {
             title: mediaTitle,
             description: 'Média e2e pour tester la liste.',
-            filePath: uploadImagePath,
+            file: uploadImageFile,
         });
         trackMediaId(mediaId);
 
@@ -256,7 +246,7 @@ test.describe('media', () => {
         const mediaId = await createMedia(page, {
             title: mediaTitle,
             description: 'Média à modifier et supprimer.',
-            filePath: uploadImagePath,
+            file: uploadImageFile,
         });
         trackMediaId(mediaId);
 
