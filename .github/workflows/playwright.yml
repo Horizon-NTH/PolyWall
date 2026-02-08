@@ -13,6 +13,7 @@ jobs:
       AUTH_URL: http://localhost:3000
       SEED_MODE: dev
       CI: true
+      AUTH_TRUST_HOST: true
     services:
       postgres:
         image: postgres:15-alpine

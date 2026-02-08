@@ -84,6 +84,8 @@ async function deleteOrganizationByName(page: Parameters<typeof login>[0], name:
 }
 
 test.describe('organizations', () => {
+    test.describe.configure({mode: 'serial'});
+
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
         createdOrgNames.length = 0;
