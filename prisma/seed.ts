@@ -1,24 +1,31 @@
+import 'dotenv/config';
+
 import { promises as fs } from 'fs';
 import path from 'path';
-import { createHash } from 'crypto';
 
 import pino from 'pino';
 import { faker } from '@faker-js/faker';
 import argon2 from 'argon2';
 import mime from 'mime-types';
+import sanitizeFilename from 'sanitize-filename';
+import {
+    CreateBucketCommand,
+    HeadBucketCommand,
+    PutObjectCommand,
+    S3Client,
+} from '@aws-sdk/client-s3';
 
-import { DayOfWeek, Prisma, PrismaClient, ScheduleType, UserRole, ZoneType } from '@/generated/prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import 'dotenv/config';
+import {
+    DayOfWeek,
+    MediaFileStatus,
+    Prisma,
+    ScheduleType,
+    UserRole,
+    ZoneType,
+} from '@/generated/prisma/client';
+import { processMediaFile } from '@/lib/media/process-media-file';
 import { ADMIN_CREDENTIALS } from '@/test/fixtures/auth-test-credentials';
-
-const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
-});
-
-const prisma = new PrismaClient({
-    adapter,
-});
+import { prisma } from '@/lib/prisma';
 
 const logger = pino({
     level: process.env.LOG_LEVEL ?? 'info',
@@ -35,6 +42,14 @@ faker.seed(42);
 
 const DEV_PASSWORD = process.env.DEV_PASSWORD ?? ADMIN_CREDENTIALS.password;
 const SEED_MEDIA_DIR = path.join(process.cwd(), 'public', 'seed', 'media');
+const STORAGE_DRIVER = (process.env.STORAGE_DRIVER ?? 's3').toLowerCase();
+const S3_ENDPOINT = process.env.S3_ENDPOINT ?? 'http://localhost:9000';
+const S3_REGION = process.env.S3_REGION ?? 'us-east-1';
+const S3_BUCKET = process.env.S3_BUCKET ?? 'polywall-dev';
+const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID ?? 'polywall';
+const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY ?? 'polywallsecret';
+const S3_FORCE_PATH_STYLE =
+    (process.env.S3_FORCE_PATH_STYLE ?? 'true').toLowerCase() === 'true';
 
 type SeedMode = 'core' | 'dev' | 'prod';
 
@@ -60,11 +75,6 @@ function getMime(fileName: string) {
     return (mime.lookup(fileName) as string) || 'application/octet-stream';
 }
 
-async function sha256File(absPath: string) {
-    const buf = await fs.readFile(absPath);
-    return createHash('sha256').update(buf).digest('hex');
-}
-
 function guessDurationSeconds(fileName: string) {
     const ext = path.extname(fileName).toLowerCase();
     if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext))
@@ -73,6 +83,74 @@ function guessDurationSeconds(fileName: string) {
         return faker.number.int({min: 20, max: 120});
     if (ext === '.pdf') return faker.number.int({min: 10, max: 30});
     return faker.number.int({min: 8, max: 20});
+}
+
+let seedS3Client: S3Client | null = null;
+let seedBucketReady = false;
+
+function isS3StorageEnabledForSeed() {
+    return STORAGE_DRIVER === 's3';
+}
+
+function getSeedS3Client() {
+    if (seedS3Client) return seedS3Client;
+    seedS3Client = new S3Client({
+        region: S3_REGION,
+        endpoint: S3_ENDPOINT,
+        forcePathStyle: S3_FORCE_PATH_STYLE,
+        credentials: {
+            accessKeyId: S3_ACCESS_KEY_ID,
+            secretAccessKey: S3_SECRET_ACCESS_KEY,
+        },
+    });
+    return seedS3Client;
+}
+
+async function ensureSeedBucketReady() {
+    if (!isS3StorageEnabledForSeed()) return;
+    if (seedBucketReady) return;
+
+    const client = getSeedS3Client();
+
+    try {
+        await client.send(
+            new HeadBucketCommand({
+                Bucket: S3_BUCKET,
+            }),
+        );
+        seedBucketReady = true;
+        return;
+    } catch {
+        logger.warn({bucket: S3_BUCKET}, 'Seed bucket not found, creating it...');
+    }
+
+    await client.send(
+        new CreateBucketCommand({
+            Bucket: S3_BUCKET,
+        }),
+    );
+    seedBucketReady = true;
+}
+
+async function uploadSeedFileToS3(params: {
+    absolutePath: string;
+    objectKey: string;
+    contentType: string;
+}) {
+    if (!isS3StorageEnabledForSeed()) return;
+
+    await ensureSeedBucketReady();
+    const client = getSeedS3Client();
+    const body = await fs.readFile(params.absolutePath);
+
+    await client.send(
+        new PutObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: params.objectKey,
+            Body: body,
+            ContentType: params.contentType,
+        }),
+    );
 }
 
 /**
@@ -441,8 +519,8 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
     await seedWidgetsForOrg(orgA.id, a.zones);
     await seedWidgetsForOrg(orgB.id, b.zones);
 
-    async function seedMediaLibrary() {
-        logger.info({dir: SEED_MEDIA_DIR}, 'Seeding media library...');
+    async function seedMediaLibrary(orgId: string) {
+        logger.info({dir: SEED_MEDIA_DIR, organizationId: orgId}, 'Seeding media library...');
 
         let files: string[] = [];
         try {
@@ -455,56 +533,96 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         }
 
         const mediaItems: { id: string }[] = [];
+        const orgMediaPrefix = `org/${orgId}/media/`;
 
         async function ensureMediaItemForFile(params: {
+            organizationId: string;
             title: string;
             description: string;
             durationSeconds: number;
-            storagePath: string;
+            storageBucket: string;
+            originalFileName: string;
             mimeType: string;
             fileSizeBytes: bigint;
-            checksum: string;
+            initialStatus: MediaFileStatus;
         }) {
-            const existing = await prisma.mediaFile.findUnique({
-                where: {storagePath: params.storagePath},
-                select: {mediaItemId: true},
+            const safeFileName = sanitizeFilename(params.originalFileName).trim() || 'seed-file.bin';
+            const seedOriginalName = `seed-${safeFileName}`;
+
+            const existing = await prisma.mediaFile.findFirst({
+                where: {
+                    variant: 'ORIGINAL',
+                    sourceMediaFileId: null,
+                    originalFileName: params.originalFileName,
+                    mediaItem: {organizationId: params.organizationId},
+                    objectKey: {endsWith: `/original/${seedOriginalName}`},
+                },
+                select: {id: true, mediaItemId: true, status: true, objectKey: true},
             });
 
             if (existing) {
-                return {id: existing.mediaItemId};
+                const desiredObjectKey =
+                    `${orgMediaPrefix}${existing.mediaItemId}/original/${seedOriginalName}`;
+                if (existing.status !== params.initialStatus) {
+                    await prisma.mediaFile.update({
+                        where: {id: existing.id},
+                        data: {
+                            status: params.initialStatus,
+                            objectKey: desiredObjectKey,
+                        },
+                    });
+                } else if (existing.objectKey !== desiredObjectKey) {
+                    await prisma.mediaFile.update({
+                        where: {id: existing.id},
+                        data: {objectKey: desiredObjectKey},
+                    });
+                }
+                return {id: existing.mediaItemId, mediaFileId: existing.id, objectKey: desiredObjectKey};
             }
 
-            return prisma.mediaItem.create({
+            const mediaItem = await prisma.mediaItem.create({
                 data: {
+                    organizationId: params.organizationId,
                     title: params.title,
                     description: params.description,
                     durationSeconds: params.durationSeconds,
                     active: true,
-                    files: {
-                        create: {
-                            storagePath: params.storagePath,
-                            mimeType: params.mimeType,
-                            fileSizeBytes: params.fileSizeBytes,
-                            checksum: params.checksum,
-                            isPrimary: true,
-                        },
-                    },
                 },
                 select: {id: true},
             });
+            const objectKey = `${orgMediaPrefix}${mediaItem.id}/original/${seedOriginalName}`;
+
+            const mediaFile = await prisma.mediaFile.create({
+                data: {
+                    mediaItemId: mediaItem.id,
+                    storageBucket: params.storageBucket,
+                    objectKey,
+                    originalFileName: params.originalFileName,
+                    mimeType: params.mimeType,
+                    fileSizeBytes: params.fileSizeBytes,
+                    status: params.initialStatus,
+                    variant: 'ORIGINAL',
+                    variantIndex: 0,
+                },
+                select: {id: true},
+            });
+
+            return {id: mediaItem.id, mediaFileId: mediaFile.id, objectKey};
         }
 
         if (files.length === 0) {
             logger.warn('No media files found. Creating placeholders...');
             for (let i = 1; i <= 12; i++) {
                 const mi = await ensureMediaItemForFile({
+                    organizationId: orgId,
                     title: `Placeholder ${i}`,
                     description: faker.lorem.sentence(),
                     durationSeconds: faker.number.int({min: 6, max: 15}),
-                    storagePath: `/seed/media/placeholder-${i}.jpg`,
+                    storageBucket: isS3StorageEnabledForSeed() ? S3_BUCKET : 'seed',
+                    originalFileName: `placeholder-${i}.jpg`,
                     mimeType: 'image/jpeg',
                     fileSizeBytes: BigInt(0),
-                    checksum: faker.string.hexadecimal({length: 64, prefix: ''}),
+                    initialStatus: MediaFileStatus.READY,
                 });
                 mediaItems.push(mi);
             }
@@ -514,29 +632,61 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         for (const fileName of files) {
             const abs = path.join(SEED_MEDIA_DIR, fileName);
             const stat = await fs.stat(abs);
-            const checksum = await sha256File(abs);
+            const mimeType = getMime(fileName);
 
             const mi = await ensureMediaItemForFile({
+                organizationId: orgId,
                 title: path.parse(fileName).name.replace(/[-_]/g, ' '),
                 description: faker.lorem.sentence(),
                 durationSeconds: guessDurationSeconds(fileName),
-                storagePath: `/seed/media/${fileName}`,
-                mimeType: getMime(fileName),
+                storageBucket: isS3StorageEnabledForSeed() ? S3_BUCKET : 'seed',
+                originalFileName: fileName,
+                mimeType,
                 fileSizeBytes: BigInt(stat.size),
-                checksum,
+                initialStatus: MediaFileStatus.UPLOADED,
             });
 
+            if (isS3StorageEnabledForSeed()) {
+                await uploadSeedFileToS3({
+                    absolutePath: abs,
+                    objectKey: mi.objectKey,
+                    contentType: mimeType,
+                });
+            }
+
             mediaItems.push(mi);
+
+            try {
+                await processMediaFile({
+                    mediaFileId: mi.mediaFileId,
+                    organizationId: orgId,
+                });
+            } catch (error) {
+                logger.warn(
+                    {
+                        organizationId: orgId,
+                        mediaFileId: mi.mediaFileId,
+                        errorName: error instanceof Error ? error.name : 'UnknownError',
+                        errorMessage: error instanceof Error ? error.message : String(error),
+                    },
+                    'Seed media processing failed.',
+                );
+            }
         }
 
         logger.info({count: mediaItems.length}, 'Media library seeded.');
         return mediaItems;
     }
 
-    const mediaItems = await seedMediaLibrary();
+    const mediaItemsOrgA = await seedMediaLibrary(orgA.id);
+    const mediaItemsOrgB = await seedMediaLibrary(orgB.id);
 
     // Playlists + Items + Schedules
-    async function seedPlaylistsAndSchedules(orgId: string, channels: { id: string; name: string }[]) {
+    async function seedPlaylistsAndSchedules(
+        orgId: string,
+        channels: { id: string; name: string }[],
+        mediaItems: { id: string }[],
+    ) {
         const playlists = await Promise.all([
             (await prisma.playlist.findUnique({
                 where: {
@@ -721,8 +871,8 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         }
     }
 
-    await seedPlaylistsAndSchedules(orgA.id, [a.channelHall, a.channelCafet]);
-    await seedPlaylistsAndSchedules(orgB.id, [b.channelHall, b.channelCafet]);
+    await seedPlaylistsAndSchedules(orgA.id, [a.channelHall, a.channelCafet], mediaItemsOrgA);
+    await seedPlaylistsAndSchedules(orgB.id, [b.channelHall, b.channelCafet], mediaItemsOrgB);
 
     logger.info('DEV seed complete!');
     logger.info(

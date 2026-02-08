@@ -22,7 +22,7 @@ type AdminActionResult =
     | { ok: true; adminId?: string }
     | { ok: false; field?: AdminField; message: string };
 
-async function ensureSuperAdminAccess() {
+async function ensureSuperAdminAccess(requiredAction: 'create' | 'update' | 'delete') {
     const session = await auth();
     if (!session?.user) {
         return {ok: false as const, field: 'root', message: 'Vous devez être connecté.'};
@@ -30,6 +30,9 @@ async function ensureSuperAdminAccess() {
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('view', 'SuperAdminSection')) {
+        return {ok: false as const, field: 'root', message: 'Accès refusé.'};
+    }
+    if (!ability.can(requiredAction, 'User')) {
         return {ok: false as const, field: 'root', message: 'Accès refusé.'};
     }
 
@@ -72,7 +75,7 @@ export async function createAdmin(
     data: z.infer<typeof adminCreateSchema>,
 ): Promise<AdminActionResult> {
     const log = createActionLogger({event: 'admin.create', action: 'create'});
-    const access = await ensureSuperAdminAccess();
+    const access = await ensureSuperAdminAccess('create');
     if (!access.ok) {
         log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
@@ -171,7 +174,7 @@ export async function updateAdmin(
     data: z.infer<typeof adminUpdateSchema>,
 ): Promise<AdminActionResult> {
     const log = createActionLogger({event: 'admin.update', action: 'update', targetId: adminId});
-    const access = await ensureSuperAdminAccess();
+    const access = await ensureSuperAdminAccess('update');
     if (!access.ok) {
         log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
@@ -327,7 +330,7 @@ export async function toggleAdminActive(
     adminId: string,
 ): Promise<AdminActionResult> {
     const log = createActionLogger({event: 'admin.toggle', action: 'toggle', targetId: adminId});
-    const access = await ensureSuperAdminAccess();
+    const access = await ensureSuperAdminAccess('update');
     if (!access.ok) {
         log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
@@ -399,7 +402,7 @@ export async function deleteAdmin(
     adminId: string,
 ): Promise<AdminActionResult> {
     const log = createActionLogger({event: 'admin.delete', action: 'delete', targetId: adminId});
-    const access = await ensureSuperAdminAccess();
+    const access = await ensureSuperAdminAccess('delete');
     if (!access.ok) {
         log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};

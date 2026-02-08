@@ -17,12 +17,17 @@ export const mockPrismaModule = () => {
                 update: vi.fn(),
                 delete: vi.fn(),
             },
+            mediaItem: {
+                findFirst: vi.fn(),
+                update: vi.fn(),
+                delete: vi.fn(),
+            },
         },
     }));
 };
 
 export const getPrismaMock = async () => {
-    const { prisma } = await import('@/lib/prisma');
+    const {prisma} = await import('@/lib/prisma');
     return prisma as unknown as {
         user: {
             findUnique: ReturnType<typeof vi.fn>;
@@ -38,5 +43,10 @@ export const getPrismaMock = async () => {
             update: ReturnType<typeof vi.fn>;
             delete: ReturnType<typeof vi.fn>;
         };
+        mediaItem: {
+            findFirst: ReturnType<typeof vi.fn>;
+            update: ReturnType<typeof vi.fn>;
+            delete: ReturnType<typeof vi.fn>;
+        }
     };
 };

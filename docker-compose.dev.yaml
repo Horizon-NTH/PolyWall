@@ -12,16 +12,36 @@ services:
     volumes:
       - .:/app
       - polywall-node-modules-dev:/app/node_modules
-      - polywall-uploads-dev:/data/uploads
     environment:
       NODE_ENV: development
-      NEXT_TELEMETRY_DISABLED: 1
-      UPLOAD_ROOT: /data/uploads
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       REDIS_URL: redis://redis:6379
     depends_on:
       - postgres
       - redis
+      - minio
+      - minio-init
+
+  media-worker:
+    container_name: polywall-media-worker-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   postgres:
     container_name: polywall-postgres-dev
@@ -48,10 +68,42 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    container_name: polywall-minio-dev
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY}
+    volumes:
+      - polywall-minio-data-dev:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/ready" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    container_name: polywall-minio-init-dev
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID} ${S3_SECRET_ACCESS_KEY} &&
+      mc mb --ignore-existing local/${S3_BUCKET} &&
+      mc anonymous set none local/${S3_BUCKET}
+      "
+
 volumes:
   polywall-postgres-data-dev:
     driver: local
   polywall-node-modules-dev:
     driver: local
-  polywall-uploads-dev:
+  polywall-minio-data-dev:
     driver: local

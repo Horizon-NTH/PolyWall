@@ -1,0 +1,1 @@
+export const MEDIA_PROCESSING_VERSION = '1.0.0';

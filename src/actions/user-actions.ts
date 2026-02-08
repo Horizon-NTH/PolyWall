@@ -17,7 +17,7 @@ type UserActionResult =
     | { ok: true; userId?: string }
     | { ok: false; field?: UserField; message: string };
 
-async function ensureUserAccess() {
+async function ensureUserAccess(requiredAction: 'create' | 'update' | 'delete') {
     const session = await auth();
     if (!session?.user) {
         return {ok: false as const, field: 'root', message: 'Vous devez être connecté.'};
@@ -25,6 +25,9 @@ async function ensureUserAccess() {
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('view', 'OrganizationAdminSection') && !ability.can('view', 'SuperAdminSection')) {
+        return {ok: false as const, field: 'root', message: 'Accès refusé.'};
+    }
+    if (!ability.can(requiredAction, 'User')) {
         return {ok: false as const, field: 'root', message: 'Accès refusé.'};
     }
 
@@ -56,7 +59,7 @@ export async function createUser(
     data: z.infer<typeof userCreateSchema>,
 ): Promise<UserActionResult> {
     const log = createActionLogger({event: 'user.create', action: 'create'});
-    const access = await ensureUserAccess();
+    const access = await ensureUserAccess('create');
     if (!access.ok) {
         log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
@@ -123,7 +126,7 @@ export async function updateUser(
     data: z.infer<typeof userUpdateSchema>,
 ): Promise<UserActionResult> {
     const log = createActionLogger({event: 'user.update', action: 'update', targetId: userId});
-    const access = await ensureUserAccess();
+    const access = await ensureUserAccess('update');
     if (!access.ok) {
         log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
@@ -203,7 +206,7 @@ export async function toggleUserActive(
     userId: string,
 ): Promise<UserActionResult> {
     const log = createActionLogger({event: 'user.toggle', action: 'toggle', targetId: userId});
-    const access = await ensureUserAccess();
+    const access = await ensureUserAccess('update');
     if (!access.ok) {
         log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
@@ -252,7 +255,7 @@ export async function deleteUser(
     userId: string,
 ): Promise<UserActionResult> {
     const log = createActionLogger({event: 'user.delete', action: 'delete', targetId: userId});
-    const access = await ensureUserAccess();
+    const access = await ensureUserAccess('delete');
     if (!access.ok) {
         log.denied({reason: access.message});
         return {ok: false, field: 'root', message: access.message};
