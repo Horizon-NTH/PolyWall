@@ -16,3 +16,17 @@ export function formatBytes(bytes: number | null) {
     if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} Mo`;
     return `${(bytes / 1024 ** 3).toFixed(1)} Go`;
 }
+
+export function formatDurationSeconds(totalSeconds: number) {
+    const safe = Math.max(0, Math.trunc(totalSeconds));
+    const hours = Math.floor(safe / 3600);
+    const minutes = Math.floor((safe % 3600) / 60);
+    const seconds = safe % 60;
+
+    const twoDigits = (value: number) => String(value).padStart(2, '0');
+    if (hours > 0) {
+        return `${hours}:${twoDigits(minutes)}:${twoDigits(seconds)}`;
+    }
+
+    return `${minutes}:${twoDigits(seconds)}`;
+}

@@ -42,7 +42,7 @@ function MediaFallback({kind}: { kind: MediaKind }) {
     return renderMediaKindIcon(kind, 'size-10 text-muted-foreground');
 }
 
-function MediaKindIcon({kind}: { kind: MediaKind }) {
+export function MediaKindIcon({kind}: { kind: MediaKind }) {
     return renderMediaKindIcon(kind, 'size-3.5');
 }
 

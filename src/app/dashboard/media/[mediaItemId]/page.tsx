@@ -26,20 +26,28 @@ import { getStorageService } from '@/lib/storage/storage-service';
 import { formatBytes, formatDate } from '@/lib/utils';
 
 type MediaDetailsPageProps = {
-    params: Promise<{ mediaItemId: string }>
+    params: Promise<{ mediaItemId: string }>;
+    searchParams: Promise<{ backTo?: string }>;
 };
 
-export default async function Page({params}: MediaDetailsPageProps) {
+function getSafeBackHref(backTo: string | undefined) {
+    if (!backTo) return '/dashboard/media';
+    if (!backTo.startsWith('/dashboard')) return '/dashboard/media';
+    return backTo;
+}
+
+export default async function Page({params, searchParams}: MediaDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('read', 'MediaItem')) redirect('/dashboard');
 
-    const {mediaItemId} = await params;
+    const [{mediaItemId}, query] = await Promise.all([params, searchParams]);
     if (!mediaItemId) {
         notFound();
     }
+    const backHref = getSafeBackHref(query.backTo);
 
     const organizationId = session.user.organizationId;
     if (!organizationId) {
@@ -177,7 +185,7 @@ export default async function Page({params}: MediaDetailsPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href="/dashboard/media">Retour</Link>
+                            <Link href={backHref}>Retour</Link>
                         </Button>
                         <Button asChild>
                             <Link href={`/dashboard/media/${mediaItem.id}/edit`}>Modifier</Link>
