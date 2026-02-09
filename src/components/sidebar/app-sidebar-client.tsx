@@ -36,7 +36,7 @@ const sidebarItems = {
     ],
     diffusion: [
         {title: 'Planification', url: '#', icon: CalendarClock},
-        {title: 'Canaux', url: '#', icon: Radio},
+        {title: 'Canaux', url: '/dashboard/channels', icon: Radio},
         {title: 'Écrans', url: '#', icon: Monitor},
     ],
     organizationAdmin: [

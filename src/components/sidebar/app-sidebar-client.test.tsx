@@ -64,6 +64,7 @@ describe('AppSidebarClient', () => {
         expect(screen.queryByText('Administration')).not.toBeInTheDocument();
         expect(screen.getByRole('link', {name: 'Médias'})).toHaveAttribute('href', '/dashboard/media');
         expect(screen.getByRole('link', {name: 'Playlists'})).toHaveAttribute('href', '/dashboard/playlists');
+        expect(screen.getByRole('link', {name: 'Canaux'})).toHaveAttribute('href', '/dashboard/channels');
     });
 
     it('shows no admin sections for content managers', async () => {
