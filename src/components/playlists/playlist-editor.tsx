@@ -11,6 +11,7 @@ import {
     useDroppable,
     useSensor,
     useSensors,
+    type DragMoveEvent,
     type DragEndEvent,
     type DragOverEvent,
     type DragStartEvent,
@@ -64,6 +65,7 @@ type PlaylistEditorProps = {
 const TIMELINE_DROPZONE_ID = 'timeline-dropzone';
 const LIBRARY_PREFIX = 'library:';
 const TIMELINE_PREFIX = 'timeline:';
+const MIN_MEDIA_LIBRARY_CARD_HEIGHT_PX = 420;
 
 function makeLibraryId(mediaId: string) {
     return `${LIBRARY_PREFIX}${mediaId}`;
@@ -95,6 +97,54 @@ function pluralizeInactive(count: number) {
 
 function buildTimelinePayloadKey(payload: PlaylistTimelineReplaceValues) {
     return payload.items.map((item) => item.mediaItemId).join('|');
+}
+
+function getDragPointerY(event: {
+    active: {
+        rect: {
+            current: {
+                translated?: { top: number; height: number } | null;
+                initial: { top: number; height: number } | null
+            }
+        }
+    }
+}) {
+    const translated = event.active.rect.current.translated;
+    if (translated) return translated.top + translated.height / 2;
+
+    const initial = event.active.rect.current.initial;
+    if (initial) return initial.top + initial.height / 2;
+
+    return null;
+}
+
+function getDragPointerPosition(event: {
+    active: {
+        rect: {
+            current: {
+                translated?: { top: number; left: number; width: number; height: number } | null;
+                initial: { top: number; left: number; width: number; height: number } | null
+            }
+        }
+    }
+}) {
+    const translated = event.active.rect.current.translated;
+    if (translated) {
+        return {
+            x: translated.left + translated.width / 2,
+            y: translated.top + translated.height / 2,
+        };
+    }
+
+    const initial = event.active.rect.current.initial;
+    if (initial) {
+        return {
+            x: initial.left + initial.width / 2,
+            y: initial.top + initial.height / 2,
+        };
+    }
+
+    return null;
 }
 
 function DraggableMediaCard({media}: { media: AvailableMediaItem }) {
@@ -302,11 +352,31 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
     const lastPayloadKeyRef = React.useRef<string>(buildTimelinePayloadKey(initialPayload));
     const lastSavedPayloadKeyRef = React.useRef<string>(buildTimelinePayloadKey(initialPayload));
     const timelineCardRef = React.useRef<HTMLDivElement | null>(null);
+    const dropzoneElementRef = React.useRef<HTMLDivElement | null>(null);
 
     const {setNodeRef: setDropzoneRef, isOver} = useDroppable({
         id: TIMELINE_DROPZONE_ID,
         data: {source: 'timeline-dropzone'},
     });
+    const setTimelineDropzoneRef = React.useCallback((node: HTMLDivElement | null) => {
+        dropzoneElementRef.current = node;
+        setDropzoneRef(node);
+    }, [setDropzoneRef]);
+
+    const isDragInsideEmptyDropzone = React.useCallback((event: DragMoveEvent | DragOverEvent | DragEndEvent) => {
+        if (timeline.length !== 0) return false;
+        const pointer = getDragPointerPosition(event);
+        const dropzone = dropzoneElementRef.current;
+        if (!pointer || !dropzone) return false;
+
+        const rect = dropzone.getBoundingClientRect();
+        return (
+            pointer.x >= rect.left
+            && pointer.x <= rect.right
+            && pointer.y >= rect.top
+            && pointer.y <= rect.bottom
+        );
+    }, [timeline.length]);
 
     const availableById = React.useMemo(() => {
         const index = new Map<string, AvailableMediaItem>();
@@ -452,6 +522,14 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
     };
 
     const onDragOver = (event: DragOverEvent) => {
+        updateDragInsertIndex(event);
+    };
+
+    const onDragMove = (event: DragMoveEvent) => {
+        updateDragInsertIndex(event);
+    };
+
+    const updateDragInsertIndex = (event: DragOverEvent | DragMoveEvent) => {
         if (activeDrag?.type !== 'library') {
             setDragInsertIndex(null);
             return;
@@ -459,7 +537,7 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
 
         const over = event.over;
         if (!over) {
-            setDragInsertIndex(null);
+            setDragInsertIndex(isDragInsideEmptyDropzone(event) ? 0 : null);
             return;
         }
 
@@ -471,12 +549,34 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
                 return;
             }
             const overIndex = timeline.findIndex((item) => item.entryId === overEntryId);
-            setDragInsertIndex(overIndex < 0 ? null : overIndex);
+            if (overIndex < 0) {
+                setDragInsertIndex(null);
+                return;
+            }
+
+            const pointerY = getDragPointerY(event);
+            const overMiddleY = over.rect.top + over.rect.height / 2;
+            const isOverLowerHalf = typeof pointerY === 'number' && pointerY > overMiddleY;
+            const isLastItem = overIndex === timeline.length - 1;
+
+            if (isLastItem && isOverLowerHalf) {
+                setDragInsertIndex(timeline.length);
+                return;
+            }
+
+            setDragInsertIndex(Math.min(overIndex, timeline.length));
             return;
         }
 
         if (over.id === TIMELINE_DROPZONE_ID) {
-            setDragInsertIndex(timeline.length);
+            const pointerY = getDragPointerY(event);
+            if (typeof pointerY !== 'number') {
+                setDragInsertIndex(timeline.length);
+                return;
+            }
+
+            const dropzoneMiddleY = over.rect.top + over.rect.height / 2;
+            setDragInsertIndex(pointerY < dropzoneMiddleY ? 0 : timeline.length);
             return;
         }
 
@@ -496,14 +596,19 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
 
         if (activeSource === 'library') {
             const mediaId = (active.data.current?.mediaId as string | undefined) ?? null;
-            if (mediaId && over && (overSource === 'timeline' || over.id === TIMELINE_DROPZONE_ID)) {
-                const insertIndex = dragInsertIndex ?? timeline.length;
-                addMediaToTimeline(mediaId, insertIndex);
+            const droppedOnTimeline = !!over && (overSource === 'timeline' || over.id === TIMELINE_DROPZONE_ID);
+            const droppedInsideEmptyDropzone = isDragInsideEmptyDropzone(event);
+            const canDrop = droppedOnTimeline || droppedInsideEmptyDropzone;
+
+            if (mediaId && canDrop) {
+                addMediaToTimeline(mediaId, dragInsertIndex ?? timeline.length);
             }
+
             setActiveDrag(null);
             setDragInsertIndex(null);
             return;
         }
+
 
         if (!over) {
             setActiveDrag(null);
@@ -569,10 +674,15 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
 
     const timelineSortableIds = React.useMemo(() => timeline.map((item) => makeTimelineId(item.entryId)), [timeline]);
     const activeLibraryMedia = activeDrag?.type === 'library' ? availableById.get(activeDrag.mediaId) ?? null : null;
+    const mediaLibraryCardHeight = isSideBySide && timelineCardHeight
+        ? Math.max(Math.round(timelineCardHeight), MIN_MEDIA_LIBRARY_CARD_HEIGHT_PX)
+        : null;
+    const isEmptyDropActive = timeline.length === 0 && activeDrag?.type === 'library' && dragInsertIndex === 0;
     return (
         <DndContext
             sensors={sensors}
             onDragStart={onDragStart}
+            onDragMove={onDragMove}
             onDragOver={onDragOver}
             onDragEnd={onDragEnd}
             onDragCancel={onDragCancel}
@@ -580,8 +690,8 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
             <div className="grid items-start gap-4 lg:grid-cols-5">
                 <Card
                     className="flex min-h-0 flex-col lg:col-span-2 lg:self-start"
-                    style={isSideBySide && timelineCardHeight
-                        ? {height: `${Math.round(timelineCardHeight)}px`}
+                    style={mediaLibraryCardHeight
+                        ? {height: `${mediaLibraryCardHeight}px`}
                         : undefined}
                 >
                     <CardHeader>
@@ -637,7 +747,11 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
                     </CardContent>
                 </Card>
 
-                <Card ref={timelineCardRef} className="lg:col-span-3 lg:self-start">
+                <Card
+                    ref={timelineCardRef}
+                    className="flex flex-col lg:col-span-3 lg:self-start"
+                    style={isSideBySide ? {minHeight: `${MIN_MEDIA_LIBRARY_CARD_HEIGHT_PX}px`} : undefined}
+                >
                     <CardHeader>
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <div>
@@ -676,18 +790,26 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
                     </CardHeader>
                     <CardContent>
                         <div
-                            ref={setDropzoneRef}
-                            className={
-                                isOver
-                                    ? 'min-h-30 space-y-2 rounded-md border-2 border-dashed border-blue-400 bg-blue-50 p-2'
-                                    : 'min-h-30 space-y-2 rounded-md border border-dashed p-2'
-                            }
+                            ref={setTimelineDropzoneRef}
+                            className={cn(
+                                'w-full min-h-30 space-y-2 rounded-md border border-dashed p-2',
+                                isSideBySide && 'flex-1',
+                                timeline.length === 0 && 'flex items-center justify-center p-6',
+                                (isOver || isEmptyDropActive) && 'border-2 border-blue-400 bg-blue-50',
+                            )}
                         >
                             <SortableContext items={timelineSortableIds} strategy={verticalListSortingStrategy}>
                                 {timeline.length === 0 ? (
-                                    <p className="text-muted-foreground py-8 text-center text-sm">
-                                        Glissez un média ici pour démarrer la playlist.
-                                    </p>
+                                    <div className="text-center">
+                                        <p className="text-muted-foreground text-sm">
+                                            Glissez un média ici pour démarrer la playlist.
+                                        </p>
+                                        {activeDrag?.type === 'library' && dragInsertIndex === 0 ? (
+                                            <p className="mt-2 text-sm font-medium text-blue-700">
+                                                Relâchez pour l&apos;ajouter.
+                                            </p>
+                                        ) : null}
+                                    </div>
                                 ) : (
                                     timeline.map((item, index) => (
                                         <React.Fragment key={item.entryId}>
@@ -708,7 +830,7 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
                                         </React.Fragment>
                                     ))
                                 )}
-                                {activeDrag?.type === 'library' && dragInsertIndex === timeline.length ? (
+                                {timeline.length > 0 && activeDrag?.type === 'library' && dragInsertIndex === timeline.length ? (
                                     <TimelineInsertPlaceholder />
                                 ) : null}
                             </SortableContext>
