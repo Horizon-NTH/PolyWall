@@ -31,12 +31,13 @@ export function OrganizationSelect({organizations}: OrganizationSelectProps) {
                 className="max-w-(--radix-select-trigger-width)"
             >
                 {organizations.map((organization) => (
-                    <SelectItem key={organization.id} value={organization.id} title={organization.name}>
-                        <span
-                            className="truncate max-w-[calc(var(--radix-select-trigger-width)*0.9)]"
-                        >
-                            {organization.name}
-                        </span>
+                    <SelectItem
+                        key={organization.id}
+                        value={organization.id}
+                        title={organization.name}
+                        className="max-w-[calc(var(--radix-select-trigger-width)*0.9)] truncate"
+                    >
+                        {organization.name}
                     </SelectItem>
                 ))}
             </SelectContent>

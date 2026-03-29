@@ -34,8 +34,7 @@ import {
     mediaUpdateSchema,
     type MediaUpdateValues,
 } from '@/schemas/media-schema';
-import { ButtonGroup } from '@/components/ui/button-group';
-import { MinusIcon, PlusIcon } from 'lucide-react';
+import { NumberStepperInput } from '@/components/ui/number-stepper-input';
 
 type MediaFormValues = {
     title: string;
@@ -53,11 +52,6 @@ type MediaFormProps = {
     defaultValues?: Partial<MediaUpdateValues>;
     cancelHref: string;
 };
-
-
-function clampDuration(value: number) {
-    return Math.max(1, Math.min(MAX_MEDIA_DURATION_SECONDS, value));
-}
 
 export function MediaForm({
                               mode,
@@ -190,72 +184,17 @@ export function MediaForm({
                             render={({field, fieldState}) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel htmlFor="durationSeconds">Durée (secondes)</FieldLabel>
-                                    <ButtonGroup>
-                                        <Input
-                                            id="durationSeconds"
-                                            type="text"
-                                            inputMode="numeric"
-                                            pattern="[0-9]*"
-                                            value={Number.isFinite(field.value) ? field.value : ''}
-                                            onChange={(event) => {
-                                                const raw = event.target.value;
-                                                if (raw === '') {
-                                                    field.onChange(undefined);
-                                                    return;
-                                                }
-
-                                                const parsed = Number(raw);
-                                                if (Number.isNaN(parsed)) {
-                                                    field.onChange(undefined);
-                                                    return;
-                                                }
-
-                                                field.onChange(clampDuration(Math.trunc(parsed)));
-                                            }}
-                                            aria-invalid={fieldState.invalid}
-                                            disabled={isVideoDurationLocked}
-                                            required
-                                        />
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            type="button"
-                                            aria-label="Décrément"
-                                            onClick={() => {
-                                                const current = Number(field.value);
-                                                if (Number.isNaN(current)) {
-                                                    field.onChange(1);
-                                                    return;
-                                                }
-
-                                                field.onChange(clampDuration(current - 1));
-                                            }}
-                                            disabled={isVideoDurationLocked || Number(field.value) <= 1}
-                                        >
-                                            <MinusIcon />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            type="button"
-                                            aria-label="Incrément"
-                                            onClick={() => {
-                                                const current = Number(field.value);
-                                                if (Number.isNaN(current)) {
-                                                    field.onChange(1);
-                                                    return;
-                                                }
-
-                                                field.onChange(clampDuration(current + 1));
-                                            }}
-                                            disabled={
-                                                isVideoDurationLocked ||
-                                                Number(field.value) >= MAX_MEDIA_DURATION_SECONDS
-                                            }
-                                        >
-                                            <PlusIcon />
-                                        </Button>
-                                    </ButtonGroup>
+                                    <NumberStepperInput
+                                        id="durationSeconds"
+                                        value={Number.isFinite(field.value) ? field.value : undefined}
+                                        onValueChange={field.onChange}
+                                        min={1}
+                                        max={MAX_MEDIA_DURATION_SECONDS}
+                                        disabled={isVideoDurationLocked}
+                                        ariaInvalid={fieldState.invalid}
+                                        required
+                                        decrementFromEmptyToMin
+                                    />
                                     <FieldDescription>
                                         {isVideoDurationLocked
                                             ? 'Durée verrouillée pour les vidéos (calcul automatique).'

@@ -45,7 +45,7 @@ const loadAuthConfig = async () => {
 };
 
 const setupRateLimitMocks = async () => {
-    const mod = await import('@/lib/rate-limit');
+    const mod = await import('@/lib/rate-limit/login');
     const consumeLoginAttempt = vi
         .spyOn(mod, 'consumeLoginAttempt')
         .mockResolvedValue(undefined);

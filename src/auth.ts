@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma';
 import { credentialsSchema } from '@/schemas/auth-schema';
 import { env } from '@/env';
 import { JWT } from 'next-auth/jwt';
-import { consumeLoginAttempt, RateLimitExceeded, resetLoginAttempt } from '@/lib/rate-limit';
+import { consumeLoginAttempt, RateLimitExceeded, resetLoginAttempt } from '@/lib/rate-limit/login';
 import { logger } from '@/lib/logger';
+import { getRequestIp } from '@/lib/utils';
 
 class RateLimitedError extends CredentialsSignin {
     code = 'rate_limited';
@@ -17,22 +18,6 @@ function isRateLimitExceeded(error: unknown): error is RateLimitExceeded {
         return true;
     }
     return error instanceof Error && error.message === 'rate_limited';
-}
-
-function getRequestIp(request: Request): string | null {
-    const forwarded = request.headers.get('x-forwarded-for');
-    if (forwarded) {
-        const first = forwarded.split(',')[0]?.trim();
-        if (first) return first;
-    }
-
-    const realIp = request.headers.get('x-real-ip');
-    if (realIp) return realIp;
-
-    const cfIp = request.headers.get('cf-connecting-ip');
-    if (cfIp) return cfIp;
-
-    return null;
 }
 
 export const authConfig = {

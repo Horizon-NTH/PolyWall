@@ -6,6 +6,7 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
+import { safeGoto } from './helpers/navigation';
 
 function buildUniquePlaylistName(projectName: string, suffix: string) {
     return `PW E2E ${projectName} Playlist ${Date.now()} ${suffix}`;
@@ -29,43 +30,9 @@ async function ensurePlaylistsList(page: Parameters<typeof login>[0]) {
         return;
     }
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-            await page.goto('/dashboard/playlists', {waitUntil: 'domcontentloaded'});
-            break;
-        } catch (error) {
-            const message = String(error);
-            if (
-                message.includes('NS_BINDING_ABORTED') ||
-                message.includes('interrupted by another navigation')
-            ) {
-                await page.waitForLoadState('domcontentloaded');
-                continue;
-            }
-            throw error;
-        }
-    }
+    await safeGoto(page, '/dashboard/playlists');
 
     await page.waitForURL(/\/dashboard\/playlists$/, {timeout: 15000});
-}
-
-async function safeGoto(page: Parameters<typeof login>[0], pathname: string) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-            await page.goto(pathname, {waitUntil: 'domcontentloaded'});
-            return;
-        } catch (error) {
-            const message = String(error);
-            if (
-                message.includes('NS_BINDING_ABORTED') ||
-                message.includes('interrupted by another navigation')
-            ) {
-                await page.waitForLoadState('domcontentloaded');
-                continue;
-            }
-            throw error;
-        }
-    }
 }
 
 async function filterPlaylists(page: Parameters<typeof login>[0], query: string) {
