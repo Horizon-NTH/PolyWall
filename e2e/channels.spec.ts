@@ -6,6 +6,7 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
+import { safeGoto } from './helpers/navigation';
 
 function buildUniqueChannelName(projectName: string, suffix: string) {
     return `PW E2E ${projectName} Canal ${Date.now()} ${suffix}`;
@@ -21,25 +22,6 @@ function extractChannelId(url: string) {
     const match = url.match(/\/dashboard\/channels\/(?!new$)(?!.*\/edit$)([^/]+)$/);
     if (!match) throw new Error(`Impossible de lire l'ID canal depuis l'URL: ${url}`);
     return match[1];
-}
-
-async function safeGoto(page: Parameters<typeof login>[0], pathname: string) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-            await page.goto(pathname, {waitUntil: 'domcontentloaded'});
-            return;
-        } catch (error) {
-            const message = String(error);
-            if (
-                message.includes('NS_BINDING_ABORTED') ||
-                message.includes('interrupted by another navigation')
-            ) {
-                await page.waitForLoadState('domcontentloaded');
-                continue;
-            }
-            throw error;
-        }
-    }
 }
 
 async function ensureChannelsList(page: Parameters<typeof login>[0]) {

@@ -31,7 +31,7 @@ export function ChannelSummaryCard({
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                     <div>
-                        <p className="text-muted-foreground text-xs uppercase">Modèle d'affichage</p>
+                        <p className="text-muted-foreground text-xs uppercase">Modèle d&apos;affichage</p>
                         <p>{displayTemplateName}</p>
                     </div>
                     <div>

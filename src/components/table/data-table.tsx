@@ -4,6 +4,7 @@ import * as React from 'react';
 import {
     flexRender,
     type ColumnDef,
+    type Row,
     type Table,
 } from '@tanstack/react-table';
 
@@ -45,11 +46,13 @@ export function getRowSelectionColumn<TData>(): ColumnDef<TData> {
 type DataTableViewProps<TData> = {
     table: Table<TData>;
     emptyMessage?: string;
+    getRowClassName?: (row: Row<TData>) => string | undefined;
 };
 
 export function DataTableView<TData>({
                                          table,
                                          emptyMessage = 'Aucun résultat.',
+                                         getRowClassName,
                                      }: DataTableViewProps<TData>) {
     const columnsCount = table.getAllLeafColumns().length;
 
@@ -78,6 +81,7 @@ export function DataTableView<TData>({
                             <TableRow
                                 key={row.id}
                                 data-state={row.getIsSelected() && 'selected'}
+                                className={getRowClassName?.(row)}
                             >
                                 {row.getVisibleCells().map((cell) => (
                                     <TableCell key={cell.id}>

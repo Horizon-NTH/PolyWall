@@ -156,7 +156,7 @@ export function ChannelForm({
                             control={form.control}
                             render={({field, fieldState}) => (
                                 <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel htmlFor="displayTemplateId">Modèle d'affichage</FieldLabel>
+                                    <FieldLabel htmlFor="displayTemplateId">Modèle d&apos;affichage</FieldLabel>
                                     <Select value={field.value} onValueChange={field.onChange}>
                                         <SelectTrigger
                                             id="displayTemplateId"

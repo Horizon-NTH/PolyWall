@@ -41,6 +41,17 @@ export const mockPrismaModule = () => {
                 findMany: vi.fn(),
             },
             screen: {
+                findFirst: vi.fn(),
+                findMany: vi.fn(),
+                create: vi.fn(),
+                update: vi.fn(),
+                delete: vi.fn(),
+                updateMany: vi.fn(),
+            },
+            screenPairingToken: {
+                create: vi.fn(),
+                findFirst: vi.fn(),
+                findUnique: vi.fn(),
                 updateMany: vi.fn(),
             },
             playlistItem: {
@@ -93,6 +104,17 @@ export const getPrismaMock = async () => {
             findMany: ReturnType<typeof vi.fn>;
         };
         screen: {
+            findFirst: ReturnType<typeof vi.fn>;
+            findMany: ReturnType<typeof vi.fn>;
+            create: ReturnType<typeof vi.fn>;
+            update: ReturnType<typeof vi.fn>;
+            delete: ReturnType<typeof vi.fn>;
+            updateMany: ReturnType<typeof vi.fn>;
+        };
+        screenPairingToken: {
+            create: ReturnType<typeof vi.fn>;
+            findFirst: ReturnType<typeof vi.fn>;
+            findUnique: ReturnType<typeof vi.fn>;
             updateMany: ReturnType<typeof vi.fn>;
         };
         playlistItem: {

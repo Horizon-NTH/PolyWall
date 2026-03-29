@@ -20,6 +20,7 @@ import {
     MediaFileStatus,
     Prisma,
     ScheduleType,
+    ScreenStatus,
     UserRole,
     ZoneType,
 } from '@/generated/prisma/client';
@@ -438,12 +439,14 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
 
             await prisma.screen.create({
                 data: {
+                    deviceId: faker.string.uuid(),
                     name: screen.name,
                     location: screen.location,
                     organizationId: orgId,
                     channelId: screen.channelId,
+                    status: ScreenStatus.ACTIVE,
+                    approvedAt: new Date(),
                     interactive: false,
-                    interruptionEnabled: false,
                 },
             });
         }

@@ -50,6 +50,12 @@ enum MediaFileVariant {
   RENDER
 }
 
+enum ScreenStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
 model Organization {
   id          String @id @default(cuid())
   name        String
@@ -60,6 +66,7 @@ model Organization {
   playlists        Playlist[]
   channels         Channel[]
   screens          Screen[]
+  screenPairingTokens ScreenPairingToken[]
   displayTemplates DisplayTemplate[]
   widgetInstances  WidgetInstance[]
 
@@ -239,25 +246,47 @@ model Channel {
 
 model Screen {
   id                       String  @id @default(cuid())
+  deviceId                 String
   name                     String
   location                 String
+  status                   ScreenStatus @default(PENDING)
   interactive              Boolean @default(false)
-  interruptionEnabled      Boolean @default(false)
   interactiveUrl           String?
   inactivityTimeoutSeconds Int?
+  approvedAt               DateTime?
+  approvedByUserId         String?
+  lastSeenAt               DateTime?
+  revokedAt                DateTime?
+  revokedByUserId          String?
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
 
-  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Restrict)
-  channelId String
+  channel   Channel? @relation(fields: [channelId], references: [id], onDelete: Restrict)
+  channelId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, deviceId])
   @@unique([organizationId, name])
-  @@index([organizationId])
+  @@index([organizationId, status])
   @@index([channelId])
+  @@index([lastSeenAt])
+}
+
+model ScreenPairingToken {
+  id              String   @id @default(cuid())
+  organizationId  String
+  tokenHash       String   @unique
+  expiresAt       DateTime
+  invalidatedAt   DateTime?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, expiresAt])
 }
 
 model WidgetType {

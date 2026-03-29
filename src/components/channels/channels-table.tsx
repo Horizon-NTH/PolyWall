@@ -324,8 +324,10 @@ export function ChannelsTable({data, canManage}: ChannelsTableProps) {
                                     onValueChange={(value) => setSchedulesFilterValue(value as SchedulesFilter)}
                                 >
                                     <DropdownMenuRadioItem value="all">Toutes</DropdownMenuRadioItem>
-                                    <DropdownMenuRadioItem value="with-schedules">Avec planifications</DropdownMenuRadioItem>
-                                    <DropdownMenuRadioItem value="without-schedules">Sans planification</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="with-schedules">Avec
+                                        planifications</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="without-schedules">Sans
+                                        planification</DropdownMenuRadioItem>
                                 </DropdownMenuRadioGroup>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuLabel>Tri</DropdownMenuLabel>
@@ -338,8 +340,10 @@ export function ChannelsTable({data, canManage}: ChannelsTableProps) {
                                     <DropdownMenuRadioItem value="updatedAt-asc">MAJ anciennes</DropdownMenuRadioItem>
                                     <DropdownMenuRadioItem value="name-asc">Nom A-Z</DropdownMenuRadioItem>
                                     <DropdownMenuRadioItem value="name-desc">Nom Z-A</DropdownMenuRadioItem>
-                                    <DropdownMenuRadioItem value="screens-desc">Plus d'écrans</DropdownMenuRadioItem>
-                                    <DropdownMenuRadioItem value="screens-asc">Moins d'écrans</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="screens-desc">Plus
+                                        d&apos;écrans</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="screens-asc">Moins
+                                        d&apos;écrans</DropdownMenuRadioItem>
                                     <DropdownMenuRadioItem value="schedules-desc">
                                         Plus de planifications
                                     </DropdownMenuRadioItem>
