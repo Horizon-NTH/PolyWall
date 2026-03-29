@@ -19,7 +19,7 @@ vi.mock('@/lib/prisma', () => ({
     prisma: mocks.prisma,
 }));
 
-vi.mock('@/lib/display-rate-limit', () => ({
+vi.mock('@/lib/rate-limit/display', () => ({
     consumeDisplayApiLimit: mocks.consumeDisplayApiLimit,
     DisplayRateLimitExceeded: class DisplayRateLimitExceeded extends Error {
         msBeforeNext = 1000;

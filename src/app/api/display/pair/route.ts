@@ -4,11 +4,12 @@ import { createActionLogger } from '@/actions/action-logging';
 import { ScreenStatus } from '@/generated/prisma/enums';
 import { prisma } from '@/lib/prisma';
 import { buildPendingScreenName, hashPairingToken } from '@/lib/screens/pairing';
-import { getDisplayRequestIp, guardDisplayRateLimit } from '@/lib/screens/display-route-utils';
+import { guardDisplayRateLimit } from '@/lib/screens/display-route-utils';
 import { screenPairingRequestSchema } from '@/schemas/screen-schema';
+import { getRequestIp } from '@/lib/utils';
 
 export async function POST(request: Request) {
-    const ip = getDisplayRequestIp(request);
+    const ip = getRequestIp(request) ?? 'unknown';
     const log = createActionLogger({
         event: 'display.pair',
         action: 'create',

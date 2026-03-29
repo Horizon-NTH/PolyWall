@@ -1,21 +1,11 @@
 import { NextResponse } from 'next/server';
 
-import { consumeDisplayApiLimit, DisplayRateLimitExceeded } from '@/lib/display-rate-limit';
+import { consumeDisplayApiLimit, DisplayRateLimitExceeded } from '@/lib/rate-limit/display';
 
 type DisplayRouteLogger = {
     invalid?: (extra?: Record<string, unknown>) => void;
     error?: (error: unknown, extra?: Record<string, unknown>) => void;
 };
-
-export function getDisplayRequestIp(request: Request) {
-    const forwarded = request.headers.get('x-forwarded-for');
-    if (forwarded) {
-        const first = forwarded.split(',')[0]?.trim();
-        if (first) return first;
-    }
-
-    return request.headers.get('x-real-ip') ?? 'unknown';
-}
 
 export async function guardDisplayRateLimit(
     ip: string,
