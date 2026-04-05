@@ -12,15 +12,16 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json prisma.config.ts ./
+COPY prisma ./prisma
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile
 
-COPY . .
 RUN pnpm exec prisma generate
 
 RUN groupadd --system --gid 1001 polywall && \
-  useradd --system --uid 1001 --gid 1001 --create-home --home-dir /home/polywall --shell /usr/sbin/nologin polywall && \
-  chown -R polywall:polywall /app
+  useradd --system --uid 1001 --gid 1001 --create-home --home-dir /home/polywall --shell /usr/sbin/nologin polywall
+
+COPY --chown=polywall:polywall src ./src
 
 USER polywall
 

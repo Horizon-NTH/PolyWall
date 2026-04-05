@@ -35,7 +35,7 @@ const sidebarItems = {
         {title: 'Plus', url: '#', icon: MoreHorizontal},
     ],
     diffusion: [
-        {title: 'Planification', url: '#', icon: CalendarClock},
+        {title: 'Planification', url: '/dashboard/schedules', icon: CalendarClock},
         {title: 'Canaux', url: '/dashboard/channels', icon: Radio},
         {title: 'Écrans', url: '/dashboard/screens', icon: Monitor},
     ],

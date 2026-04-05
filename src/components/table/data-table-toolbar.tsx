@@ -40,8 +40,8 @@ export function DataTableToolbar<TData>({
     };
 
     return (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-1 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                 {searchColumnId ? (
                     <Input
                         placeholder={searchPlaceholder}
@@ -49,7 +49,7 @@ export function DataTableToolbar<TData>({
                         onChange={(event) =>
                             table.getColumn(searchColumnId)?.setFilterValue(event.target.value)
                         }
-                        className="max-w-sm"
+                        className="max-w-sm min-w-0"
                     />
                 ) : null}
                 {filters}
@@ -63,7 +63,7 @@ export function DataTableToolbar<TData>({
                     </Button>
                 ) : null}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
                 {showViewOptions ? <DataTableViewOptions table={table} /> : null}
                 {actions}
             </div>

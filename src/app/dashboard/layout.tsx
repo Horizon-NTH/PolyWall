@@ -18,7 +18,11 @@ export default async function DashboardLayout({children}: DashboardLayoutProps) 
     return (
         <SidebarProvider>
             <AppSidebar />
-            <SidebarInset>{children}</SidebarInset>
+            <SidebarInset className="min-w-0 max-w-full overflow-x-hidden">
+                <div className="flex min-w-0 max-w-full flex-1 flex-col">
+                    {children}
+                </div>
+            </SidebarInset>
         </SidebarProvider>
     );
 }

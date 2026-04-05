@@ -350,7 +350,7 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
     }
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 max-w-full flex-col gap-4">
             <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as TabValue)}>
                 <TabsList>
                     <TabsTrigger value="PENDING" className="gap-2">

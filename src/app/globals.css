@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@schedule-x/theme-shadcn/dist/index.css";
 
 @custom-variant dark (&:is(.dark *));
 

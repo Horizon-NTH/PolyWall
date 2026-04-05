@@ -263,7 +263,7 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
     }
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 max-w-full flex-col gap-4">
             <DataTableToolbar
                 table={table}
                 searchColumnId="searchText"
