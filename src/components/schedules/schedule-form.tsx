@@ -11,6 +11,7 @@ import { createSchedule, updateSchedule, upsertDefaultSchedule } from '@/actions
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
     Field,
     FieldDescription,
@@ -20,7 +21,6 @@ import {
     FieldLegend,
     FieldSet,
 } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -28,6 +28,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { TimePicker } from '@/components/ui/time-picker';
 import { ScheduleType } from '@/generated/prisma/enums';
 import {
     ALL_DAYS_OF_WEEK,
@@ -234,7 +235,11 @@ export function ScheduleForm({
                                 render={({field, fieldState}) => (
                                     <Field data-invalid={fieldState.invalid}>
                                         <FieldLabel htmlFor="date">Date</FieldLabel>
-                                        <Input {...field} id="date" type="date" aria-invalid={fieldState.invalid} />
+                                        <DatePicker
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            aria-invalid={fieldState.invalid}
+                                        />
                                         {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
                                     </Field>
                                 )}
@@ -281,14 +286,17 @@ export function ScheduleForm({
                                 <Controller
                                     name="startTime"
                                     control={form.control}
-                                    render={({field, fieldState}) => (
-                                        <Field data-invalid={fieldState.invalid}>
-                                            <FieldLabel htmlFor="startTime">Heure de début</FieldLabel>
-                                            <Input {...field} id="startTime" type="time"
-                                                   aria-invalid={fieldState.invalid} />
+                                render={({field, fieldState}) => (
+                                    <Field data-invalid={fieldState.invalid}>
+                                        <FieldLabel htmlFor="startTime">Heure de début</FieldLabel>
+                                        <TimePicker
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                            aria-invalid={fieldState.invalid}
+                                        />
                                             {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
-                                        </Field>
-                                    )}
+                                    </Field>
+                                )}
                                 />
 
                                 <Controller
@@ -308,7 +316,7 @@ export function ScheduleForm({
                                                 </SelectContent>
                                             </Select>
                                             <FieldDescription>
-                                                Le mode "durée de la playlist" calcule automatiquement l&apos;heure de
+                                                Le mode &quot;durée de la playlist&quot; calcule automatiquement l&apos;heure de
                                                 fin à partir de la durée de la playlist.
                                             </FieldDescription>
                                             {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
@@ -323,8 +331,11 @@ export function ScheduleForm({
                                         render={({field, fieldState}) => (
                                             <Field data-invalid={fieldState.invalid}>
                                                 <FieldLabel htmlFor="endTime">Heure de fin</FieldLabel>
-                                                <Input {...field} id="endTime" type="time"
-                                                       aria-invalid={fieldState.invalid} />
+                                                <TimePicker
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    aria-invalid={fieldState.invalid}
+                                                />
                                                 {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
                                             </Field>
                                         )}

@@ -9,6 +9,17 @@ export function formatDate(value: Date, dateStyle: 'medium' | 'full' | 'long' | 
     return new Intl.DateTimeFormat('fr-FR', {dateStyle: dateStyle}).format(value);
 }
 
+export function timeStringToMinutes(value: string) {
+    const [hours, minutes] = value.split(':').map(Number);
+    return (hours * 60) + minutes;
+}
+
+export function minutesToTimeString(value: number) {
+    const hours = Math.floor(value / 60);
+    const minutes = value % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 export function formatBytes(bytes: number | null) {
     if (bytes === null) return 'N/A';
     if (bytes < 1024) return `${bytes} o`;

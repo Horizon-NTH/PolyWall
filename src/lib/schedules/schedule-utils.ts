@@ -1,6 +1,7 @@
 import { Temporal } from 'temporal-polyfill';
 
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
+import { minutesToTimeString, timeStringToMinutes } from '@/lib/utils';
 
 export const ALL_DAYS_OF_WEEK: DayOfWeek[] = [
     DayOfWeek.MONDAY,
@@ -70,17 +71,6 @@ type ExistingScheduleForConflict = {
         endTime: Date;
     }>;
 };
-
-export function timeStringToMinutes(value: string) {
-    const [hours, minutes] = value.split(':').map(Number);
-    return (hours * 60) + minutes;
-}
-
-export function minutesToTimeString(value: number) {
-    const hours = Math.floor(value / 60);
-    const minutes = value % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
 
 export function createDateOnlyUTC(value: string) {
     const [year, month, day] = value.split('-').map(Number);
