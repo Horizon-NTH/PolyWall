@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Select as SelectPrimitive } from 'radix-ui';
+import { CheckIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createSchedule, updateSchedule, upsertDefaultSchedule } from '@/actions/schedule-actions';
@@ -41,13 +43,19 @@ import {
     scheduleUpdateSchema,
     type ScheduleUpdateValues,
 } from '@/schemas/schedule-schema';
+import { formatDurationSeconds } from '@/lib/utils';
 
 type ScheduleFormValues = ScheduleCreateValues;
 
 type ScheduleFormOption = {
     id: string;
     name: string;
+    mediaCount?: number;
     totalDurationSeconds?: number;
+    previewItems?: Array<{
+        title: string;
+        thumbUrl: string | null;
+    }>;
 };
 
 type ScheduleFormProps = {
@@ -204,23 +212,20 @@ export function ScheduleForm({
                             render={({field, fieldState}) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel htmlFor="playlistId">Playlist</FieldLabel>
-                                    <Select value={field.value} onValueChange={field.onChange}>
-                                        <SelectTrigger id="playlistId" className="w-full"
-                                                       aria-invalid={fieldState.invalid}>
-                                            <SelectValue placeholder="Sélectionnez une playlist" />
-                                        </SelectTrigger>
-                                        <SelectContent align="start">
-                                            {playlists.map((playlist) => (
-                                                <SelectItem key={playlist.id} value={playlist.id}>
-                                                    {playlist.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {selectedPlaylist?.totalDurationSeconds ? (
+                                    <PlaylistSelectPreview
+                                        selectId="playlistId"
+                                        value={field.value}
+                                        playlists={playlists}
+                                        onValueChange={field.onChange}
+                                        ariaInvalid={fieldState.invalid}
+                                    />
+                                    {selectedPlaylist ? (
                                         <FieldDescription>
-                                            Durée totale
-                                            actuelle: {Math.ceil(selectedPlaylist.totalDurationSeconds / 60)} min
+                                            Playlist sélectionnée : {selectedPlaylist.name}
+                                            {' · '}
+                                            {selectedPlaylist.mediaCount ?? 0} média{selectedPlaylist.mediaCount === 1 ? '' : 's'}
+                                            {' · '}
+                                            {formatDurationSeconds(selectedPlaylist.totalDurationSeconds ?? 0)}
                                         </FieldDescription>
                                     ) : null}
                                     {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
@@ -286,17 +291,17 @@ export function ScheduleForm({
                                 <Controller
                                     name="startTime"
                                     control={form.control}
-                                render={({field, fieldState}) => (
-                                    <Field data-invalid={fieldState.invalid}>
-                                        <FieldLabel htmlFor="startTime">Heure de début</FieldLabel>
-                                        <TimePicker
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            aria-invalid={fieldState.invalid}
-                                        />
+                                    render={({field, fieldState}) => (
+                                        <Field data-invalid={fieldState.invalid}>
+                                            <FieldLabel htmlFor="startTime">Heure de début</FieldLabel>
+                                            <TimePicker
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                aria-invalid={fieldState.invalid}
+                                            />
                                             {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
-                                    </Field>
-                                )}
+                                        </Field>
+                                    )}
                                 />
 
                                 <Controller
@@ -316,7 +321,8 @@ export function ScheduleForm({
                                                 </SelectContent>
                                             </Select>
                                             <FieldDescription>
-                                                Le mode &quot;durée de la playlist&quot; calcule automatiquement l&apos;heure de
+                                                Le mode &quot;durée de la playlist&quot; calcule automatiquement
+                                                l&apos;heure de
                                                 fin à partir de la durée de la playlist.
                                             </FieldDescription>
                                             {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
@@ -387,4 +393,94 @@ export function ScheduleForm({
             </CardContent>
         </Card>
     );
+}
+
+type PlaylistSelectPreviewProps = {
+    selectId: string;
+    value: string;
+    playlists: ScheduleFormOption[];
+    onValueChange: (value: string) => void;
+    ariaInvalid?: boolean;
+};
+
+function PlaylistSelectPreview({
+                                   selectId,
+                                   value,
+                                   playlists,
+                                   onValueChange,
+                                   ariaInvalid,
+                               }: PlaylistSelectPreviewProps) {
+    return (
+        <Select value={value} onValueChange={onValueChange}>
+            <SelectTrigger id={selectId} className="w-full" aria-invalid={ariaInvalid}>
+                <SelectValue placeholder="Sélectionnez une playlist" />
+            </SelectTrigger>
+            <SelectContent align="start" position="popper" className="max-w-(--radix-select-trigger-width)">
+                {playlists.map((playlist) => (
+                    <PlaylistPreviewSelectItem key={playlist.id} playlist={playlist} />
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+function PlaylistPreviewSelectItem({playlist}: { playlist: ScheduleFormOption }) {
+    return (
+        <SelectPrimitive.Item
+            value={playlist.id}
+            textValue={playlist.name}
+            className="focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-3 rounded-sm py-2 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50"
+        >
+            <div className="flex shrink-0 -space-x-2" aria-hidden="true">
+                {playlist.previewItems?.length
+                    ? playlist.previewItems.map((item, index) => (
+                        <div
+                            key={`${playlist.id}-${index}`}
+                            className="bg-muted ring-background flex h-10 w-10 items-center justify-center overflow-hidden rounded-md ring-2"
+                        >
+                            {item.thumbUrl ? (
+                                <img
+                                    src={item.thumbUrl}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <span className="text-muted-foreground text-[10px] font-medium">Aperçu</span>
+                            )}
+                        </div>
+                    ))
+                    : (
+                        <div
+                            className="bg-muted text-muted-foreground ring-background flex h-10 w-10 items-center justify-center rounded-md text-[10px] font-medium ring-2">
+                            Vide
+                        </div>
+                    )}
+            </div>
+            <div className="min-w-0" aria-hidden="true">
+                <SelectPrimitive.ItemText>
+                    <span className="truncate font-medium">{playlist.name}</span>
+                </SelectPrimitive.ItemText>
+                <div className="text-muted-foreground line-clamp-1 text-xs">
+                    {buildPlaylistPreviewLine(playlist)}
+                </div>
+            </div>
+            <span className="absolute right-2 flex size-3.5 items-center justify-center">
+                <SelectPrimitive.ItemIndicator>
+                    <CheckIcon className="size-4" />
+                </SelectPrimitive.ItemIndicator>
+            </span>
+        </SelectPrimitive.Item>
+    );
+}
+
+function buildPlaylistPreviewLine(playlist: ScheduleFormOption) {
+    const titles = playlist.previewItems?.map((item) => item.title).filter(Boolean) ?? [];
+    const remainingCount = Math.max((playlist.mediaCount ?? titles.length) - titles.length, 0);
+    const metadata = [
+        titles.length > 0 ? titles.join(' • ') : 'Aucun média',
+        remainingCount > 0 ? `+${remainingCount} autre${remainingCount > 1 ? 's' : ''}` : null,
+        playlist.totalDurationSeconds ? formatDurationSeconds(playlist.totalDurationSeconds) : null,
+    ].filter(Boolean);
+
+    return metadata.join(' · ');
 }

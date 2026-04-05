@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation';
 
+import { env } from '@/env';
 import { ScheduleType } from '@/generated/prisma/enums';
 import { prisma } from '@/lib/prisma';
 import { createScheduleDraft, findScheduleConflicts } from '@/lib/schedules/schedule-utils';
 import { toScheduleViewModel } from '@/lib/schedules/schedule-view-model';
+import { getStorageService } from '@/lib/storage/storage-service';
 
 export async function getOrganizationChannels(organizationId: string) {
     return prisma.channel.findMany({
@@ -32,10 +34,24 @@ export async function getScheduleFormOptions(organizationId: string) {
                 id: true,
                 name: true,
                 items: {
+                    orderBy: {orderIndex: 'asc'},
                     select: {
                         mediaItem: {
                             select: {
+                                title: true,
                                 durationSeconds: true,
+                                files: {
+                                    where: {
+                                        variant: 'THUMB',
+                                        status: 'READY',
+                                        variantIndex: 0,
+                                    },
+                                    select: {
+                                        storageBucket: true,
+                                        objectKey: true,
+                                    },
+                                    take: 1,
+                                },
                             },
                         },
                     },
@@ -45,13 +61,28 @@ export async function getScheduleFormOptions(organizationId: string) {
         }),
     ]);
 
+    const storage = getStorageService();
+    const resolveThumbUrl = async (file: { storageBucket: string; objectKey: string } | null) => {
+        if (!file) return null;
+        return storage.presignGet({
+            bucket: file.storageBucket,
+            key: file.objectKey,
+            expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
+        });
+    };
+
     return {
         channels,
-        playlists: playlists.map((playlist) => ({
+        playlists: await Promise.all(playlists.map(async (playlist) => ({
             id: playlist.id,
             name: playlist.name,
+            mediaCount: playlist.items.length,
             totalDurationSeconds: playlist.items.reduce((sum, item) => sum + item.mediaItem.durationSeconds, 0),
-        })),
+            previewItems: await Promise.all(playlist.items.slice(0, 3).map(async (item) => ({
+                title: item.mediaItem.title,
+                thumbUrl: await resolveThumbUrl(item.mediaItem.files[0] ?? null),
+            }))),
+        }))),
     };
 }
 
