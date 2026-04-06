@@ -6,19 +6,21 @@ import { OrganizationEmptyState } from '@/components/organizations/organization-
 import { PlaylistForm } from '@/components/playlists/playlist-form';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo } from '@/lib/return-to';
 
 type PlaylistEditPageProps = {
-    params: Promise<{ playlistId: string }>
+    params: Promise<{ playlistId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: PlaylistEditPageProps) {
+export default async function Page({params, searchParams}: PlaylistEditPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('update', 'Playlist')) redirect('/dashboard');
 
-    const {playlistId} = await params;
+    const [{playlistId}, query] = await Promise.all([params, searchParams]);
     if (!playlistId) notFound();
 
     const organizationId = session.user.organizationId;
@@ -57,6 +59,7 @@ export default async function Page({params}: PlaylistEditPageProps) {
     });
 
     if (!playlist) notFound();
+    const detailHref = appendReturnTo(`/dashboard/playlists/${playlist.id}`, query.returnTo);
 
     return (
         <>
@@ -64,7 +67,7 @@ export default async function Page({params}: PlaylistEditPageProps) {
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
                     {label: 'Playlists', href: '/dashboard/playlists'},
-                    {label: playlist.name, href: `/dashboard/playlists/${playlist.id}`},
+                    {label: playlist.name, href: detailHref},
                     {label: 'Modifier'},
                 ]}
             />
@@ -72,7 +75,7 @@ export default async function Page({params}: PlaylistEditPageProps) {
                 <PlaylistForm
                     mode="edit"
                     playlistId={playlist.id}
-                    cancelHref={`/dashboard/playlists/${playlist.id}`}
+                    cancelHref={detailHref}
                     defaultValues={{
                         name: playlist.name,
                         description: playlist.description,

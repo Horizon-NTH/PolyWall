@@ -13,6 +13,8 @@ vi.mock('next/navigation', () => ({
     useRouter: () => ({
         refresh: refreshMock,
     }),
+    usePathname: () => '/dashboard/playlists',
+    useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('next/link', () => ({
@@ -58,7 +60,10 @@ describe('PlaylistsTable', () => {
         expect(screen.getByText('Default')).toBeInTheDocument();
         expect(screen.getByText('Playlist principale')).toBeInTheDocument();
         expect(screen.getByText('1 média inactif')).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'Default'})).toHaveAttribute('href', '/dashboard/playlists/playlist-1');
+        expect(screen.getByRole('link', {name: 'Default'})).toHaveAttribute(
+            'href',
+            '/dashboard/playlists/playlist-1?returnTo=%2Fdashboard%2Fplaylists',
+        );
     });
 
     it('shows empty state when there are no playlists', () => {

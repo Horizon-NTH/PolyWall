@@ -11,6 +11,8 @@ vi.mock('next/navigation', () => ({
     useRouter: () => ({
         refresh: refreshMock,
     }),
+    usePathname: () => '/dashboard/screens',
+    useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('next/link', () => ({

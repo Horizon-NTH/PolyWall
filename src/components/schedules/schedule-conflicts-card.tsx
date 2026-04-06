@@ -1,7 +1,11 @@
+'use client';
+
 import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { type ScheduleConflict } from '@/lib/schedules/schedule-utils';
 
 type ScheduleConflictsCardProps = {
@@ -9,6 +13,8 @@ type ScheduleConflictsCardProps = {
 };
 
 export function ScheduleConflictsCard({conflicts}: ScheduleConflictsCardProps) {
+    const currentReturnTo = useCurrentReturnTo();
+
     return (
         <Card>
             <CardHeader>
@@ -31,7 +37,10 @@ export function ScheduleConflictsCard({conflicts}: ScheduleConflictsCardProps) {
                         <p className="text-muted-foreground">{conflict.message}</p>
                         <div>
                             <Link
-                                href={`/dashboard/schedules/${conflict.conflictingScheduleId}`}
+                                href={appendReturnTo(
+                                    `/dashboard/schedules/${conflict.conflictingScheduleId}`,
+                                    currentReturnTo,
+                                )}
                                 className="underline-offset-4 hover:underline"
                             >
                                 Voir la programmation concernée

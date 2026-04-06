@@ -1,8 +1,12 @@
+'use client';
+
 import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { type ScheduleViewModel } from '@/lib/schedules/schedule-view-model';
 
 type ScheduleDefaultCardProps = {
@@ -11,6 +15,8 @@ type ScheduleDefaultCardProps = {
 };
 
 export function ScheduleDefaultCard({channelId, defaultSchedule}: ScheduleDefaultCardProps) {
+    const currentReturnTo = useCurrentReturnTo();
+
     return (
         <Card>
             <CardHeader>
@@ -40,9 +46,12 @@ export function ScheduleDefaultCard({channelId, defaultSchedule}: ScheduleDefaul
             <CardFooter>
                 <Button asChild>
                     <Link
-                        href={defaultSchedule
-                            ? `/dashboard/schedules/${defaultSchedule.id}/edit`
-                            : `/dashboard/schedules/new?channelId=${channelId}&type=DEFAULT`}
+                        href={appendReturnTo(
+                            defaultSchedule
+                                ? `/dashboard/schedules/${defaultSchedule.id}/edit`
+                                : `/dashboard/schedules/new?channelId=${channelId}&type=DEFAULT`,
+                            currentReturnTo,
+                        )}
                     >
                         {defaultSchedule ? 'Modifier la playlist par défaut' : 'Définir la playlist par défaut'}
                     </Link>

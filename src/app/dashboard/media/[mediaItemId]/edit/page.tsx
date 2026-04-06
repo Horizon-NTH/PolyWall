@@ -7,19 +7,21 @@ import { OrganizationEmptyState } from '@/components/organizations/organization-
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { getMediaKindFromMimeType } from '@/lib/media/media-view-model';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo } from '@/lib/return-to';
 
 type MediaEditPageProps = {
-    params: Promise<{ mediaItemId: string }>
+    params: Promise<{ mediaItemId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: MediaEditPageProps) {
+export default async function Page({params, searchParams}: MediaEditPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('update', 'MediaItem')) redirect('/dashboard');
 
-    const {mediaItemId} = await params;
+    const [{mediaItemId}, query] = await Promise.all([params, searchParams]);
     if (!mediaItemId) {
         notFound();
     }
@@ -74,6 +76,7 @@ export default async function Page({params}: MediaEditPageProps) {
 
     const primaryOriginal = mediaItem.files.at(0) ?? null;
     const mediaKind = getMediaKindFromMimeType(primaryOriginal?.mimeType ?? 'application/octet-stream');
+    const detailHref = appendReturnTo(`/dashboard/media/${mediaItem.id}`, query.returnTo);
 
     return (
         <>
@@ -81,7 +84,7 @@ export default async function Page({params}: MediaEditPageProps) {
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
                     {label: 'Médias', href: '/dashboard/media'},
-                    {label: mediaItem.title, href: `/dashboard/media/${mediaItem.id}`},
+                    {label: mediaItem.title, href: detailHref},
                     {label: 'Modifier'},
                 ]}
             />
@@ -90,7 +93,7 @@ export default async function Page({params}: MediaEditPageProps) {
                     mode="edit"
                     mediaItemId={mediaItem.id}
                     mediaKind={mediaKind}
-                    cancelHref={`/dashboard/media/${mediaItem.id}`}
+                    cancelHref={detailHref}
                     defaultValues={{
                         title: mediaItem.title,
                         description: mediaItem.description,

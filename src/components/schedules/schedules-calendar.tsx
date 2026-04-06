@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { type CalendarEvent, viewWeek } from '@schedule-x/calendar';
 import { ScheduleXCalendar, useCalendarApp } from '@schedule-x/react';
 
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { type ScheduleViewModel, createCalendarEventsForRange } from '@/lib/schedules/schedule-view-model';
 
 type SchedulesCalendarProps = {
@@ -31,6 +33,7 @@ const timezone = 'Europe/Paris';
 
 export function SchedulesCalendar({schedules}: SchedulesCalendarProps) {
     const router = useRouter();
+    const currentReturnTo = useCurrentReturnTo();
     const calendarApp = useCalendarApp({
         locale: 'fr-FR',
         isDark: false,
@@ -71,7 +74,7 @@ export function SchedulesCalendar({schedules}: SchedulesCalendarProps) {
         callbacks: {
             onEventClick: (event: CalendarEvent & { scheduleId?: string }) => {
                 if (event.scheduleId) {
-                    router.push(`/dashboard/schedules/${event.scheduleId}`);
+                    router.push(appendReturnTo(`/dashboard/schedules/${event.scheduleId}`, currentReturnTo));
                 }
             },
         },

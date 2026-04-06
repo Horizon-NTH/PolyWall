@@ -19,7 +19,8 @@ function trackPlaylistId(playlistId: string) {
 }
 
 function extractPlaylistId(url: string) {
-    const match = url.match(/\/dashboard\/playlists\/(?!new$)(?!.*\/edit$)([^/]+)$/);
+    const pathname = new URL(url, 'http://localhost').pathname;
+    const match = pathname.match(/\/dashboard\/playlists\/(?!new$)(?!.*\/edit$)([^/]+)$/);
     if (!match) throw new Error(`Impossible de lire l'ID playlist depuis l'URL: ${url}`);
     return match[1];
 }
@@ -162,7 +163,7 @@ test.describe('playlists', () => {
         await expect(page.getByRole('menuitem', {name: 'Supprimer'})).toBeVisible();
         await page.getByRole('menuitem', {name: 'Voir la fiche'}).click();
 
-        await expect(page).toHaveURL(new RegExp(`/dashboard/playlists/${playlistId}$`));
+        await expect(page).toHaveURL(new RegExp(`/dashboard/playlists/${playlistId}(\\?.*)?$`));
         await expect(page.getByRole('heading', {name: playlistName})).toBeVisible();
         await expect(page.getByText('Timeline de la playlist')).toBeVisible();
         await expect(page.getByText('Glissez un média ici pour démarrer la playlist.')).toBeVisible();
@@ -173,11 +174,11 @@ test.describe('playlists', () => {
         await filterPlaylists(page, playlistName);
         await page.getByRole('button', {name: 'Ouvrir le menu'}).first().click();
         await Promise.all([
-            page.waitForURL(new RegExp(`/dashboard/playlists/${playlistId}/edit$`)),
+            page.waitForURL(new RegExp(`/dashboard/playlists/${playlistId}/edit(\\?.*)?$`)),
             page.getByRole('menuitem', {name: 'Modifier infos'}).click(),
         ]);
         await page.getByRole('link', {name: 'Annuler'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/playlists/${playlistId}$`));
+        await expect(page).toHaveURL(new RegExp(`/dashboard/playlists/${playlistId}(\\?.*)?$`));
     });
 
     test('create form supports cancel navigation', async ({page}) => {

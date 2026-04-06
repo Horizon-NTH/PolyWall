@@ -97,7 +97,7 @@ export function ScreenForm({
 
         toast.success(isApprove ? 'Écran validé.' : 'Écran mis à jour.');
         startTransition(() => {
-            router.push(`/dashboard/screens/${screenId}`);
+            router.push(cancelHref);
         });
     }
 

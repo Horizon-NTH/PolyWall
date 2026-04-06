@@ -1,4 +1,5 @@
 import { type CalendarEvent } from '@schedule-x/calendar';
+import 'temporal-polyfill/global';
 import { Temporal } from 'temporal-polyfill';
 
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';

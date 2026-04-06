@@ -15,21 +15,23 @@ import { Button } from '@/components/ui/button';
 import { env } from '@/env';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 import { getStorageService } from '@/lib/storage/storage-service';
 import { formatDate } from '@/lib/utils';
 
 type PlaylistDetailsPageProps = {
-    params: Promise<{ playlistId: string }>
+    params: Promise<{ playlistId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: PlaylistDetailsPageProps) {
+export default async function Page({params, searchParams}: PlaylistDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('read', 'Playlist')) redirect('/dashboard');
 
-    const {playlistId} = await params;
+    const [{playlistId}, query] = await Promise.all([params, searchParams]);
     if (!playlistId) notFound();
 
     const organizationId = session.user.organizationId;
@@ -159,6 +161,8 @@ export default async function Page({params}: PlaylistDetailsPageProps) {
     const mediaCount = initialTimeline.length;
     const activeMediaCount = initialTimeline.reduce((sum, item) => sum + (item.active ? 1 : 0), 0);
     const totalDurationSeconds = initialTimeline.reduce((sum, item) => sum + item.durationSeconds, 0);
+    const returnHref = resolveReturnTo(query.returnTo, '/dashboard/playlists');
+    const editHref = appendReturnTo(`/dashboard/playlists/${playlist.id}/edit`, query.returnTo);
 
     return (
         <>
@@ -179,10 +183,10 @@ export default async function Page({params}: PlaylistDetailsPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href="/dashboard/playlists">Retour</Link>
+                            <Link href={returnHref}>Retour</Link>
                         </Button>
                         <Button asChild>
-                            <Link href={`/dashboard/playlists/${playlist.id}/edit`}>Modifier infos</Link>
+                            <Link href={editHref}>Modifier infos</Link>
                         </Button>
                     </div>
                 </div>

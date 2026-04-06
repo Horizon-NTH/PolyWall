@@ -35,7 +35,7 @@ async function getOrganizationIdFromTable(
         ? `Missing organization link for ${name}`
         : 'Missing organization link for first row';
     if (!href) throw new Error(errorMessage);
-    return href.split('/').pop() ?? '';
+    return new URL(href, 'http://localhost').pathname.split('/').pop() ?? '';
 }
 
 async function createOrganization(
@@ -63,7 +63,7 @@ async function getOrganizationIdFromList(page: Parameters<typeof login>[0], name
     const href = await link.getAttribute('href');
     await filterOrganizations(page, '');
     if (!href) throw new Error(`Missing organization link for ${name}`);
-    return href.split('/').pop() ?? '';
+    return new URL(href, 'http://localhost').pathname.split('/').pop() ?? '';
 }
 
 async function deleteOrganizationByName(page: Parameters<typeof login>[0], name: string) {
@@ -183,7 +183,7 @@ test.describe('organizations', () => {
             .getByRole('button', {name: 'Ouvrir le menu'})
             .click();
         await page.getByRole('menuitem', {name: 'Voir la fiche'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/organizations/${expectedId}$`));
+        await expect(page).toHaveURL(new RegExp(`/dashboard/organizations/${expectedId}(\\?.*)?$`));
         await expect(page.getByRole('heading', {name: orgName})).toBeVisible();
 
         await page.getByRole('link', {name: 'Retour'}).click();
@@ -194,9 +194,9 @@ test.describe('organizations', () => {
             .getByRole('button', {name: 'Ouvrir le menu'})
             .click();
         await page.getByRole('menuitem', {name: 'Modifier'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/organizations/${expectedId}/edit$`));
+        await expect(page).toHaveURL(new RegExp(`/dashboard/organizations/${expectedId}/edit(\\?.*)?$`));
         await page.getByRole('link', {name: 'Annuler'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/organizations/${expectedId}$`));
+        await expect(page).toHaveURL(new RegExp(`/dashboard/organizations/${expectedId}(\\?.*)?$`));
     });
 
     test('create form shows validation errors and handles duplicate names', async ({

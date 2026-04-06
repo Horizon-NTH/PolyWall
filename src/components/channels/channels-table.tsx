@@ -36,6 +36,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 import { type ChannelListFilterValues, channelListFilterSchema } from '@/schemas/channel-schema';
 import {
@@ -99,6 +101,7 @@ type ChannelsTableProps = {
 
 export function ChannelsTable({data, canManage}: ChannelsTableProps) {
     const router = useRouter();
+    const currentReturnTo = useCurrentReturnTo();
     const defaults = channelListFilterSchema.parse({});
     const [screensFilterValue, setScreensFilterValue] = React.useState<ScreensFilter>(defaults.screens);
     const [schedulesFilterValue, setSchedulesFilterValue] = React.useState<SchedulesFilter>(defaults.schedules);
@@ -129,7 +132,7 @@ export function ChannelsTable({data, canManage}: ChannelsTableProps) {
             cell: ({row}) => (
                 <div className="space-y-1 min-w-0 max-w-70">
                     <Link
-                        href={`/dashboard/channels/${row.original.id}`}
+                        href={appendReturnTo(`/dashboard/channels/${row.original.id}`, currentReturnTo)}
                         className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
                         title={row.original.name}
                     >
@@ -198,12 +201,17 @@ export function ChannelsTable({data, canManage}: ChannelsTableProps) {
             cell: ({row}) => (
                 <DataTableRowActions>
                     <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/channels/${row.original.id}`}>Voir la fiche</Link>
+                        <Link href={appendReturnTo(`/dashboard/channels/${row.original.id}`, currentReturnTo)}>
+                            Voir la fiche
+                        </Link>
                     </DropdownMenuItem>
                     {canManage ? (
                         <>
                             <DropdownMenuItem asChild>
-                                <Link href={`/dashboard/channels/${row.original.id}/edit`}>Modifier infos</Link>
+                                <Link
+                                    href={appendReturnTo(`/dashboard/channels/${row.original.id}/edit`, currentReturnTo)}>
+                                    Modifier infos
+                                </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem variant="destructive" onClick={() => openDeleteDialog(row.original)}>
@@ -214,7 +222,7 @@ export function ChannelsTable({data, canManage}: ChannelsTableProps) {
                 </DataTableRowActions>
             ),
         },
-    ], [canManage, openDeleteDialog]);
+    ], [canManage, currentReturnTo, openDeleteDialog]);
 
     const table = useDataTable({
         data,

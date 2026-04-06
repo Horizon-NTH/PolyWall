@@ -132,7 +132,9 @@ export function ScheduleForm({
         startTransition(() => {
             router.push(values.type === ScheduleType.DEFAULT
                 ? `/dashboard/schedules?channelId=${values.channelId}`
-                : `/dashboard/schedules/${result.scheduleId}`);
+                : isEdit
+                    ? cancelHref
+                    : `/dashboard/schedules/${result.scheduleId}`);
         });
     }
 

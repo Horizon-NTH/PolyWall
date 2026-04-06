@@ -10,6 +10,8 @@ vi.mock('next/navigation', () => ({
     useRouter: () => ({
         refresh: refreshMock,
     }),
+    usePathname: () => '/dashboard/channels',
+    useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('next/link', () => ({

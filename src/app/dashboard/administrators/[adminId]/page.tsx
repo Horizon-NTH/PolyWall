@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/card';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 import { getRoleLabel } from '@/lib/roles';
 import { isAdminRole } from '@/schemas/admin-schema';
@@ -21,16 +22,17 @@ import { isAdminRole } from '@/schemas/admin-schema';
 
 type AdminDetailsPageProps = {
     params: Promise<{ adminId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: AdminDetailsPageProps) {
+export default async function Page({params, searchParams}: AdminDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('view', 'SuperAdminSection')) redirect('/dashboard');
 
-    const {adminId} = await params;
+    const [{adminId}, query] = await Promise.all([params, searchParams]);
 
     if (!adminId) {
         notFound();
@@ -54,6 +56,8 @@ export default async function Page({params}: AdminDetailsPageProps) {
     if (!admin || !isAdminRole(admin.role)) {
         notFound();
     }
+    const returnHref = resolveReturnTo(query.returnTo, '/dashboard/administrators');
+    const editHref = appendReturnTo(`/dashboard/administrators/${admin.id}/edit`, query.returnTo);
 
     return (
         <>
@@ -76,10 +80,10 @@ export default async function Page({params}: AdminDetailsPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href="/dashboard/administrators">Retour</Link>
+                            <Link href={returnHref}>Retour</Link>
                         </Button>
                         <Button asChild>
-                            <Link href={`/dashboard/administrators/${admin.id}/edit`}>
+                            <Link href={editHref}>
                                 Modifier
                             </Link>
                         </Button>

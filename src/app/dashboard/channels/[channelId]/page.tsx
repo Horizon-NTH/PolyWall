@@ -9,20 +9,22 @@ import { OrganizationEmptyState } from '@/components/organizations/organization-
 import { Button } from '@/components/ui/button';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 
 type ChannelDetailsPageProps = {
-    params: Promise<{ channelId: string }>
+    params: Promise<{ channelId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: ChannelDetailsPageProps) {
+export default async function Page({params, searchParams}: ChannelDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('read', 'Channel')) redirect('/dashboard');
 
-    const {channelId} = await params;
+    const [{channelId}, query] = await Promise.all([params, searchParams]);
     if (!channelId) notFound();
 
     const organizationId = session.user.organizationId;
@@ -77,6 +79,8 @@ export default async function Page({params}: ChannelDetailsPageProps) {
 
     const canUpdate = ability.can('update', 'Channel');
     const canDelete = ability.can('delete', 'Channel');
+    const returnHref = resolveReturnTo(query.returnTo, '/dashboard/channels');
+    const editHref = appendReturnTo(`/dashboard/channels/${channel.id}/edit`, query.returnTo);
 
     const reassignOptions = canDelete
         ? await prisma.channel.findMany({
@@ -113,11 +117,11 @@ export default async function Page({params}: ChannelDetailsPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href="/dashboard/channels">Retour</Link>
+                            <Link href={returnHref}>Retour</Link>
                         </Button>
                         {canUpdate ? (
                             <Button asChild>
-                                <Link href={`/dashboard/channels/${channel.id}/edit`}>Modifier infos</Link>
+                                <Link href={editHref}>Modifier infos</Link>
                             </Button>
                         ) : null}
                     </div>

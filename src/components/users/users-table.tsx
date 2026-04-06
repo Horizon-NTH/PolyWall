@@ -26,6 +26,8 @@ import { DataTableRowActions } from '@/components/table/data-table-row-actions';
 import { DataTableToolbar } from '@/components/table/data-table-toolbar';
 import { DataTableView } from '@/components/table/data-table';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 import {
     AlertDialog,
@@ -63,6 +65,7 @@ type UsersTableProps = {
 
 export function UsersTable({data}: UsersTableProps) {
     const router = useRouter();
+    const currentReturnTo = useCurrentReturnTo();
     const [statusFilterValue, setStatusFilterValue] = React.useState<StatusFilter>('all');
     const [deleteTarget, setDeleteTarget] = React.useState<UserRow | null>(null);
     const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
@@ -101,7 +104,7 @@ export function UsersTable({data}: UsersTableProps) {
             cell: ({row}) => (
                 <div className="space-y-1 min-w-0 max-w-60">
                     <Link
-                        href={`/dashboard/users/${row.original.id}`}
+                        href={appendReturnTo(`/dashboard/users/${row.original.id}`, currentReturnTo)}
                         className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
                         title={row.original.fullName}
                     >
@@ -157,12 +160,12 @@ export function UsersTable({data}: UsersTableProps) {
                 return (
                     <DataTableRowActions>
                         <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/users/${user.id}`}>
+                            <Link href={appendReturnTo(`/dashboard/users/${user.id}`, currentReturnTo)}>
                                 Voir la fiche
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/users/${user.id}/edit`}>
+                            <Link href={appendReturnTo(`/dashboard/users/${user.id}/edit`, currentReturnTo)}>
                                 Modifier
                             </Link>
                         </DropdownMenuItem>
@@ -177,7 +180,7 @@ export function UsersTable({data}: UsersTableProps) {
                 );
             },
         },
-    ], [handleToggleActive, openDeleteDialog]);
+    ], [currentReturnTo, handleToggleActive, openDeleteDialog]);
 
     const table = useDataTable({
         data,

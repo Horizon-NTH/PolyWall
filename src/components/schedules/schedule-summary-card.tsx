@@ -1,5 +1,11 @@
+'use client';
+
+import Link from 'next/link';
+
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { type ScheduleViewModel } from '@/lib/schedules/schedule-view-model';
 import { SCHEDULE_TYPE_LABELS } from '@/lib/schedules/schedule-utils';
 import { formatDate } from '@/lib/utils';
@@ -9,6 +15,8 @@ type ScheduleSummaryCardProps = {
 };
 
 export function ScheduleSummaryCard({schedule}: ScheduleSummaryCardProps) {
+    const currentReturnTo = useCurrentReturnTo();
+
     return (
         <Card>
             <CardHeader>
@@ -25,11 +33,21 @@ export function ScheduleSummaryCard({schedule}: ScheduleSummaryCardProps) {
                 <div className="grid gap-3 md:grid-cols-2">
                     <div>
                         <p className="text-muted-foreground text-xs uppercase">Playlist</p>
-                        <p>{schedule.playlistName}</p>
+                        <Link
+                            href={appendReturnTo(`/dashboard/playlists/${schedule.playlistId}`, currentReturnTo)}
+                            className="hover:text-primary inline-flex w-fit underline underline-offset-4"
+                        >
+                            {schedule.playlistName}
+                        </Link>
                     </div>
                     <div>
                         <p className="text-muted-foreground text-xs uppercase">Canal</p>
-                        <p>{schedule.channelName}</p>
+                        <Link
+                            href={appendReturnTo(`/dashboard/channels/${schedule.channelId}`, currentReturnTo)}
+                            className="hover:text-primary inline-flex w-fit underline underline-offset-4"
+                        >
+                            {schedule.channelName}
+                        </Link>
                     </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">

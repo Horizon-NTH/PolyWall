@@ -9,22 +9,24 @@ import { ScheduleSummaryCard } from '@/components/schedules/schedule-summary-car
 import { Button } from '@/components/ui/button';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 import { getScheduleByIdInOrganization } from '@/lib/schedules/schedule-queries';
 import { toScheduleViewModel } from '@/lib/schedules/schedule-view-model';
 import { formatDate } from '@/lib/utils';
 
 type ScheduleDetailsPageProps = {
     params: Promise<{ scheduleId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: ScheduleDetailsPageProps) {
+export default async function Page({params, searchParams}: ScheduleDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('read', 'PlaylistSchedule')) redirect('/dashboard');
 
-    const {scheduleId} = await params;
+    const [{scheduleId}, query] = await Promise.all([params, searchParams]);
     if (!scheduleId) notFound();
 
     const organizationId = session.user.organizationId;
@@ -51,6 +53,8 @@ export default async function Page({params}: ScheduleDetailsPageProps) {
 
     const schedule = toScheduleViewModel(await getScheduleByIdInOrganization(scheduleId, organizationId));
     const canManage = ability.can('update', 'PlaylistSchedule');
+    const returnHref = resolveReturnTo(query.returnTo, `/dashboard/schedules?channelId=${schedule.channelId}`);
+    const editHref = appendReturnTo(`/dashboard/schedules/${schedule.id}/edit`, query.returnTo);
 
     return (
         <>
@@ -71,11 +75,11 @@ export default async function Page({params}: ScheduleDetailsPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href={`/dashboard/schedules?channelId=${schedule.channelId}`}>Retour</Link>
+                            <Link href={returnHref}>Retour</Link>
                         </Button>
                         {canManage ? (
                             <Button asChild>
-                                <Link href={`/dashboard/schedules/${schedule.id}/edit`}>Modifier</Link>
+                                <Link href={editHref}>Modifier</Link>
                             </Button>
                         ) : null}
                     </div>
@@ -90,7 +94,7 @@ export default async function Page({params}: ScheduleDetailsPageProps) {
                         <ScheduleActionsCard
                             scheduleId={schedule.id}
                             scheduleLabel={schedule.playlistName}
-                            returnHref={`/dashboard/schedules?channelId=${schedule.channelId}`}
+                            returnHref={returnHref}
                         />
                     ) : null}
                 </div>

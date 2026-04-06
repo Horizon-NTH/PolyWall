@@ -9,20 +9,22 @@ import { ScreenSummaryCard } from '@/components/screens/screen-summary-card';
 import { Button } from '@/components/ui/button';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 
 type ScreenDetailsPageProps = {
     params: Promise<{ screenId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: ScreenDetailsPageProps) {
+export default async function Page({params, searchParams}: ScreenDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('read', 'Screen')) redirect('/dashboard');
 
-    const {screenId} = await params;
+    const [{screenId}, query] = await Promise.all([params, searchParams]);
     if (!screenId) notFound();
 
     const organizationId = session.user.organizationId;
@@ -78,6 +80,8 @@ export default async function Page({params}: ScreenDetailsPageProps) {
     if (!screen) notFound();
 
     const canManage = ability.can('update', 'Screen');
+    const returnHref = resolveReturnTo(query.returnTo, '/dashboard/screens');
+    const editHref = appendReturnTo(`/dashboard/screens/${screen.id}/edit`, query.returnTo);
 
     const channels = canManage
         ? await prisma.channel.findMany({
@@ -106,11 +110,11 @@ export default async function Page({params}: ScreenDetailsPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href="/dashboard/screens">Retour</Link>
+                            <Link href={returnHref}>Retour</Link>
                         </Button>
                         {canManage ? (
                             <Button asChild>
-                                <Link href={`/dashboard/screens/${screen.id}/edit`}>
+                                <Link href={editHref}>
                                     {screen.status === 'PENDING' ? 'Valider' : 'Modifier'}
                                 </Link>
                             </Button>

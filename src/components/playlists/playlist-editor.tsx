@@ -37,6 +37,8 @@ import { cn, formatDurationSeconds } from '@/lib/utils';
 import type { PlaylistTimelineReplaceValues } from '@/schemas/playlist-schema';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { MediaKindIcon } from '@/components/media/media-card';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 
 type AvailableMediaItem = {
     id: string;
@@ -190,7 +192,6 @@ function DraggableMediaCard({media}: { media: AvailableMediaItem }) {
 }
 
 type SortableTimelineItemProps = {
-    playlistId: string;
     item: TimelineMediaItem;
     index: number;
     count: number;
@@ -202,7 +203,6 @@ type SortableTimelineItemProps = {
 };
 
 function SortableTimelineItem({
-                                  playlistId,
                                   item,
                                   index,
                                   count,
@@ -212,6 +212,7 @@ function SortableTimelineItem({
                                   onReactivate,
                                   isReactivating,
                               }: SortableTimelineItemProps) {
+    const currentReturnTo = useCurrentReturnTo();
     const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({
         id: makeTimelineId(item.entryId),
         data: {source: 'timeline'},
@@ -258,7 +259,7 @@ function SortableTimelineItem({
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <Link
-                            href={`/dashboard/media/${item.mediaItemId}?backTo=${encodeURIComponent(`/dashboard/playlists/${playlistId}`)}`}
+                            href={appendReturnTo(`/dashboard/media/${item.mediaItemId}`, currentReturnTo)}
                             className="truncate text-sm font-medium underline-offset-4 hover:underline"
                             title={item.title}
                         >
@@ -817,7 +818,6 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
                                                 <TimelineInsertPlaceholder />
                                             ) : null}
                                             <SortableTimelineItem
-                                                playlistId={playlistId}
                                                 item={item}
                                                 index={index}
                                                 count={timeline.length}

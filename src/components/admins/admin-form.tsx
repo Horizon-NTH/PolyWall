@@ -55,7 +55,7 @@ export function AdminForm({
 
     const handleSuccess = () => {
         if (isEdit) {
-            router.push(`/dashboard/administrators/${adminId}`);
+            router.push(cancelHref);
         } else {
             router.push('/dashboard/administrators');
         }

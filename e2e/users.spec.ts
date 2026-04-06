@@ -73,7 +73,7 @@ async function getUserIdFromList(page: Parameters<typeof login>[0], name: string
     const href = await link.getAttribute('href');
     await filterUsers(page, '');
     if (!href) throw new Error(`Missing user link for ${name}`);
-    return href.split('/').pop() ?? '';
+    return new URL(href, 'http://localhost').pathname.split('/').pop() ?? '';
 }
 
 async function createUser(
@@ -189,12 +189,12 @@ test.describe('users', () => {
         const rowAfterReturn = page.getByRole('row', {name: new RegExp(userName)});
         await rowAfterReturn.getByRole('button', {name: 'Ouvrir le menu'}).click();
         await Promise.all([
-            page.waitForURL(/\/dashboard\/users\/.+\/edit$/),
+            page.waitForURL(/\/dashboard\/users\/.+\/edit(\?.*)?$/),
             page.getByRole('menuitem', {name: 'Modifier'}).click(),
         ]);
-        await expect(page).toHaveURL(/\/dashboard\/users\/.+\/edit$/);
+        await expect(page).toHaveURL(/\/dashboard\/users\/.+\/edit(\?.*)?$/);
         await page.getByRole('link', {name: 'Annuler'}).click();
-        await expect(page).toHaveURL(/\/dashboard\/users\/.+$/);
+        await expect(page).toHaveURL(/\/dashboard\/users\/.+(\?.*)?$/);
     });
 
     test('create, edit, toggle, and delete user flow', async ({page}, testInfo) => {

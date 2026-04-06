@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import { ScheduleType } from '@/generated/prisma/enums';
 import { ScheduleDefaultCard } from '@/components/schedules/schedule-default-card';
+
+vi.mock('next/navigation', () => ({
+    usePathname: () => '/dashboard/schedules',
+    useSearchParams: () => new URLSearchParams(),
+}));
 
 describe('ScheduleDefaultCard', () => {
     it('renders the empty state when no default schedule exists', () => {
@@ -11,7 +16,7 @@ describe('ScheduleDefaultCard', () => {
         expect(screen.getByText(/Aucune playlist par défaut/i)).toBeInTheDocument();
         expect(screen.getByRole('link', {name: /Définir la playlist par défaut/i})).toHaveAttribute(
             'href',
-            '/dashboard/schedules/new?channelId=channel-1&type=DEFAULT',
+            '/dashboard/schedules/new?channelId=channel-1&type=DEFAULT&returnTo=%2Fdashboard%2Fschedules',
         );
     });
 
@@ -41,7 +46,7 @@ describe('ScheduleDefaultCard', () => {
 
         expect(screen.getByRole('link', {name: /Modifier la playlist par défaut/i})).toHaveAttribute(
             'href',
-            '/dashboard/schedules/schedule-1/edit',
+            '/dashboard/schedules/schedule-1/edit?returnTo=%2Fdashboard%2Fschedules',
         );
         expect(screen.getByText(/Canal:\s*Hall/i)).toBeInTheDocument();
     });

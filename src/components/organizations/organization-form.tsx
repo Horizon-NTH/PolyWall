@@ -74,7 +74,7 @@ export function OrganizationForm({
         toast.success(isEdit ? 'Organisation mise à jour.' : 'Organisation créée.');
         startTransition(() => {
             if (isEdit) {
-                router.push(`/dashboard/organizations/${organizationId}`);
+                router.push(cancelHref);
             } else {
                 router.push('/dashboard/organizations');
             }

@@ -22,19 +22,14 @@ import {
     type MediaFileLike,
 } from '@/lib/media/media-view-model';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 import { getStorageService } from '@/lib/storage/storage-service';
 import { formatBytes, formatDate } from '@/lib/utils';
 
 type MediaDetailsPageProps = {
     params: Promise<{ mediaItemId: string }>;
-    searchParams: Promise<{ backTo?: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
-
-function getSafeBackHref(backTo: string | undefined) {
-    if (!backTo) return '/dashboard/media';
-    if (!backTo.startsWith('/dashboard')) return '/dashboard/media';
-    return backTo;
-}
 
 export default async function Page({params, searchParams}: MediaDetailsPageProps) {
     const session = await auth();
@@ -47,7 +42,7 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
     if (!mediaItemId) {
         notFound();
     }
-    const backHref = getSafeBackHref(query.backTo);
+    const backHref = resolveReturnTo(query.returnTo, '/dashboard/media');
 
     const organizationId = session.user.organizationId;
     if (!organizationId) {
@@ -166,6 +161,7 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
     if (hasReadyThumb) {
         infoRows.push({label: 'Thumbnail', value: 'Disponible'});
     }
+    const editHref = appendReturnTo(`/dashboard/media/${mediaItem.id}/edit`, query.returnTo);
 
     return (
         <>
@@ -188,7 +184,7 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
                             <Link href={backHref}>Retour</Link>
                         </Button>
                         <Button asChild>
-                            <Link href={`/dashboard/media/${mediaItem.id}/edit`}>Modifier</Link>
+                            <Link href={editHref}>Modifier</Link>
                         </Button>
                     </div>
                 </div>

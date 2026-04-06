@@ -98,7 +98,7 @@ describe('UserForm', () => {
             <UserForm
                 mode="edit"
                 userId="user-2"
-                cancelHref="/dashboard/users"
+                cancelHref="/dashboard/users/user-2"
                 defaultValues={{
                     fullName: 'Jean Dupont',
                     email: 'jean@example.com',

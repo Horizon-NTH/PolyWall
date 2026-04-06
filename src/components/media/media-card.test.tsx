@@ -7,6 +7,11 @@ import { MediaCard } from '@/components/media/media-card';
 const onToggleMock = vi.fn();
 const onDeleteMock = vi.fn();
 
+vi.mock('next/navigation', () => ({
+    usePathname: () => '/dashboard/media',
+    useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock('next/link', () => ({
     __esModule: true,
     default: (props: React.ComponentProps<'a'>) => <a {...props} />,
@@ -46,7 +51,10 @@ describe('MediaCard', () => {
         expect(screen.getByText('Visuel principal')).toBeInTheDocument();
         expect(screen.getByText('Actif')).toBeInTheDocument();
         expect(screen.getByText('Prêt')).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'Ouvrir'})).toHaveAttribute('href', '/dashboard/media/media-1');
+        expect(screen.getByRole('link', {name: 'Ouvrir'})).toHaveAttribute(
+            'href',
+            '/dashboard/media/media-1?returnTo=%2Fdashboard%2Fmedia',
+        );
         expect(screen.getByText('Image')).toBeInTheDocument();
     });
 

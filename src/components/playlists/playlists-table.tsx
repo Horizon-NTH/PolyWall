@@ -36,6 +36,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { formatDate, formatDurationSeconds } from '@/lib/utils';
 import { type PlaylistListFilterValues, playlistListFilterSchema } from '@/schemas/playlist-schema';
 
@@ -92,6 +94,7 @@ type PlaylistsTableProps = {
 
 export function PlaylistsTable({data}: PlaylistsTableProps) {
     const router = useRouter();
+    const currentReturnTo = useCurrentReturnTo();
     const defaults = playlistListFilterSchema.parse({});
     const [inactiveFilterValue, setInactiveFilterValue] = React.useState<InactiveFilter>(defaults.inactive);
     const [sortFilterValue, setSortFilterValue] = React.useState<SortFilter>('none');
@@ -119,7 +122,7 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
             cell: ({row}) => (
                 <div className="space-y-1 min-w-0 max-w-70">
                     <Link
-                        href={`/dashboard/playlists/${row.original.id}`}
+                        href={appendReturnTo(`/dashboard/playlists/${row.original.id}`, currentReturnTo)}
                         className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
                         title={row.original.name}
                     >
@@ -197,10 +200,14 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
             cell: ({row}) => (
                 <DataTableRowActions>
                     <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/playlists/${row.original.id}`}>Voir la fiche</Link>
+                        <Link href={appendReturnTo(`/dashboard/playlists/${row.original.id}`, currentReturnTo)}>
+                            Voir la fiche
+                        </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/playlists/${row.original.id}/edit`}>Modifier infos</Link>
+                        <Link href={appendReturnTo(`/dashboard/playlists/${row.original.id}/edit`, currentReturnTo)}>
+                            Modifier infos
+                        </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onClick={() => openDeleteDialog(row.original)}>
@@ -209,7 +216,7 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
                 </DataTableRowActions>
             ),
         },
-    ], [openDeleteDialog]);
+    ], [currentReturnTo, openDeleteDialog]);
 
     const table = useDataTable({
         data,

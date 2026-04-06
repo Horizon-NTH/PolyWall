@@ -37,7 +37,7 @@ async function getAdminIdFromList(page: Parameters<typeof login>[0], name: strin
     const href = await link.getAttribute('href');
     await filterAdmins(page, '');
     if (!href) throw new Error(`Missing admin link for ${name}`);
-    return href.split('/').pop() ?? '';
+    return new URL(href, 'http://localhost').pathname.split('/').pop() ?? '';
 }
 
 async function createAdmin(
@@ -174,9 +174,9 @@ test.describe('administrators', () => {
         const rowAfterReturn = page.getByRole('row', {name: new RegExp(adminName)});
         await rowAfterReturn.getByRole('button', {name: 'Ouvrir le menu'}).click();
         await page.getByRole('menuitem', {name: 'Modifier'}).click();
-        await expect(page).toHaveURL(/\/dashboard\/administrators\/.*\/edit$/);
+        await expect(page).toHaveURL(/\/dashboard\/administrators\/.*\/edit(\?.*)?$/);
         await page.getByRole('link', {name: 'Annuler'}).click();
-        await expect(page).toHaveURL(/\/dashboard\/administrators\/.*$/);
+        await expect(page).toHaveURL(/\/dashboard\/administrators\/.*(\?.*)?$/);
     });
 
     test('create, edit, toggle, and delete admin flow', async ({page}, testInfo) => {

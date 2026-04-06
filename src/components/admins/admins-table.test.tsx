@@ -15,6 +15,8 @@ vi.mock('next/navigation', () => ({
     useRouter: () => ({
         refresh: refreshMock,
     }),
+    usePathname: () => '/dashboard/administrators',
+    useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('next/link', () => ({
@@ -71,7 +73,7 @@ describe('AdminsTable', () => {
         expect(screen.getByText('Actif')).toBeInTheDocument();
         expect(screen.getByRole('link', {name: 'Jean Dupont'})).toHaveAttribute(
             'href',
-            '/dashboard/administrators/admin-1',
+            '/dashboard/administrators/admin-1?returnTo=%2Fdashboard%2Fadministrators',
         );
     });
 

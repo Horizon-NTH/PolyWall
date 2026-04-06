@@ -35,6 +35,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { useDataTable } from '@/hooks/use-data-table';
 import { ScheduleType } from '@/generated/prisma/enums';
 import { type ScheduleViewModel } from '@/lib/schedules/schedule-view-model';
@@ -74,6 +76,7 @@ type SchedulesTableProps = {
 
 export function SchedulesTable({data, canManage}: SchedulesTableProps) {
     const router = useRouter();
+    const currentReturnTo = useCurrentReturnTo();
     const defaults = scheduleListFilterSchema.parse({});
     const [typeFilterValue, setTypeFilterValue] = React.useState<TypeFilter>(defaults.type);
     const [activeFilterValue, setActiveFilterValue] = React.useState<ActiveFilter>(defaults.active);
@@ -104,7 +107,7 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
             cell: ({row}) => (
                 <div className="flex min-w-0 max-w-72 flex-col gap-1">
                     <Link
-                        href={`/dashboard/schedules/${row.original.id}`}
+                        href={appendReturnTo(`/dashboard/schedules/${row.original.id}`, currentReturnTo)}
                         className="truncate font-medium underline-offset-4 hover:underline"
                     >
                         {row.original.playlistName}
@@ -163,12 +166,16 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
             cell: ({row}) => (
                 <DataTableRowActions>
                     <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/schedules/${row.original.id}`}>Voir la fiche</Link>
+                        <Link href={appendReturnTo(`/dashboard/schedules/${row.original.id}`, currentReturnTo)}>
+                            Voir la fiche
+                        </Link>
                     </DropdownMenuItem>
                     {canManage ? (
                         <>
                             <DropdownMenuItem asChild>
-                                <Link href={`/dashboard/schedules/${row.original.id}/edit`}>Modifier</Link>
+                                <Link href={appendReturnTo(`/dashboard/schedules/${row.original.id}/edit`, currentReturnTo)}>
+                                    Modifier
+                                </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 variant="destructive"
@@ -184,7 +191,7 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
                 </DataTableRowActions>
             ),
         },
-    ], [canManage]);
+    ], [canManage, currentReturnTo]);
 
     const table = useDataTable({
         data,
