@@ -62,7 +62,7 @@ export function AccountPasswordForm() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
+                <form noValidate onSubmit={form.handleSubmit(onSubmit)}>
                     <FieldGroup>
                         <PasswordField
                             control={form.control}

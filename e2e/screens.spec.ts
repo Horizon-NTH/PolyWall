@@ -93,5 +93,12 @@ test.describe('screens', () => {
 
         await expect(page.getByText('Écran validé.')).toBeVisible();
         await expect(page).toHaveURL(/\/dashboard\/screens\/[^/]+$/);
+
+        await page.getByRole('button', {name: 'Supprimer'}).click();
+        const deleteDialog = page.getByRole('alertdialog');
+        await deleteDialog.getByRole('button', {name: 'Supprimer'}).click();
+        await expect(page.getByText('Écran supprimé.')).toBeVisible();
+        await safeGoto(page, '/dashboard/screens');
+        await expect(page).toHaveURL(/\/dashboard\/screens$/);
     });
 });
