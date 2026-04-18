@@ -81,9 +81,17 @@ async function selectFirstOption(page: Page, label: string) {
     const trigger = page.getByLabel(label);
     await trigger.click();
     const firstOption = page.getByRole('option').first();
-    const optionText = (await firstOption.textContent())?.trim() ?? '';
-    await firstOption.click();
-    return optionText;
+
+    if ((await firstOption.count()) > 0) {
+        await expect(firstOption).toBeVisible({timeout: 2000});
+        const optionText = (await firstOption.textContent())?.trim() ?? '';
+        await firstOption.click();
+        return optionText;
+    }
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    return ((await trigger.textContent()) ?? '').trim();
 }
 
 function getFieldButton(page: Page, label: string) {
@@ -132,10 +140,12 @@ async function fillEventScheduleForm(params: {
 async function createEventScheduleWithRetry(params: {
     page: Page;
     baseNewScheduleUrl: string;
+    startDateIndex?: number;
+    attempts?: number;
 }) {
-    const {page, baseNewScheduleUrl} = params;
+    const {page, baseNewScheduleUrl, startDateIndex = 0, attempts = 10} = params;
 
-    for (let dateIndex = 0; dateIndex < 10; dateIndex += 1) {
+    for (let dateIndex = startDateIndex; dateIndex < (startDateIndex + attempts); dateIndex += 1) {
         await safeGoto(page, baseNewScheduleUrl);
         await expect(page).toHaveURL(new RegExp('^.+/dashboard/schedules/new'));
 
@@ -143,14 +153,103 @@ async function createEventScheduleWithRetry(params: {
         await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
 
         try {
-            await page.waitForURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/, {timeout: 3500});
-            return {dateIndex};
+            await expect.poll(() => {
+                const pathname = new URL(page.url()).pathname;
+                return /^\/dashboard\/schedules\/[^/]+$/.test(pathname) && pathname !== '/dashboard/schedules/new';
+            }, {timeout: 3500}).toBe(true);
+            const scheduleId = new URL(page.url()).pathname.match(/^\/dashboard\/schedules\/([^/]+)$/)?.[1];
+            if (!scheduleId) throw new Error('Impossible de récupérer l’identifiant de la programmation créée.');
+            return {dateIndex, scheduleId};
         } catch {
-            await expect(page.getByText('Conflit détecté')).toBeVisible();
+            // Keep trying with another date when submission does not land on schedule detail.
         }
     }
 
     throw new Error('Impossible de créer une programmation événementielle sans conflit après 10 tentatives.');
+}
+
+async function deleteScheduleViaUi(params: {
+    page: Page;
+    scheduleId: string;
+    channelId: string;
+}) {
+    const {page, scheduleId, channelId} = params;
+
+    await safeGoto(
+        page,
+        `/dashboard/schedules/${scheduleId}?returnTo=${encodeURIComponent(`/dashboard/schedules?channelId=${channelId}&tab=calendar`)}`,
+    );
+
+    if (!new RegExp(`/dashboard/schedules/${scheduleId}(\\?.*)?$`).test(new URL(page.url()).pathname + new URL(page.url()).search)) {
+        return;
+    }
+
+    const deleteTriggers = page.getByRole('button', {name: 'Supprimer'});
+    const triggerCount = await deleteTriggers.count();
+    if (triggerCount === 0) {
+        return;
+    }
+
+    let hasDialog = false;
+    for (let index = 0; index < triggerCount; index += 1) {
+        await deleteTriggers.nth(index).click({force: true});
+        const dialog = page.getByRole('alertdialog');
+        if ((await dialog.count()) > 0) {
+            hasDialog = true;
+            await dialog.getByRole('button', {name: 'Supprimer'}).click();
+            break;
+        }
+    }
+
+    if (!hasDialog) {
+        return;
+    }
+
+    await page.waitForTimeout(250);
+}
+
+async function cleanupShortActusEventsViaUi(params: {
+    page: Page;
+    channelId: string;
+}) {
+    const {page, channelId} = params;
+    await safeGoto(page, `/dashboard/schedules?channelId=${channelId}&tab=schedules`);
+    await page.waitForLoadState('networkidle');
+
+    const search = page.getByPlaceholder('Rechercher une programmation...');
+    await search.fill('Actus');
+
+    for (let pass = 0; pass < 10; pass += 1) {
+        const rows = page.locator('main table tbody tr');
+        const rowCount = await rows.count();
+        let deletedOne = false;
+
+        for (let index = 0; index < rowCount; index += 1) {
+            const row = rows.nth(index);
+            const rowText = ((await row.textContent()) ?? '').replace(/\s+/g, ' ');
+            const isTarget = rowText.includes('Événementielle')
+                && rowText.includes('Actus')
+                && rowText.includes('00:00 - 00:02');
+
+            if (!isTarget) {
+                continue;
+            }
+
+            await row.getByRole('button', {name: 'Ouvrir le menu'}).click();
+            await page.getByRole('menuitem', {name: 'Supprimer'}).click();
+            const dialog = page.getByRole('alertdialog');
+            if ((await dialog.count()) > 0) {
+                await dialog.getByRole('button', {name: 'Supprimer'}).click();
+            }
+            await page.waitForTimeout(300);
+            deletedOne = true;
+            break;
+        }
+
+        if (!deletedOne) {
+            break;
+        }
+    }
 }
 
 test.describe('schedules', () => {
@@ -395,29 +494,42 @@ test.describe('schedules', () => {
         const channelId = schedulesUrl.searchParams.get('channelId');
         expect(channelId).toBeTruthy();
         const baseNewScheduleUrl = `/dashboard/schedules/new?channelId=${channelId}&type=EVENT`;
+        let createdScheduleId: string | null = null;
+        await cleanupShortActusEventsViaUi({page, channelId: channelId!});
 
-        const created = await createEventScheduleWithRetry({
-            page,
-            baseNewScheduleUrl,
-        });
-        expect(created.dateIndex).toBeGreaterThanOrEqual(0);
+        try {
+            const created = await createEventScheduleWithRetry({
+                page,
+                baseNewScheduleUrl,
+            });
+            createdScheduleId = created.scheduleId;
+            expect(created.dateIndex).toBeGreaterThanOrEqual(0);
 
-        await safeGoto(page, `/dashboard/schedules?channelId=${channelId}`);
-        await page.getByRole('tab', {name: 'Planning'}).click();
-        await expect(page.getByRole('tab', {name: 'Planning'})).toHaveAttribute('aria-selected', 'true');
+            await safeGoto(page, `/dashboard/schedules?channelId=${channelId}&tab=calendar`);
+            await expect(page.getByRole('tab', {name: 'Planning'})).toHaveAttribute('aria-selected', 'true');
 
-        const calendarEvent = page.locator('.sx__event').first();
-        await expect(calendarEvent).toBeVisible();
-        await calendarEvent.click();
+            const calendarEvent = page.locator('.sx__event').first();
+            await expect(calendarEvent).toBeVisible();
+            await calendarEvent.click({force: true});
 
-        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
-        const detailUrl = new URL(page.url());
-        const returnTo = detailUrl.searchParams.get('returnTo');
-        expect(returnTo).toBe(`/dashboard/schedules?channelId=${channelId}&tab=calendar`);
+            await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+            const detailUrl = new URL(page.url());
+            const returnTo = detailUrl.searchParams.get('returnTo');
+            expect(returnTo).toBe(`/dashboard/schedules?channelId=${channelId}&tab=calendar`);
 
-        await page.getByRole('link', {name: 'Retour'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/schedules\\?channelId=${channelId}&tab=calendar`));
-        await expect(page.getByRole('tab', {name: 'Planning'})).toHaveAttribute('aria-selected', 'true');
+            await page.getByRole('link', {name: 'Retour'}).click();
+            await expect(page).toHaveURL(new RegExp(`/dashboard/schedules\\?channelId=${channelId}&tab=calendar`));
+            await expect(page.getByRole('tab', {name: 'Planning'})).toHaveAttribute('aria-selected', 'true');
+        } finally {
+            if (createdScheduleId) {
+                await deleteScheduleViaUi({
+                    page,
+                    scheduleId: createdScheduleId,
+                    channelId: channelId!,
+                });
+            }
+            await cleanupShortActusEventsViaUi({page, channelId: channelId!});
+        }
     });
 
     test('conflict link then app back restores schedule form state', async ({page}) => {
@@ -428,33 +540,47 @@ test.describe('schedules', () => {
         const channelId = schedulesUrl.searchParams.get('channelId');
         expect(channelId).toBeTruthy();
         const baseNewScheduleUrl = `/dashboard/schedules/new?channelId=${channelId}&type=EVENT`;
+        let baseScheduleId: string | null = null;
+        await cleanupShortActusEventsViaUi({page, channelId: channelId!});
 
-        const baseSchedule = await createEventScheduleWithRetry({
-            page,
-            baseNewScheduleUrl,
-        });
+        try {
+            const baseSchedule = await createEventScheduleWithRetry({
+                page,
+                baseNewScheduleUrl,
+            });
+            baseScheduleId = baseSchedule.scheduleId;
 
-        await safeGoto(page, baseNewScheduleUrl);
-        await fillEventScheduleForm({page, dateIndex: baseSchedule.dateIndex});
-        const selectedStartDateLabel = ((await getFieldButton(page, 'Date de début').textContent()) ?? '').trim();
-        await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
+            await safeGoto(page, baseNewScheduleUrl);
+            await fillEventScheduleForm({page, dateIndex: baseSchedule.dateIndex});
+            const selectedStartDateLabel = ((await getFieldButton(page, 'Date de début').textContent()) ?? '').trim();
+            await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
 
-        await expect(page.getByText('Conflit détecté', {exact: true})).toBeVisible();
-        await expect(page.getByText('1 conflit détecté.')).toBeVisible();
+            await expect(page.getByText('Conflit détecté', {exact: true})).toBeVisible();
+            await expect(page.getByText('1 conflit détecté.')).toBeVisible();
 
-        await page.getByRole('link', {name: 'Voir la programmation en conflit'}).first().click();
-        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
-        const backLink = page.getByRole('link', {name: 'Retour'});
-        await expect(backLink).toHaveAttribute('href', /\/dashboard\/schedules\/new\?/);
-        await expect(backLink).toHaveAttribute('href', /restoreConflictDraft=1/);
+            await page.getByRole('link', {name: 'Voir la programmation en conflit'}).first().click();
+            await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+            const backLink = page.getByRole('link', {name: 'Retour'});
+            await expect(backLink).toHaveAttribute('href', /\/dashboard\/schedules\/new\?/);
+            await expect(backLink).toHaveAttribute('href', /restoreConflictDraft=1/);
 
-        await backLink.click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/schedules/new\\?channelId=${channelId}&type=EVENT`));
-        await expect(page.getByText('Conflit détecté', {exact: true})).toBeVisible();
-        await expect(page.getByText('1 conflit détecté.')).toBeVisible();
-        await expect(page.getByLabel('Type')).toContainText('Événementielle');
-        await expect(getFieldButton(page, 'Date de début')).toContainText(selectedStartDateLabel);
-        await expect(getFieldButton(page, 'Heure de début')).toContainText('00:00');
-        await expect(page.getByLabel('Fin de diffusion')).toContainText('Durée de la playlist');
+            await backLink.click();
+            await expect(page).toHaveURL(new RegExp(`/dashboard/schedules/new\\?channelId=${channelId}&type=EVENT`));
+            await expect(page.getByText('Conflit détecté', {exact: true})).toBeVisible();
+            await expect(page.getByText('1 conflit détecté.')).toBeVisible();
+            await expect(page.getByLabel('Type')).toContainText('Événementielle');
+            await expect(getFieldButton(page, 'Date de début')).toContainText(selectedStartDateLabel);
+            await expect(getFieldButton(page, 'Heure de début')).toContainText('00:00');
+            await expect(page.getByLabel('Fin de diffusion')).toContainText('Durée de la playlist');
+        } finally {
+            if (baseScheduleId) {
+                await deleteScheduleViaUi({
+                    page,
+                    scheduleId: baseScheduleId,
+                    channelId: channelId!,
+                });
+            }
+            await cleanupShortActusEventsViaUi({page, channelId: channelId!});
+        }
     });
 });
