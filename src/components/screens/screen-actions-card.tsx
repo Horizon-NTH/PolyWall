@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { deleteScreen, reactivateScreen, revokeScreen } from '@/actions/screen-actions';
+import { ScreenDeleteDialog } from '@/components/screens/screen-delete-dialog';
 import { ScreenStatus } from '@/generated/prisma/enums';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -146,25 +147,14 @@ export function ScreenActionsCard({screenId, screenName, status, channels}: Scre
                     </AlertDialog>
                 )}
 
-                <AlertDialog open={openDelete} onOpenChange={setOpenDelete}>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" disabled={isPending}>Supprimer</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer {screenName} ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Cette action est définitive.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={isPending}>
-                                Supprimer
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ScreenDeleteDialog
+                    open={openDelete}
+                    onOpenChange={setOpenDelete}
+                    onConfirm={handleDelete}
+                    confirmDisabled={isPending}
+                    trigger={<Button variant="destructive" disabled={isPending}>Supprimer</Button>}
+                    title={`Supprimer ${screenName} ?`}
+                />
             </CardContent>
         </Card>
     );

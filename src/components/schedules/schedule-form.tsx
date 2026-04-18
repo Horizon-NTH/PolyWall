@@ -508,8 +508,8 @@ export function ScheduleForm({
                                             </Select>
                                             <FieldDescription>
                                                 Le mode &quot;durée de la playlist&quot; calcule automatiquement
-                                                l&apos;heure de
-                                                fin à partir de la durée de la playlist.
+                                                l&apos;heure de fin à partir de la durée diffusable actuelle de la
+                                                playlist.
                                             </FieldDescription>
                                             {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
                                         </Field>

@@ -13,6 +13,8 @@ import {
 import { PlaylistSummaryCard } from '@/components/playlists/playlist-summary-card';
 import { Button } from '@/components/ui/button';
 import { defineAbilityFor } from '@/lib/casl/ability';
+import { getPlaylistMetrics } from '@/lib/playlists/playlist-metrics';
+import { toPlaylistScheduleImpact } from '@/lib/playlists/playlist-schedule-impact';
 import { prisma } from '@/lib/prisma';
 import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 import { resolveThumbUrl } from '@/lib/storage/presigned-url';
@@ -94,6 +96,26 @@ export default async function Page({params, searchParams}: PlaylistDetailsPagePr
                     },
                 },
             },
+            schedules: {
+                select: {
+                    id: true,
+                    type: true,
+                    startDate: true,
+                    endDate: true,
+                    timeSlots: {
+                        select: {
+                            dayOfWeek: true,
+                            startTime: true,
+                            endTime: true,
+                        },
+                        orderBy: [
+                            {dayOfWeek: 'asc'},
+                            {startTime: 'asc'},
+                        ],
+                    },
+                },
+                orderBy: {updatedAt: 'desc'},
+            },
         },
     });
 
@@ -147,9 +169,10 @@ export default async function Page({params, searchParams}: PlaylistDetailsPagePr
         })),
     );
 
-    const mediaCount = initialTimeline.length;
-    const activeMediaCount = initialTimeline.reduce((sum, item) => sum + (item.active ? 1 : 0), 0);
-    const totalDurationSeconds = initialTimeline.reduce((sum, item) => sum + item.durationSeconds, 0);
+    const metrics = getPlaylistMetrics(initialTimeline.map((item) => ({
+        durationSeconds: item.durationSeconds,
+        active: item.active,
+    })));
     const returnHref = resolveReturnTo(query.returnTo, '/dashboard/playlists');
     const editHref = appendReturnTo(`/dashboard/playlists/${playlist.id}/edit`, query.returnTo);
 
@@ -190,15 +213,19 @@ export default async function Page({params, searchParams}: PlaylistDetailsPagePr
                     <div className="grid gap-4 lg:col-span-2">
                         <PlaylistSummaryCard
                             description={playlist.description}
-                            mediaCount={mediaCount}
-                            totalDurationSeconds={totalDurationSeconds}
-                            inactiveMediaCount={mediaCount - activeMediaCount}
+                            mediaCount={metrics.mediaCount}
+                            totalDurationSeconds={metrics.diffusableDurationSeconds}
+                            inactiveMediaCount={metrics.inactiveMediaCount}
                             createdAt={playlist.createdAt.toISOString()}
                             updatedAt={playlist.updatedAt.toISOString()}
                         />
                     </div>
 
-                    <PlaylistActionsCard playlistId={playlist.id} playlistName={playlist.name} />
+                    <PlaylistActionsCard
+                        playlistId={playlist.id}
+                        playlistName={playlist.name}
+                        impactedSchedules={playlist.schedules.map(toPlaylistScheduleImpact)}
+                    />
                 </div>
             </div>
         </>

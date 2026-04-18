@@ -78,6 +78,21 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
             active: true,
             createdAt: true,
             updatedAt: true,
+            playlistItems: {
+                distinct: ['playlistId'],
+                select: {
+                    playlist: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    playlist: {
+                        name: 'asc',
+                    },
+                },
+            },
             files: {
                 select: {
                     id: true,
@@ -221,6 +236,10 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
                                 mediaItemId={mediaItem.id}
                                 mediaTitle={mediaItem.title}
                                 isActive={mediaItem.active}
+                                playlistUsage={{
+                                    count: mediaItem.playlistItems.length,
+                                    playlistNames: mediaItem.playlistItems.map((item) => item.playlist.name),
+                                }}
                             />
                         </div>
                     </div>

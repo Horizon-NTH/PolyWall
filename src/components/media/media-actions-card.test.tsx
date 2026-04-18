@@ -43,7 +43,14 @@ describe('MediaActionsCard', () => {
     it('toggles media state and refreshes page on success', async () => {
         toggleMediaItemActiveMock.mockResolvedValueOnce({ok: true});
 
-        render(<MediaActionsCard mediaItemId="media-1" mediaTitle="Affiche Hall" isActive={true} />);
+        render(
+            <MediaActionsCard
+                mediaItemId="media-1"
+                mediaTitle="Affiche Hall"
+                isActive={true}
+                playlistUsage={{count: 0, playlistNames: []}}
+            />,
+        );
 
         fireEvent.click(screen.getByRole('button', {name: 'Désactiver'}));
 
@@ -57,7 +64,14 @@ describe('MediaActionsCard', () => {
     it('shows error toast when toggle fails', async () => {
         toggleMediaItemActiveMock.mockResolvedValueOnce({ok: false, message: 'Accès refusé.'});
 
-        render(<MediaActionsCard mediaItemId="media-1" mediaTitle="Affiche Hall" isActive={false} />);
+        render(
+            <MediaActionsCard
+                mediaItemId="media-1"
+                mediaTitle="Affiche Hall"
+                isActive={false}
+                playlistUsage={{count: 0, playlistNames: []}}
+            />,
+        );
 
         fireEvent.click(screen.getByRole('button', {name: 'Activer'}));
 
@@ -70,7 +84,14 @@ describe('MediaActionsCard', () => {
     it('deletes media and redirects to media list', async () => {
         deleteMediaItemMock.mockResolvedValueOnce({ok: true});
 
-        render(<MediaActionsCard mediaItemId="media-1" mediaTitle="Affiche Hall" isActive={true} />);
+        render(
+            <MediaActionsCard
+                mediaItemId="media-1"
+                mediaTitle="Affiche Hall"
+                isActive={true}
+                playlistUsage={{count: 0, playlistNames: []}}
+            />,
+        );
 
         fireEvent.click(screen.getByRole('button', {name: 'Supprimer'}));
         const dialog = await screen.findByRole('alertdialog');
@@ -81,5 +102,23 @@ describe('MediaActionsCard', () => {
             expect(toastSuccessMock).toHaveBeenCalledWith('Média supprimé.');
             expect(replaceMock).toHaveBeenCalledWith('/dashboard/media');
         });
+    });
+
+    it('shows blocked deletion details when media is still used', async () => {
+        render(
+            <MediaActionsCard
+                mediaItemId="media-1"
+                mediaTitle="Affiche Hall"
+                isActive={true}
+                playlistUsage={{count: 2, playlistNames: ['Actus', 'Événements']}}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', {name: 'Supprimer'}));
+        const dialog = await screen.findByRole('alertdialog');
+
+        expect(within(dialog).getByText(/Suppression bloquée/)).toBeInTheDocument();
+        expect(within(dialog).getByText('Actus')).toBeInTheDocument();
+        expect(within(dialog).queryByRole('button', {name: 'Supprimer'})).not.toBeInTheDocument();
     });
 });

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -38,12 +39,19 @@ export function PlaylistPreviewSummary({
                             <div
                                 key={`${name}-${index}`}
                                 className={cn(
-                                    'bg-muted ring-background flex items-center justify-center overflow-hidden rounded-md ring-2',
+                                    'bg-muted ring-background relative flex items-center justify-center overflow-hidden rounded-md ring-2',
                                     thumbnailSizeClassName,
                                 )}
                             >
                                 {item.thumbUrl ? (
-                                    <img src={item.thumbUrl} alt="" className="size-full object-cover" />
+                                    <Image
+                                        src={item.thumbUrl}
+                                        alt=""
+                                        fill
+                                        unoptimized
+                                        sizes={size === 'sm' ? '40px' : '48px'}
+                                        className="object-cover"
+                                    />
                                 ) : (
                                     <span className="text-muted-foreground text-[10px] font-medium">Aperçu</span>
                                 )}
@@ -52,7 +60,7 @@ export function PlaylistPreviewSummary({
                         {remainingMediaCount > 0 ? (
                             <div
                                 className={cn(
-                                    'bg-muted text-foreground ring-background flex items-center justify-center rounded-md border border-border/60 text-xs font-semibold ring-2',
+                                    'bg-muted text-foreground ring-background flex items-center justify-center rounded-md border border-border/60 text-xs font-semibold ring-2 z-20',
                                     thumbnailSizeClassName,
                                 )}
                             >

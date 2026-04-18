@@ -22,6 +22,7 @@ describe('playlist-actions', () => {
         prisma.playlist.create.mockReset();
         prisma.playlist.update.mockReset();
         prisma.playlist.delete.mockReset();
+        prisma.playlist.findMany.mockReset();
         prisma.playlistItem.deleteMany.mockReset();
         prisma.playlistItem.createMany.mockReset();
         prisma.mediaItem.count.mockReset();

@@ -8,22 +8,13 @@ import { type ColumnDef, type FilterFn } from '@tanstack/react-table';
 import { ChevronDown } from 'lucide-react';
 
 import { deleteSchedule } from '@/actions/schedule-actions';
+import { ScheduleDeleteDialog } from '@/components/schedules/schedule-delete-dialog';
 import { DataTableView } from '@/components/table/data-table';
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header';
 import { DataTablePagination } from '@/components/table/data-table-pagination';
 import { DataTableRowActions } from '@/components/table/data-table-row-actions';
 import { DataTableToolbar } from '@/components/table/data-table-toolbar';
 import { Button } from '@/components/ui/button';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import {
     DropdownMenu,
@@ -84,7 +75,8 @@ type SchedulesTableProps = {
 
 export function SchedulesTable({data, canManage, returnTo}: SchedulesTableProps) {
     const router = useRouter();
-    const currentReturnTo = returnTo ?? useCurrentReturnTo();
+    const derivedReturnTo = useCurrentReturnTo();
+    const currentReturnTo = returnTo ?? derivedReturnTo;
     const defaults = scheduleListFilterSchema.parse({});
     const [typeFilterValue, setTypeFilterValue] = React.useState<TypeFilter>(defaults.type);
     const [activeFilterValue, setActiveFilterValue] = React.useState<ActiveFilter>(defaults.active);
@@ -367,23 +359,12 @@ export function SchedulesTable({data, canManage, returnTo}: SchedulesTableProps)
                 <DataTablePagination table={table} />
             </div>
 
-            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer cette programmation ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Cette action est définitive. Le canal retombera automatiquement sur la règle de priorité
-                            inférieure.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} variant="destructive" disabled={isPending}>
-                            Supprimer
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ScheduleDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                onConfirm={handleDelete}
+                confirmDisabled={isPending}
+            />
         </>
     );
 }

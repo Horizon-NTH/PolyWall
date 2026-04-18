@@ -16,6 +16,30 @@ type MediaActionResult =
     | { ok: true; mediaItemId?: string }
     | { ok: false; field?: MediaField; message: string };
 
+async function getMediaPlaylistUsage(mediaItemId: string, organizationId: string) {
+    return prisma.playlistItem.findMany({
+        where: {
+            mediaItemId,
+            playlist: {
+                organizationId,
+            },
+        },
+        distinct: ['playlistId'],
+        select: {
+            playlist: {
+                select: {
+                    name: true,
+                },
+            },
+        },
+        orderBy: {
+            playlist: {
+                name: 'asc',
+            },
+        },
+    });
+}
+
 async function ensureMediaAccess(requiredAction: 'read' | 'update' | 'delete') {
     const session = await auth();
     if (!session?.user) {
@@ -192,6 +216,20 @@ export async function deleteMediaItem(mediaItemId: string): Promise<MediaActionR
     }
 
     try {
+        const usage = await getMediaPlaylistUsage(mediaItem.id, access.organizationId);
+        if (usage.length > 0) {
+            const playlistNames = usage.map((item) => item.playlist.name);
+            const preview = playlistNames.slice(0, 3).join(', ');
+            const remaining = playlistNames.length - Math.min(playlistNames.length, 3);
+            const suffix = remaining > 0 ? ` et ${remaining} autre${remaining > 1 ? 's' : ''}` : '';
+
+            return {
+                ok: false,
+                field: 'root',
+                message: `Suppression impossible: ce média est utilisé dans ${playlistNames.length} playlist${playlistNames.length > 1 ? 's' : ''} (${preview}${suffix}).`,
+            };
+        }
+
         const storage = getStorageService();
 
         await Promise.all(

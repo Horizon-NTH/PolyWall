@@ -5,6 +5,8 @@ import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { PlaylistsTable, type PlaylistRow } from '@/components/playlists/playlists-table';
 import { defineAbilityFor } from '@/lib/casl/ability';
+import { getPlaylistMetrics } from '@/lib/playlists/playlist-metrics';
+import { toPlaylistScheduleImpact } from '@/lib/playlists/playlist-schedule-impact';
 import { prisma } from '@/lib/prisma';
 
 export default async function Page() {
@@ -56,22 +58,44 @@ export default async function Page() {
                     },
                 },
             },
+            schedules: {
+                select: {
+                    id: true,
+                    type: true,
+                    startDate: true,
+                    endDate: true,
+                    timeSlots: {
+                        select: {
+                            dayOfWeek: true,
+                            startTime: true,
+                            endTime: true,
+                        },
+                        orderBy: [
+                            {dayOfWeek: 'asc'},
+                            {startTime: 'asc'},
+                        ],
+                    },
+                },
+                orderBy: {updatedAt: 'desc'},
+            },
         },
         orderBy: {updatedAt: 'desc'},
     });
 
     const rows: PlaylistRow[] = playlists.map((playlist) => {
-        const mediaCount = playlist.items.length;
-        const totalDurationSeconds = playlist.items.reduce((sum, item) => sum + item.mediaItem.durationSeconds, 0);
-        const activeMediaCount = playlist.items.reduce((sum, item) => sum + (item.mediaItem.active ? 1 : 0), 0);
+        const metrics = getPlaylistMetrics(playlist.items.map((item) => ({
+            durationSeconds: item.mediaItem.durationSeconds,
+            active: item.mediaItem.active,
+        })));
 
         return {
             id: playlist.id,
             name: playlist.name,
             description: playlist.description,
-            mediaCount,
-            activeMediaCount,
-            totalDurationSeconds,
+            mediaCount: metrics.mediaCount,
+            activeMediaCount: metrics.activeMediaCount,
+            totalDurationSeconds: metrics.diffusableDurationSeconds,
+            impactedSchedules: playlist.schedules.map(toPlaylistScheduleImpact),
             createdAt: playlist.createdAt.toISOString(),
             updatedAt: playlist.updatedAt.toISOString(),
         };

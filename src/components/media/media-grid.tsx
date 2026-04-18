@@ -6,18 +6,9 @@ import { toast } from 'sonner';
 
 import { deleteMediaItem, toggleMediaItemActive } from '@/actions/media-actions';
 import { MediaCard } from '@/components/media/media-card';
+import { MediaDeleteDialog } from '@/components/media/media-delete-dialog';
 import { MediaEmptyState } from '@/components/media/media-empty-state';
 import { MediaFilters } from '@/components/media/media-filters';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import type { MediaFileStatus } from '@/generated/prisma/enums';
 import { getMediaKindLabel, getMediaStatusLabel, type MediaKind } from '@/lib/media/media-view-model';
 import { mediaListFilterSchema, type MediaListFilterValues } from '@/schemas/media-schema';
@@ -33,6 +24,10 @@ type MediaGridItem = {
     status: MediaFileStatus;
     thumbUrl: string | null;
     sizeBytes: number | null;
+    playlistUsage: {
+        count: number;
+        playlistNames: string[];
+    };
 };
 
 type MediaGridProps = {
@@ -67,7 +62,6 @@ export function MediaGrid({data}: MediaGridProps) {
     const [filters, setFilters] = useState<MediaListFilterValues>(defaultFilters);
     const [isPending, startTransition] = useTransition();
     const [deleteTarget, setDeleteTarget] = useState<MediaGridItem | null>(null);
-
     const filtered = useMemo(() => {
         const query = filters.q.toLowerCase();
 
@@ -155,24 +149,13 @@ export function MediaGrid({data}: MediaGridProps) {
                 </div>
             )}
 
-            <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            Supprimer ce média ?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Cette action est définitive. Le média, son original et ses variantes seront supprimés.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={onDeleteConfirm} variant="destructive" disabled={isPending}>
-                            Supprimer
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <MediaDeleteDialog
+                open={Boolean(deleteTarget)}
+                onOpenChange={(open) => !open && setDeleteTarget(null)}
+                playlistUsage={deleteTarget?.playlistUsage ?? {count: 0, playlistNames: []}}
+                onConfirm={onDeleteConfirm}
+                confirmDisabled={isPending}
+            />
         </div>
     );
 }

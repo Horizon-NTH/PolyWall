@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { ScheduleType } from '@/generated/prisma/enums';
+import { getPlaylistMetrics } from '@/lib/playlists/playlist-metrics';
 import { prisma } from '@/lib/prisma';
 import { toScheduleViewModel } from '@/lib/schedules/schedule-view-model';
 import { resolveThumbUrl, type StorageObjectRef } from '@/lib/storage/presigned-url';
@@ -13,18 +14,22 @@ async function buildPlaylistPreviewData(playlist: {
         mediaItem: {
             title: string;
             durationSeconds: number;
+            active: boolean;
             files: StorageObjectRef[];
         };
     }>;
 }) {
-    const totalDurationSeconds = playlist.items.reduce((sum, item) => sum + item.mediaItem.durationSeconds, 0);
+    const metrics = getPlaylistMetrics(playlist.items.map((item) => ({
+        durationSeconds: item.mediaItem.durationSeconds,
+        active: item.mediaItem.active,
+    })));
 
     return {
         id: playlist.id,
         name: playlist.name,
-        mediaCount: playlist.items.length,
-        totalDurationSeconds,
-        totalDurationLabel: formatDurationSeconds(totalDurationSeconds),
+        mediaCount: metrics.mediaCount,
+        totalDurationSeconds: metrics.diffusableDurationSeconds,
+        totalDurationLabel: formatDurationSeconds(metrics.diffusableDurationSeconds),
         previewItems: await Promise.all(playlist.items.slice(0, 3).map(async (item) => ({
             title: item.mediaItem.title,
             thumbUrl: await resolveThumbUrl(item.mediaItem.files[0] ?? null),
@@ -65,6 +70,7 @@ export async function getScheduleFormOptions(organizationId: string) {
                             select: {
                                 title: true,
                                 durationSeconds: true,
+                                active: true,
                                 files: {
                                     where: {
                                         variant: 'THUMB',
@@ -180,6 +186,7 @@ export async function getChannelSchedulesOverview(organizationId: string, channe
                                         select: {
                                             title: true,
                                             durationSeconds: true,
+                                            active: true,
                                             files: {
                                                 where: {
                                                     variant: 'THUMB',

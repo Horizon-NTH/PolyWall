@@ -512,6 +512,13 @@ test.describe('schedules', () => {
             await expect(calendarEvent).toBeVisible();
             await calendarEvent.click({force: true});
 
+            const popover = page.getByRole('dialog');
+            await expect(popover).toBeVisible();
+            await expect(popover.getByText('Fenêtre:')).toBeVisible();
+            const scheduleLink = popover.getByRole('link', {name: 'Voir la programmation'});
+            await expect(scheduleLink).toBeVisible();
+            await scheduleLink.click();
+
             await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
             const detailUrl = new URL(page.url());
             const returnTo = detailUrl.searchParams.get('returnTo');

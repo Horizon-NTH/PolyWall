@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { Clock3, FileImage, FileText, FileVideo, FileWarning, HardDrive, LoaderCircle } from 'lucide-react';
 
@@ -58,13 +59,14 @@ export function MediaCard({item, statusLabel, kindLabel, onToggle, onDelete, isP
             <div
                 className="relative flex aspect-video items-center justify-center overflow-hidden bg-muted">
                 {item.thumbUrl ? (
-                    <>
-                        <img
-                            src={item.thumbUrl}
-                            alt={`Aperçu ${item.title}`}
-                            className="h-full w-full object-cover"
-                        />
-                    </>
+                    <Image
+                        src={item.thumbUrl}
+                        alt={`Aperçu ${item.title}`}
+                        fill
+                        unoptimized
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover"
+                    />
                 ) : (
                     <MediaFallback kind={item.kind} />
                 )}

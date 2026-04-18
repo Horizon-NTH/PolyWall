@@ -58,6 +58,7 @@ export const mockPrismaModule = () => {
             playlistItem: {
                 deleteMany: vi.fn(),
                 createMany: vi.fn(),
+                findMany: vi.fn(),
             },
             playlistSchedule: {
                 findFirst: vi.fn(),
@@ -129,6 +130,7 @@ export const getPrismaMock = async () => {
         playlistItem: {
             deleteMany: ReturnType<typeof vi.fn>;
             createMany: ReturnType<typeof vi.fn>;
+            findMany: ReturnType<typeof vi.fn>;
         };
         playlistSchedule: {
             findFirst: ReturnType<typeof vi.fn>;

@@ -6,6 +6,7 @@ import { auth } from '@/auth';
 import { getFirstZodIssue } from '@/actions/action-utils';
 import { createActionLogger } from '@/actions/action-logging';
 import { defineAbilityFor } from '@/lib/casl/ability';
+import { getPlaylistMetrics } from '@/lib/playlists/playlist-metrics';
 import { prisma } from '@/lib/prisma';
 import { ScheduleType } from '@/generated/prisma/enums';
 import {
@@ -97,6 +98,7 @@ async function findPlaylistInOrganization(playlistId: string, organizationId: st
                     mediaItem: {
                         select: {
                             durationSeconds: true,
+                            active: true,
                         },
                     },
                 },
@@ -146,7 +148,12 @@ async function buildSchedulePersistencePayload(
         return {ok: false as const, field: 'playlistId' as const, message: 'Playlist introuvable.'};
     }
 
-    const playlistDurationSeconds = playlist.items.reduce((sum, item) => sum + item.mediaItem.durationSeconds, 0);
+    const playlistDurationSeconds = getPlaylistMetrics(
+        playlist.items.map((item) => ({
+            durationSeconds: item.mediaItem.durationSeconds,
+            active: item.mediaItem.active,
+        })),
+    ).diffusableDurationSeconds;
     let resolvedEndTime = data.endTime ?? '24:00';
 
     if (data.type !== ScheduleType.DEFAULT && data.endMode === 'playlist') {

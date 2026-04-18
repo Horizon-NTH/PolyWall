@@ -8,6 +8,7 @@ import { type ColumnDef, type FilterFn } from '@tanstack/react-table';
 import { ChevronDown } from 'lucide-react';
 
 import { deletePlaylist } from '@/actions/playlist-actions';
+import { PlaylistDeleteDialog } from '@/components/playlists/playlist-delete-dialog';
 import { PlaylistEmptyState } from '@/components/playlists/playlist-empty-state';
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header';
 import { DataTablePagination } from '@/components/table/data-table-pagination';
@@ -15,16 +16,6 @@ import { DataTableRowActions } from '@/components/table/data-table-row-actions';
 import { DataTableToolbar } from '@/components/table/data-table-toolbar';
 import { DataTableView } from '@/components/table/data-table';
 import { Button } from '@/components/ui/button';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -37,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { type PlaylistScheduleImpact } from '@/lib/playlists/playlist-schedule-impact';
 import { appendReturnTo } from '@/lib/return-to';
 import { formatDate, formatDurationSeconds } from '@/lib/utils';
 import { type PlaylistListFilterValues, playlistListFilterSchema } from '@/schemas/playlist-schema';
@@ -48,6 +40,7 @@ export type PlaylistRow = {
     mediaCount: number;
     activeMediaCount: number;
     totalDurationSeconds: number;
+    impactedSchedules: PlaylistScheduleImpact[];
     createdAt: string;
     updatedAt: string;
 };
@@ -334,26 +327,13 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
             <DataTableView table={table} />
             <DataTablePagination table={table} />
 
-            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer cette playlist ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Cette action est définitive. Les éléments de la timeline seront supprimés.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => startTransition(handleDelete)}
-                            variant="destructive"
-                            disabled={isPending}
-                        >
-                            Supprimer
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <PlaylistDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                impactedSchedules={deleteTarget?.impactedSchedules ?? []}
+                onConfirm={() => startTransition(handleDelete)}
+                confirmDisabled={isPending}
+            />
         </div>
     );
 }

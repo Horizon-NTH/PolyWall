@@ -37,10 +37,22 @@ describe('PlaylistActionsCard', () => {
     it('deletes playlist and redirects on success', async () => {
         deletePlaylistMock.mockResolvedValueOnce({ok: true});
 
-        render(<PlaylistActionsCard playlistId="playlist-1" playlistName="Affichage principal" />);
+        render(
+            <PlaylistActionsCard
+                playlistId="playlist-1"
+                playlistName="Affichage principal"
+                impactedSchedules={[{
+                    id: 'schedule-1',
+                    typeLabel: 'Récurrente',
+                    dateLabel: 'Toujours active',
+                    timeLabel: '08:00 - 10:00',
+                }]}
+            />,
+        );
 
         fireEvent.click(screen.getByRole('button', {name: 'Supprimer'}));
         const dialog = await screen.findByRole('alertdialog');
+        expect(within(dialog).getByText('Récurrente')).toBeInTheDocument();
         fireEvent.click(within(dialog).getByRole('button', {name: 'Supprimer'}));
 
         await waitFor(() => {
@@ -53,7 +65,7 @@ describe('PlaylistActionsCard', () => {
     it('shows error toast when delete fails', async () => {
         deletePlaylistMock.mockResolvedValueOnce({ok: false, message: 'Suppression impossible.'});
 
-        render(<PlaylistActionsCard playlistId="playlist-1" playlistName="Affichage principal" />);
+        render(<PlaylistActionsCard playlistId="playlist-1" playlistName="Affichage principal" impactedSchedules={[]} />);
 
         fireEvent.click(screen.getByRole('button', {name: 'Supprimer'}));
         const dialog = await screen.findByRole('alertdialog');

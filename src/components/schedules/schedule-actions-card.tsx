@@ -5,19 +5,9 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { deleteSchedule } from '@/actions/schedule-actions';
+import { ScheduleDeleteDialog } from '@/components/schedules/schedule-delete-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 type ScheduleActionsCardProps = {
     scheduleId: string;
@@ -54,26 +44,15 @@ export function ScheduleActionsCard({scheduleId, scheduleLabel, returnHref}: Sch
                 <CardDescription>Supprimez cette programmation si elle ne doit plus être diffusée.</CardDescription>
             </CardHeader>
             <CardContent>
-                <AlertDialog open={open} onOpenChange={setOpen}>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive">Supprimer</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle className="break-all">Supprimer {scheduleLabel} ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Cette action est définitive. La priorité retombera automatiquement sur la règle
-                                suivante.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} variant="destructive" disabled={isPending}>
-                                Supprimer
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ScheduleDeleteDialog
+                    open={open}
+                    onOpenChange={setOpen}
+                    onConfirm={handleDelete}
+                    confirmDisabled={isPending}
+                    trigger={<Button variant="destructive">Supprimer</Button>}
+                    title={<span className="break-all">Supprimer {scheduleLabel} ?</span>}
+                    description="Cette action est définitive. La priorité retombera automatiquement sur la règle suivante."
+                />
             </CardContent>
         </Card>
     );

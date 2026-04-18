@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { FileText } from 'lucide-react';
 
@@ -37,10 +38,14 @@ export function MediaDetailPreview({title, kind, originalUrl, originalMimeType, 
             </CardHeader>
             <CardContent className="space-y-4">
                 {kind === 'image' ? (
-                    <img
+                    <Image
                         src={originalUrl}
                         alt={title}
-                        className="mx-auto block max-h-140 max-w-full rounded-md object-contain"
+                        width={1}
+                        height={1}
+                        unoptimized
+                        sizes="100vw"
+                        className="mx-auto block h-auto max-h-140 w-auto max-w-full rounded-md object-contain"
                     />
                 ) : null}
 
@@ -85,11 +90,15 @@ export function MediaDetailPreview({title, kind, originalUrl, originalMimeType, 
                     <div className="space-y-3">
                         <div className="grid gap-3 sm:grid-cols-2">
                             {renderUrls.map((render) => (
-                                <img
+                                <Image
                                     key={render.index}
                                     src={render.url}
                                     alt={`Slide ${render.index}`}
-                                    className="rounded-md border"
+                                    width={1}
+                                    height={1}
+                                    unoptimized
+                                    sizes="(max-width: 640px) 100vw, 50vw"
+                                    className="h-auto w-full rounded-md border"
                                 />
                             ))}
                         </div>

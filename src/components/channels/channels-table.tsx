@@ -8,6 +8,7 @@ import { type ColumnDef, type FilterFn } from '@tanstack/react-table';
 import { ChevronDown } from 'lucide-react';
 
 import { deleteChannel } from '@/actions/channel-actions';
+import { ChannelDeleteDialog } from '@/components/channels/channel-delete-dialog';
 import { ChannelEmptyState } from '@/components/channels/channel-empty-state';
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header';
 import { DataTablePagination } from '@/components/table/data-table-pagination';
@@ -15,16 +16,6 @@ import { DataTableRowActions } from '@/components/table/data-table-row-actions';
 import { DataTableToolbar } from '@/components/table/data-table-toolbar';
 import { DataTableView } from '@/components/table/data-table';
 import { Button } from '@/components/ui/button';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -40,13 +31,6 @@ import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
 import { appendReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 import { type ChannelListFilterValues, channelListFilterSchema } from '@/schemas/channel-schema';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 
 export type ChannelRow = {
     id: string;
@@ -368,59 +352,20 @@ export function ChannelsTable({data, canManage}: ChannelsTableProps) {
             <DataTableView table={table} />
             <DataTablePagination table={table} />
 
-            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer ce canal ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Cette action est définitive.
-                            {deleteTarget && deleteTarget.screensCount > 0
-                                ? ' Les écrans seront réaffectés au canal sélectionné.'
-                                : ''}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    {deleteTarget && deleteTarget.screensCount > 0 ? (
-                        <div className="grid gap-2">
-                            <p className="text-muted-foreground text-sm">Canal de réaffectation des écrans</p>
-                            <Select
-                                value={reassignToChannelId}
-                                onValueChange={setReassignToChannelId}
-                                disabled={reassignCandidates.length === 0}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Sélectionnez un canal" />
-                                </SelectTrigger>
-                                <SelectContent align="start">
-                                    {reassignCandidates.map((channel) => (
-                                        <SelectItem key={channel.id} value={channel.id}>
-                                            {channel.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {reassignCandidates.length === 0 ? (
-                                <p className="text-destructive text-sm">
-                                    Aucun autre canal disponible pour réaffecter les écrans.
-                                </p>
-                            ) : null}
-                        </div>
-                    ) : null}
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => startTransition(handleDelete)}
-                            variant="destructive"
-                            disabled={
-                                isPending ||
-                                (deleteTarget?.screensCount ?? 0) > 0 &&
-                                (reassignToChannelId.length === 0 || reassignCandidates.length === 0)
-                            }
-                        >
-                            Supprimer
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ChannelDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                screensCount={deleteTarget?.screensCount ?? 0}
+                reassignToChannelId={reassignToChannelId}
+                onReassignToChannelIdChange={setReassignToChannelId}
+                reassignOptions={reassignCandidates}
+                onConfirm={() => startTransition(handleDelete)}
+                confirmDisabled={
+                    isPending ||
+                    (deleteTarget?.screensCount ?? 0) > 0 &&
+                    (reassignToChannelId.length === 0 || reassignCandidates.length === 0)
+                }
+            />
         </div>
     );
 }

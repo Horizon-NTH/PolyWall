@@ -35,7 +35,7 @@ export function PlaylistSummaryCard({
                         <p>{mediaCount}</p>
                     </div>
                     <div>
-                        <p className="text-muted-foreground text-xs uppercase">Durée totale</p>
+                        <p className="text-muted-foreground text-xs uppercase">Durée diffusable</p>
                         <p>{formatDurationSeconds(totalDurationSeconds)}</p>
                     </div>
                 </div>

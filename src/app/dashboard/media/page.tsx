@@ -54,6 +54,21 @@ export default async function Page() {
             active: true,
             createdAt: true,
             updatedAt: true,
+            playlistItems: {
+                distinct: ['playlistId'],
+                select: {
+                    playlist: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    playlist: {
+                        name: 'asc',
+                    },
+                },
+            },
             files: {
                 where: {
                     variant: {
@@ -105,6 +120,10 @@ export default async function Page() {
                 status: original.status,
                 thumbUrl,
                 sizeBytes: toNumberFileSize(original.fileSizeBytes),
+                playlistUsage: {
+                    count: mediaItem.playlistItems.length,
+                    playlistNames: mediaItem.playlistItems.map((item) => item.playlist.name),
+                },
             };
 
             return row;

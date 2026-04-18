@@ -8,6 +8,7 @@ const refreshMock = vi.fn();
 const toggleMediaItemActiveMock = vi.fn();
 const deleteMediaItemMock = vi.fn();
 const toastSuccessMock = vi.fn();
+const toastErrorMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
     useRouter: () => ({
@@ -30,7 +31,7 @@ vi.mock('@/actions/media-actions', () => ({
 vi.mock('sonner', () => ({
     toast: {
         success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: vi.fn(),
+        error: (...args: unknown[]) => toastErrorMock(...args),
     },
 }));
 
@@ -40,6 +41,7 @@ describe('MediaGrid', () => {
         toggleMediaItemActiveMock.mockReset();
         deleteMediaItemMock.mockReset();
         toastSuccessMock.mockReset();
+        toastErrorMock.mockReset();
     });
 
     const data = [
@@ -54,6 +56,10 @@ describe('MediaGrid', () => {
             status: 'READY' as const,
             thumbUrl: null,
             sizeBytes: 1024,
+            playlistUsage: {
+                count: 0,
+                playlistNames: [],
+            },
         },
         {
             id: 'media-2',
@@ -66,6 +72,10 @@ describe('MediaGrid', () => {
             status: 'PROCESSING' as const,
             thumbUrl: null,
             sizeBytes: 2048,
+            playlistUsage: {
+                count: 2,
+                playlistNames: ['Actus', 'Événements'],
+            },
         },
     ];
 
@@ -98,5 +108,22 @@ describe('MediaGrid', () => {
             expect(toastSuccessMock).toHaveBeenCalledWith('Média désactivé.');
             expect(refreshMock).toHaveBeenCalled();
         });
+    });
+
+    it('shows blocked deletion details when media is used in playlists', async () => {
+        render(<MediaGrid data={data} />);
+
+        const mediaCard = screen.getByText('Vidéo Event').closest('[data-slot="card"]');
+        expect(mediaCard).not.toBeNull();
+
+        fireEvent.pointerDown(within(mediaCard as HTMLElement).getByRole('button', {name: 'Ouvrir le menu'}), {
+            button: 0,
+        });
+        fireEvent.click(await screen.findByText('Supprimer'));
+
+        const dialog = await screen.findByRole('alertdialog');
+        expect(within(dialog).getByText(/Suppression bloquée/)).toBeInTheDocument();
+        expect(within(dialog).getByText('Actus')).toBeInTheDocument();
+        expect(within(dialog).queryByRole('button', {name: 'Supprimer'})).not.toBeInTheDocument();
     });
 });

@@ -58,7 +58,8 @@ function formatRangeLabel(range: CalendarRange | null) {
 }
 
 export function SchedulesCalendar({schedules, returnTo}: SchedulesCalendarProps) {
-    const currentReturnTo = returnTo ?? useCurrentReturnTo();
+    const derivedReturnTo = useCurrentReturnTo();
+    const currentReturnTo = returnTo ?? derivedReturnTo;
     const schedulesRef = useRef(schedules);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [visibleRange, setVisibleRange] = useState<CalendarRange | null>(null);

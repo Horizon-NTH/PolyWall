@@ -140,6 +140,48 @@ describe('schedule-actions', () => {
         });
     });
 
+    it('uses only active media for playlist end mode', async () => {
+        const {auth} = await getAuthMocks();
+        const prisma = await getPrismaMock();
+        auth.mockResolvedValueOnce(buildSession({user: {organizationId: 'org-1'}}));
+
+        prisma.channel.findFirst.mockResolvedValueOnce({id: 'channel-1', organizationId: 'org-1', name: 'Hall'});
+        prisma.playlist.findFirst.mockResolvedValueOnce({
+            id: 'playlist-1',
+            name: 'Actus',
+            items: [
+                {mediaItem: {durationSeconds: 120, active: true}},
+                {mediaItem: {durationSeconds: 600, active: false}},
+            ],
+        });
+        prisma.playlistSchedule.findMany.mockResolvedValueOnce([]);
+        prisma.playlistSchedule.create.mockResolvedValueOnce({id: 'schedule-1'});
+
+        const {createSchedule} = await import('@/actions/schedule-actions');
+        const result = await createSchedule({
+            type: ScheduleType.RECURRING,
+            channelId: 'channel-1',
+            playlistId: 'playlist-1',
+            active: true,
+            daysOfWeek: [DayOfWeek.MONDAY],
+            startTime: '08:00',
+            endMode: 'playlist',
+            endTime: '',
+            date: '',
+        });
+
+        expect(result).toEqual({ok: true, scheduleId: 'schedule-1'});
+        expect(prisma.playlistSchedule.create).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({
+                timeSlots: {
+                    create: [expect.objectContaining({
+                        endTime: new Date('1970-01-01T08:02:00.000Z'),
+                    })],
+                },
+            }),
+        }));
+    });
+
     it('upserts the default schedule', async () => {
         const {auth} = await getAuthMocks();
         const prisma = await getPrismaMock();

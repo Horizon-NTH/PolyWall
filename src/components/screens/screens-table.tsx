@@ -8,6 +8,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Check, ChevronDown, X } from 'lucide-react';
 
 import { deleteScreen, reactivateScreen, revokeScreen } from '@/actions/screen-actions';
+import { ScreenDeleteDialog } from '@/components/screens/screen-delete-dialog';
 import { ScreenEmptyState } from '@/components/screens/screen-empty-state';
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header';
 import { DataTablePagination } from '@/components/table/data-table-pagination';
@@ -428,22 +429,12 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
             />
             <DataTablePagination table={table} />
 
-            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer cet écran ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Cette action est définitive.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} variant="destructive" disabled={isPending}>
-                            Supprimer
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ScreenDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                onConfirm={handleDelete}
+                confirmDisabled={isPending}
+            />
 
             <AlertDialog open={isRevokeOpen} onOpenChange={setIsRevokeOpen}>
                 <AlertDialogContent>
