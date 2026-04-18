@@ -3,6 +3,9 @@ import { Temporal } from 'temporal-polyfill';
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
 import { minutesToTimeString, timeStringToMinutes } from '@/lib/utils';
 
+const MINUTES_PER_DAY = 24 * 60;
+const END_OF_DAY_TIME = '24:00';
+
 export const ALL_DAYS_OF_WEEK: DayOfWeek[] = [
     DayOfWeek.MONDAY,
     DayOfWeek.TUESDAY,
@@ -13,21 +16,33 @@ export const ALL_DAYS_OF_WEEK: DayOfWeek[] = [
     DayOfWeek.SUNDAY,
 ];
 
-export const DAY_OF_WEEK_LABELS: Record<DayOfWeek, string> = {
-    [DayOfWeek.MONDAY]: 'Lun',
-    [DayOfWeek.TUESDAY]: 'Mar',
-    [DayOfWeek.WEDNESDAY]: 'Mer',
-    [DayOfWeek.THURSDAY]: 'Jeu',
-    [DayOfWeek.FRIDAY]: 'Ven',
-    [DayOfWeek.SATURDAY]: 'Sam',
-    [DayOfWeek.SUNDAY]: 'Dim',
-};
+export function getDayOfWeekLabel(day: DayOfWeek, format: 'short' | 'long' = 'short') {
+    const DAY_OF_WEEK_LABELS: Record<DayOfWeek, string> = {
+        [DayOfWeek.MONDAY]: 'Lundi',
+        [DayOfWeek.TUESDAY]: 'Mardi',
+        [DayOfWeek.WEDNESDAY]: 'Mercredi',
+        [DayOfWeek.THURSDAY]: 'Jeudi',
+        [DayOfWeek.FRIDAY]: 'Vendredi',
+        [DayOfWeek.SATURDAY]: 'Samedi',
+        [DayOfWeek.SUNDAY]: 'Dimanche',
+    };
+
+    return format == 'short' ? DAY_OF_WEEK_LABELS[day].slice(0, 3) : DAY_OF_WEEK_LABELS[day];
+}
 
 export const SCHEDULE_TYPE_LABELS: Record<ScheduleType, string> = {
     [ScheduleType.DEFAULT]: 'Par défaut',
     [ScheduleType.RECURRING]: 'Récurrente',
     [ScheduleType.EVENT]: 'Événementielle',
 };
+
+export const SCHEDULE_LIFECYCLE_LABELS = {
+    ongoing: 'En cours',
+    upcoming: 'À venir',
+    completed: 'Terminée',
+} as const;
+
+export type ScheduleLifecycleStatus = keyof typeof SCHEDULE_LIFECYCLE_LABELS;
 
 export type ScheduleSlotDraft = {
     dayOfWeek: DayOfWeek;
@@ -78,6 +93,10 @@ export function createDateOnlyUTC(value: string) {
 }
 
 export function createTimeOfDayUTC(value: string) {
+    if (value === END_OF_DAY_TIME) {
+        return new Date(Date.UTC(1970, 0, 1, 23, 59, 59, 999));
+    }
+
     const [hours, minutes] = value.split(':').map(Number);
     return new Date(Date.UTC(1970, 0, 1, hours, minutes, 0));
 }
@@ -88,8 +107,23 @@ export function timeToMinutes(value: Date) {
 
 export function addSecondsToTimeString(startTime: string, secondsToAdd: number) {
     const totalMinutes = timeStringToMinutes(startTime) + Math.ceil(secondsToAdd / 60);
-    const bounded = Math.min(totalMinutes, (23 * 60) + 59);
+    const bounded = Math.min(totalMinutes, MINUTES_PER_DAY);
     return minutesToTimeString(bounded);
+}
+
+export function isEndOfDayTime(value: Date) {
+    return value.getUTCHours() === 23
+        && value.getUTCMinutes() === 59
+        && value.getUTCSeconds() === 59
+        && value.getUTCMilliseconds() === 999;
+}
+
+export function timeToEndMinutes(value: Date) {
+    if (isEndOfDayTime(value)) {
+        return MINUTES_PER_DAY;
+    }
+
+    return timeToMinutes(value);
 }
 
 export function doTimeRangesOverlap(startA: number, endA: number, startB: number, endB: number) {
@@ -113,22 +147,32 @@ function dateRangesOverlap(startA: Date | null, endA: Date | null, startB: Date 
 }
 
 export function formatScheduleDays(days: DayOfWeek[]) {
-    if (days.length === 0) return 'Aucun jour';
-    if (days.length === ALL_DAYS_OF_WEEK.length) return 'Tous les jours';
+    const uniqueDays = ALL_DAYS_OF_WEEK.filter((day) => days.includes(day));
+
+    if (uniqueDays.length === 0) return 'Aucun jour';
+    if (uniqueDays.length === ALL_DAYS_OF_WEEK.length) return 'Tous les jours';
 
     const weekDays = ALL_DAYS_OF_WEEK.slice(0, 5);
     const weekEndDays = ALL_DAYS_OF_WEEK.slice(5);
-    const hasWeekdays = weekDays.every((day) => days.includes(day));
-    const hasWeekend = weekEndDays.every((day) => days.includes(day));
+    const hasWeekdays = weekDays.every((day) => uniqueDays.includes(day));
+    const hasWeekend = weekEndDays.every((day) => uniqueDays.includes(day));
 
-    if (days.length === 5 && hasWeekdays) return 'Lun au ven';
-    if (days.length === 2 && hasWeekend) return 'Week-end';
+    if (uniqueDays.length === 5 && hasWeekdays) return 'Lun au ven';
+    if (uniqueDays.length === 2 && hasWeekend) return 'Week-end';
 
-    return days.map((day) => DAY_OF_WEEK_LABELS[day]).join(', ');
+    return uniqueDays.map((day) => getDayOfWeekLabel(day)).join(', ');
+}
+
+export function isAllDayTimeRange(startTime: Date, endTime: Date) {
+    return timeToMinutes(startTime) === 0 && timeToEndMinutes(endTime) === MINUTES_PER_DAY;
 }
 
 export function formatScheduleTimeRange(startTime: Date, endTime: Date) {
-    return `${minutesToTimeString(timeToMinutes(startTime))} - ${minutesToTimeString(timeToMinutes(endTime))}`;
+    if (isAllDayTimeRange(startTime, endTime)) {
+        return 'Toute la journée';
+    }
+
+    return `${minutesToTimeString(timeToMinutes(startTime))} - ${minutesToTimeString(timeToEndMinutes(endTime))}`;
 }
 
 export function formatScheduleDateRange(startDate: Date | null, endDate: Date | null) {
@@ -171,7 +215,7 @@ export function findScheduleConflicts(
                 draftSlot.startMinutes,
                 draftSlot.endMinutes,
                 timeToMinutes(slot.startTime),
-                timeToMinutes(slot.endTime),
+                timeToEndMinutes(slot.endTime),
             )
         )));
 
@@ -199,11 +243,11 @@ export function createDefaultScheduleSlots() {
     return ALL_DAYS_OF_WEEK.map((dayOfWeek) => ({
         dayOfWeek,
         startTime: createTimeOfDayUTC('00:00'),
-        endTime: createTimeOfDayUTC('23:59'),
+        endTime: createTimeOfDayUTC('24:00'),
     }));
 }
 
-export function createRecurringScheduleSlots(daysOfWeek: DayOfWeek[], startTime: string, endTime: string) {
+function createSlotsForDays(daysOfWeek: DayOfWeek[], startTime: string, endTime: string) {
     return daysOfWeek.map((dayOfWeek) => ({
         dayOfWeek,
         startTime: createTimeOfDayUTC(startTime),
@@ -211,19 +255,21 @@ export function createRecurringScheduleSlots(daysOfWeek: DayOfWeek[], startTime:
     }));
 }
 
-export function createEventScheduleSlots(date: string, startTime: string, endTime: string) {
-    const dayOfWeek = dateStringToDayOfWeek(date);
-    return [{
-        dayOfWeek,
-        startTime: createTimeOfDayUTC(startTime),
-        endTime: createTimeOfDayUTC(endTime),
-    }];
+export function createRecurringScheduleSlots(daysOfWeek: DayOfWeek[], startTime: string, endTime: string) {
+    return createSlotsForDays(daysOfWeek, startTime, endTime);
 }
 
-export function dateStringToDayOfWeek(value: string) {
-    const plainDate = Temporal.PlainDate.from(value);
-    const dayNumber = plainDate.dayOfWeek;
-    return ALL_DAYS_OF_WEEK[dayNumber - 1];
+export function createEventScheduleSlots(startDate: string, endDate: string, startTime: string, endTime: string) {
+    const includedDays = new Set<DayOfWeek>();
+    let cursor = Temporal.PlainDate.from(startDate);
+    const lastDate = Temporal.PlainDate.from(endDate);
+
+    while (Temporal.PlainDate.compare(cursor, lastDate) <= 0) {
+        includedDays.add(ALL_DAYS_OF_WEEK[cursor.dayOfWeek - 1]!);
+        cursor = cursor.add({days: 1});
+    }
+
+    return createSlotsForDays(Array.from(includedDays), startTime, endTime);
 }
 
 export function getScheduleFormInitialDate(value: Date | null) {
@@ -234,9 +280,42 @@ export function getScheduleFormInitialDate(value: Date | null) {
     return `${year}-${month}-${day}`;
 }
 
-export function getScheduleFormInitialTime(value: Date | null | undefined) {
+export function getScheduleLifecycleStatus(params: {
+    type: ScheduleType;
+    startDate: Date | null;
+    endDate: Date | null;
+    now?: Date;
+}) {
+    if (params.type === ScheduleType.DEFAULT) {
+        return 'ongoing' satisfies ScheduleLifecycleStatus;
+    }
+
+    const now = params.now ?? new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+    const startDate = normalizeDateOnly(params.startDate);
+    const endDate = normalizeDateOnly(params.endDate);
+
+    if (endDate && endDate < today) {
+        return 'completed' satisfies ScheduleLifecycleStatus;
+    }
+
+    if (startDate && startDate > today) {
+        return 'upcoming' satisfies ScheduleLifecycleStatus;
+    }
+
+    return 'ongoing' satisfies ScheduleLifecycleStatus;
+}
+
+export function getScheduleFormInitialTime(
+    value: Date | null | undefined,
+    options?: {
+        boundary?: 'start' | 'end';
+    },
+) {
     if (!value) return '';
-    return minutesToTimeString(timeToMinutes(value));
+    return options?.boundary === 'end'
+        ? minutesToTimeString(timeToEndMinutes(value))
+        : minutesToTimeString(timeToMinutes(value));
 }
 
 export function createScheduleDraft(params: {
@@ -264,7 +343,7 @@ export function createScheduleDraft(params: {
         slots: params.slots.map((slot) => ({
             dayOfWeek: slot.dayOfWeek,
             startMinutes: timeToMinutes(slot.startTime),
-            endMinutes: timeToMinutes(slot.endTime),
+            endMinutes: timeToEndMinutes(slot.endTime),
         })),
     } satisfies ScheduleDraft;
 }

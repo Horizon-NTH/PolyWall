@@ -4,7 +4,6 @@ import { auth } from '@/auth';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { MediaGrid, type MediaGridItem } from '@/components/media/media-grid';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
-import { env } from '@/env';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import {
     getMediaKindFromMimeType,
@@ -14,7 +13,7 @@ import {
     type MediaFileLike,
 } from '@/lib/media/media-view-model';
 import { prisma } from '@/lib/prisma';
-import { getStorageService } from '@/lib/storage/storage-service';
+import { resolveThumbUrl } from '@/lib/storage/presigned-url';
 
 export default async function Page() {
     const session = await auth();
@@ -83,8 +82,6 @@ export default async function Page() {
         },
     });
 
-    const storage = getStorageService();
-
     const rows = await Promise.all(
         mediaItems.map(async (mediaItem) => {
             const files = mediaItem.files as MediaFileLike[];
@@ -94,11 +91,7 @@ export default async function Page() {
             const thumb = selectThumbFile(files, original.id);
             const thumbUrl =
                 thumb && thumb.status === 'READY'
-                    ? await storage.presignGet({
-                        bucket: thumb.storageBucket,
-                        key: thumb.objectKey,
-                        expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-                    })
+                    ? await resolveThumbUrl(thumb)
                     : null;
 
             const row: MediaGridItem = {

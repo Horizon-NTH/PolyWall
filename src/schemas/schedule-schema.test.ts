@@ -22,9 +22,10 @@ describe('schedule-schema', () => {
             playlistId: 'playlist-1',
             active: true,
             date: '2026-04-18',
+            endDate: '2026-04-20',
             startTime: '15:00',
             endMode: 'time',
-            endTime: '16:30',
+            endTime: '24:00',
         });
 
         expect(result.success).toBe(true);
@@ -57,5 +58,22 @@ describe('schedule-schema', () => {
 
         expect(result.success).toBe(false);
         expect(result.error?.issues.some((issue) => issue.path[0] === 'endTime')).toBe(true);
+    });
+
+    it('rejects an event end date before the start date', () => {
+        const result = scheduleCreateSchema.safeParse({
+            type: ScheduleType.EVENT,
+            channelId: 'channel-1',
+            playlistId: 'playlist-1',
+            active: true,
+            date: '2026-04-20',
+            endDate: '2026-04-18',
+            startTime: '15:00',
+            endMode: 'time',
+            endTime: '16:30',
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error?.issues.some((issue) => issue.path[0] === 'endDate')).toBe(true);
     });
 });

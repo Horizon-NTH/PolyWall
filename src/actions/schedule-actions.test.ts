@@ -73,6 +73,7 @@ describe('schedule-actions', () => {
             playlistId: 'playlist-1',
             active: true,
             date: '2026-04-18',
+            endDate: '2026-04-20',
             startTime: '15:00',
             endMode: 'time',
             endTime: '16:00',
@@ -80,7 +81,12 @@ describe('schedule-actions', () => {
         });
 
         expect(result).toEqual({ok: true, scheduleId: 'schedule-1'});
-        expect(prisma.playlistSchedule.create).toHaveBeenCalled();
+        expect(prisma.playlistSchedule.create).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({
+                startDate: new Date('2026-04-18T00:00:00.000Z'),
+                endDate: new Date('2026-04-20T00:00:00.000Z'),
+            }),
+        }));
     });
 
     it('blocks conflicting recurring schedule creation', async () => {

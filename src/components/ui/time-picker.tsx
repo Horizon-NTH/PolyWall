@@ -13,11 +13,15 @@ type TimePickerProps = {
     onChange: (value: string) => void;
     placeholder?: string;
     disabled?: boolean;
+    minValue?: string;
+    maxValue?: string;
+    presets?: Array<{
+        label: string;
+        value: string;
+    }>;
     'aria-invalid'?: boolean;
 };
 
-const HOURS = Array.from({length: 24}, (_, index) => index);
-const MINUTES = Array.from({length: 60}, (_, index) => index);
 const WHEEL_ITEM_HEIGHT = 40;
 const WHEEL_VISIBLE_ROWS = 5;
 const WHEEL_VIEWPORT_HEIGHT = WHEEL_ITEM_HEIGHT * WHEEL_VISIBLE_ROWS;
@@ -32,6 +36,19 @@ function parseTime(value?: string) {
     };
 }
 
+function formatTimeValue(value?: string) {
+    if (!value) return null;
+    return minutesToTimeString(timeStringToMinutes(value));
+}
+
+function draftToTimeString(draft: { hours: number; minutes: number }) {
+    if (draft.hours === 24 && draft.minutes === 0) {
+        return '24:00';
+    }
+
+    return minutesToTimeString((draft.hours * 60) + draft.minutes);
+}
+
 function getInitialDraft(value?: string) {
     const parsed = parseTime(value);
     if (parsed) return parsed;
@@ -40,6 +57,42 @@ function getInitialDraft(value?: string) {
     return {
         hours: now.getHours(),
         minutes: now.getMinutes(),
+    };
+}
+
+function getBoundedMinutes(value: string | undefined, fallback: number) {
+    if (!value) return fallback;
+    return timeStringToMinutes(value);
+}
+
+function getAllowedHours(minMinutes: number, maxMinutes: number) {
+    const startHour = Math.floor(minMinutes / 60);
+    const endHour = Math.floor(maxMinutes / 60);
+    return Array.from({length: (endHour - startHour) + 1}, (_, index) => startHour + index);
+}
+
+function getAllowedMinutes(hour: number, minMinutes: number, maxMinutes: number) {
+    const minMinute = hour === Math.floor(minMinutes / 60) ? minMinutes % 60 : 0;
+    const maxMinute = hour === Math.floor(maxMinutes / 60) ? maxMinutes % 60 : 59;
+    return Array.from({length: (maxMinute - minMinute) + 1}, (_, index) => minMinute + index);
+}
+
+function clampDraftToRange(
+    draft: { hours: number; minutes: number },
+    minMinutes: number,
+    maxMinutes: number,
+) {
+    const total = Math.max(minMinutes, Math.min((draft.hours * 60) + draft.minutes, maxMinutes));
+    if (total === (24 * 60)) {
+        return {
+            hours: 24,
+            minutes: 0,
+        };
+    }
+
+    return {
+        hours: Math.floor(total / 60),
+        minutes: total % 60,
     };
 }
 
@@ -222,18 +275,36 @@ export function TimePicker({
                                onChange,
                                placeholder = 'Sélectionnez une heure',
                                disabled = false,
+                               minValue,
+                               maxValue,
+                               presets = [],
                                'aria-invalid': ariaInvalid,
                            }: TimePickerProps) {
+    const minMinutes = getBoundedMinutes(minValue, 0);
+    const maxMinutes = getBoundedMinutes(maxValue, (23 * 60) + 59);
     const [open, setOpen] = React.useState(false);
-    const [{hours, minutes}, setDraft] = React.useState(() => getInitialDraft(value));
+    const [{
+        hours,
+        minutes,
+    }, setDraft] = React.useState(() => clampDraftToRange(getInitialDraft(value), minMinutes, maxMinutes));
+    const hourValues = React.useMemo(() => getAllowedHours(minMinutes, maxMinutes), [maxMinutes, minMinutes]);
+    const minuteValues = React.useMemo(
+        () => getAllowedMinutes(hours, minMinutes, maxMinutes),
+        [hours, maxMinutes, minMinutes],
+    );
 
     React.useEffect(() => {
         if (open) {
-            setDraft(getInitialDraft(value));
+            setDraft(clampDraftToRange(getInitialDraft(value), minMinutes, maxMinutes));
         }
-    }, [open, value]);
+    }, [maxMinutes, minMinutes, open, value]);
 
-    const displayValue = value ? minutesToTimeString(timeStringToMinutes(value)) : null;
+    React.useEffect(() => {
+        setDraft((current) => clampDraftToRange(current, minMinutes, maxMinutes));
+    }, [maxMinutes, minMinutes]);
+
+    const displayValue = formatTimeValue(value);
+    const currentValueLabel = draftToTimeString({hours, minutes});
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -261,25 +332,53 @@ export function TimePicker({
                         <div className="flex flex-col">
                             <p className="text-sm font-medium">Choisir une heure</p>
                             <p className="text-muted-foreground text-xs">
-                                Sélection actuelle: {minutesToTimeString((hours * 60) + minutes)}
+                                Sélection actuelle: {currentValueLabel}
                             </p>
                         </div>
                     </div>
+
+                    {presets.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                            {presets.map((preset) => (
+                                <Button
+                                    key={preset.value}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={timeStringToMinutes(preset.value) < minMinutes || timeStringToMinutes(preset.value) > maxMinutes}
+                                    onClick={() => {
+                                        onChange(preset.value);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    {preset.label}
+                                </Button>
+                            ))}
+                        </div>
+                    ) : null}
 
                     <div className="flex gap-3">
                         <WheelColumn
                             active={open}
                             label="Heures"
-                            values={HOURS}
+                            values={hourValues}
                             selectedValue={hours}
-                            onSelect={(nextHours) => setDraft((current) => ({...current, hours: nextHours}))}
+                            onSelect={(nextHours) => {
+                                setDraft((current) => {
+                                    const nextMinutes = getAllowedMinutes(nextHours, minMinutes, maxMinutes);
+                                    const fallbackMinutes = nextMinutes.includes(current.minutes) ? current.minutes : nextMinutes[0]!;
+                                    return {...current, hours: nextHours, minutes: fallbackMinutes};
+                                });
+                            }}
                         />
                         <WheelColumn
                             active={open}
                             label="Minutes"
-                            values={MINUTES}
+                            values={minuteValues}
                             selectedValue={minutes}
-                            onSelect={(nextMinutes) => setDraft((current) => ({...current, minutes: nextMinutes}))}
+                            onSelect={(nextMinutes) => {
+                                setDraft((current) => ({...current, minutes: nextMinutes}));
+                            }}
                         />
                     </div>
 
@@ -288,7 +387,7 @@ export function TimePicker({
                             type="button"
                             variant="outline"
                             onClick={() => {
-                                setDraft(getInitialDraft(value));
+                                setDraft(clampDraftToRange(getInitialDraft(value), minMinutes, maxMinutes));
                                 setOpen(false);
                             }}
                         >
@@ -297,7 +396,7 @@ export function TimePicker({
                         <Button
                             type="button"
                             onClick={() => {
-                                onChange(minutesToTimeString((hours * 60) + minutes));
+                                onChange(draftToTimeString({hours, minutes}));
                                 setOpen(false);
                             }}
                         >

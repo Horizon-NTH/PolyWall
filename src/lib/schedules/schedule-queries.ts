@@ -1,11 +1,37 @@
 import { notFound } from 'next/navigation';
 
-import { env } from '@/env';
 import { ScheduleType } from '@/generated/prisma/enums';
 import { prisma } from '@/lib/prisma';
 import { createScheduleDraft, findScheduleConflicts } from '@/lib/schedules/schedule-utils';
 import { toScheduleViewModel } from '@/lib/schedules/schedule-view-model';
-import { getStorageService } from '@/lib/storage/storage-service';
+import { resolveThumbUrl, type StorageObjectRef } from '@/lib/storage/presigned-url';
+import { formatDurationSeconds } from '@/lib/utils';
+
+async function buildPlaylistPreviewData(playlist: {
+    id: string;
+    name: string;
+    items: Array<{
+        mediaItem: {
+            title: string;
+            durationSeconds: number;
+            files: StorageObjectRef[];
+        };
+    }>;
+}) {
+    const totalDurationSeconds = playlist.items.reduce((sum, item) => sum + item.mediaItem.durationSeconds, 0);
+
+    return {
+        id: playlist.id,
+        name: playlist.name,
+        mediaCount: playlist.items.length,
+        totalDurationSeconds,
+        totalDurationLabel: formatDurationSeconds(totalDurationSeconds),
+        previewItems: await Promise.all(playlist.items.slice(0, 3).map(async (item) => ({
+            title: item.mediaItem.title,
+            thumbUrl: await resolveThumbUrl(item.mediaItem.files[0] ?? null),
+        }))),
+    };
+}
 
 export async function getOrganizationChannels(organizationId: string) {
     return prisma.channel.findMany({
@@ -61,28 +87,9 @@ export async function getScheduleFormOptions(organizationId: string) {
         }),
     ]);
 
-    const storage = getStorageService();
-    const resolveThumbUrl = async (file: { storageBucket: string; objectKey: string } | null) => {
-        if (!file) return null;
-        return storage.presignGet({
-            bucket: file.storageBucket,
-            key: file.objectKey,
-            expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-        });
-    };
-
     return {
         channels,
-        playlists: await Promise.all(playlists.map(async (playlist) => ({
-            id: playlist.id,
-            name: playlist.name,
-            mediaCount: playlist.items.length,
-            totalDurationSeconds: playlist.items.reduce((sum, item) => sum + item.mediaItem.durationSeconds, 0),
-            previewItems: await Promise.all(playlist.items.slice(0, 3).map(async (item) => ({
-                title: item.mediaItem.title,
-                thumbUrl: await resolveThumbUrl(item.mediaItem.files[0] ?? null),
-            }))),
-        }))),
+        playlists: await Promise.all(playlists.map((playlist) => buildPlaylistPreviewData(playlist))),
     };
 }
 
@@ -165,7 +172,31 @@ export async function getChannelSchedulesOverview(organizationId: string, channe
                     channelId: true,
                     playlist: {
                         select: {
+                            id: true,
                             name: true,
+                            items: {
+                                orderBy: {orderIndex: 'asc'},
+                                select: {
+                                    mediaItem: {
+                                        select: {
+                                            title: true,
+                                            durationSeconds: true,
+                                            files: {
+                                                where: {
+                                                    variant: 'THUMB',
+                                                    status: 'READY',
+                                                    variantIndex: 0,
+                                                },
+                                                select: {
+                                                    storageBucket: true,
+                                                    objectKey: true,
+                                                },
+                                                take: 1,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
                         },
                     },
                     channel: {
@@ -200,6 +231,7 @@ export async function getChannelSchedulesOverview(organizationId: string, channe
     return {
         channel,
         defaultSchedule: defaultSchedule ? toScheduleViewModel(defaultSchedule) : null,
+        defaultSchedulePlaylist: defaultSchedule ? await buildPlaylistPreviewData(defaultSchedule.playlist) : null,
         plannedScheduleRows,
         conflicts,
     };

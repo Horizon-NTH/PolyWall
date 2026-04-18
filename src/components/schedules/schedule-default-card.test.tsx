@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({
 
 describe('ScheduleDefaultCard', () => {
     it('renders the empty state when no default schedule exists', () => {
-        render(<ScheduleDefaultCard channelId="channel-1" defaultSchedule={null} />);
+        render(<ScheduleDefaultCard channelId="channel-1" defaultSchedule={null} defaultPlaylist={null} />);
 
         expect(screen.getByText(/Aucune playlist par défaut/i)).toBeInTheDocument();
         expect(screen.getByRole('link', {name: /Définir la playlist par défaut/i})).toHaveAttribute(
@@ -36,10 +36,22 @@ describe('ScheduleDefaultCard', () => {
                     endDate: null,
                     daysLabel: 'Tous les jours',
                     dateLabel: 'Toujours active',
-                    timeLabel: '00:00 - 23:59',
+                    timeLabel: 'Toute la journée',
+                    lifecycleStatus: 'ongoing',
                     updatedAt: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     slots: [],
+                }}
+                defaultPlaylist={{
+                    id: 'playlist-1',
+                    name: 'Playlist par défaut',
+                    mediaCount: 5,
+                    totalDurationLabel: '2:30',
+                    previewItems: [
+                        {title: 'Visuel 1', thumbUrl: null},
+                        {title: 'Visuel 2', thumbUrl: null},
+                        {title: 'Visuel 3', thumbUrl: null},
+                    ],
                 }}
             />,
         );
@@ -48,6 +60,11 @@ describe('ScheduleDefaultCard', () => {
             'href',
             '/dashboard/schedules/schedule-1/edit?returnTo=%2Fdashboard%2Fschedules',
         );
-        expect(screen.getByText(/Canal:\s*Hall/i)).toBeInTheDocument();
+        expect(screen.getByRole('link', {name: 'Playlist par défaut'})).toHaveAttribute(
+            'href',
+            '/dashboard/playlists/playlist-1?returnTo=%2Fdashboard%2Fschedules',
+        );
+        expect(screen.getByText(/5 médias · 2:30/i)).toBeInTheDocument();
+        expect(screen.getByText('+2')).toBeInTheDocument();
     });
 });

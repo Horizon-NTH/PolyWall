@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
 import { appendReturnTo } from '@/lib/return-to';
 import { type ScheduleViewModel } from '@/lib/schedules/schedule-view-model';
-import { SCHEDULE_TYPE_LABELS } from '@/lib/schedules/schedule-utils';
+import { SCHEDULE_LIFECYCLE_LABELS, SCHEDULE_TYPE_LABELS } from '@/lib/schedules/schedule-utils';
 import { formatDate } from '@/lib/utils';
 
 type ScheduleSummaryCardProps = {
@@ -26,6 +26,9 @@ export function ScheduleSummaryCard({schedule}: ScheduleSummaryCardProps) {
             <CardContent className="grid gap-4 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{SCHEDULE_TYPE_LABELS[schedule.type]}</Badge>
+                    <Badge variant={schedule.lifecycleStatus === 'completed' ? 'outline' : 'secondary'}>
+                        {SCHEDULE_LIFECYCLE_LABELS[schedule.lifecycleStatus]}
+                    </Badge>
                     <Badge variant={schedule.active ? 'default' : 'secondary'}>
                         {schedule.active ? 'Active' : 'Inactive'}
                     </Badge>

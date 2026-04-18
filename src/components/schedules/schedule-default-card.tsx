@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 
+import { PlaylistPreviewSummary } from '@/components/playlists/playlist-preview-summary';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,9 +13,19 @@ import { type ScheduleViewModel } from '@/lib/schedules/schedule-view-model';
 type ScheduleDefaultCardProps = {
     channelId: string;
     defaultSchedule: ScheduleViewModel | null;
+    defaultPlaylist: {
+        id: string;
+        name: string;
+        mediaCount: number;
+        totalDurationLabel: string;
+        previewItems: Array<{
+            title: string;
+            thumbUrl: string | null;
+        }>;
+    } | null;
 };
 
-export function ScheduleDefaultCard({channelId, defaultSchedule}: ScheduleDefaultCardProps) {
+export function ScheduleDefaultCard({channelId, defaultSchedule, defaultPlaylist}: ScheduleDefaultCardProps) {
     const currentReturnTo = useCurrentReturnTo();
 
     return (
@@ -27,15 +38,23 @@ export function ScheduleDefaultCard({channelId, defaultSchedule}: ScheduleDefaul
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm">
-                {defaultSchedule ? (
+                {defaultSchedule && defaultPlaylist ? (
                     <>
                         <div className="flex flex-wrap items-center gap-2">
                             <Badge variant={defaultSchedule.active ? 'default' : 'secondary'}>
                                 {defaultSchedule.active ? 'Active' : 'Inactive'}
                             </Badge>
-                            <span className="font-medium">{defaultSchedule.playlistName}</span>
+                            <Badge variant="secondary">{defaultSchedule.timeLabel}</Badge>
                         </div>
-                        <p className="text-muted-foreground">Canal: {defaultSchedule.channelName}</p>
+                        <div className="flex flex-col gap-3">
+                            <PlaylistPreviewSummary
+                                name={defaultPlaylist.name}
+                                mediaCount={defaultPlaylist.mediaCount}
+                                totalDurationLabel={defaultPlaylist.totalDurationLabel}
+                                previewItems={defaultPlaylist.previewItems}
+                                titleLink={appendReturnTo(`/dashboard/playlists/${defaultSchedule.playlistId}`, currentReturnTo)}
+                            />
+                        </div>
                     </>
                 ) : (
                     <p className="text-muted-foreground">

@@ -80,12 +80,13 @@ export default async function Page({params, searchParams}: ScheduleEditPageProps
                         playlistId: schedule.playlistId,
                         active: schedule.active,
                         date: schedule.type === ScheduleType.EVENT ? getScheduleFormInitialDate(schedule.startDate) : '',
+                        endDate: schedule.type === ScheduleType.EVENT ? getScheduleFormInitialDate(schedule.endDate) : '',
                         daysOfWeek: schedule.type === ScheduleType.RECURRING
                             ? schedule.timeSlots.map((slot) => slot.dayOfWeek)
                             : [],
-                        startTime: getScheduleFormInitialTime(firstSlot?.startTime),
+                        startTime: getScheduleFormInitialTime(firstSlot?.startTime, {boundary: 'start'}),
                         endMode: 'time',
-                        endTime: getScheduleFormInitialTime(firstSlot?.endTime),
+                        endTime: getScheduleFormInitialTime(firstSlot?.endTime, {boundary: 'end'}),
                     }}
                 />
             </div>

@@ -8,7 +8,6 @@ import { MediaDetailPreview } from '@/components/media/media-detail-preview';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { env } from '@/env';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import {
     extractMediaMetaSummary,
@@ -23,7 +22,7 @@ import {
 } from '@/lib/media/media-view-model';
 import { prisma } from '@/lib/prisma';
 import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
-import { getStorageService } from '@/lib/storage/storage-service';
+import { presignStorageObjectGetUrl } from '@/lib/storage/presigned-url';
 import { formatBytes, formatDate } from '@/lib/utils';
 
 type MediaDetailsPageProps = {
@@ -107,14 +106,9 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
     const files = mediaItem.files as MediaFileLike[];
     const original = selectPrimaryOriginalFile(files);
 
-    const storage = getStorageService();
     const originalUrl =
         original && (original.status === 'READY' || original.status === 'UPLOADED' || original.status === 'PROCESSING')
-            ? await storage.presignGet({
-                bucket: original.storageBucket,
-                key: original.objectKey,
-                expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-            })
+            ? await presignStorageObjectGetUrl(original)
             : null;
 
     const thumb = selectThumbFile(files, original?.id ?? null);
@@ -124,11 +118,7 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
     const renderUrls = await Promise.all(
         renderFiles.map(async (file) => ({
             index: file.variantIndex,
-            url: await storage.presignGet({
-                bucket: file.storageBucket,
-                key: file.objectKey,
-                expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-            }),
+            url: await presignStorageObjectGetUrl(file),
         })),
     );
 

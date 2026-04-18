@@ -22,6 +22,7 @@ import {
     scheduleDeleteSchema,
     scheduleUpdateSchema,
 } from '@/schemas/schedule-schema';
+import { timeStringToMinutes } from '@/lib/utils';
 
 type ScheduleField = keyof z.infer<typeof scheduleCreateSchema> | 'root';
 
@@ -145,7 +146,7 @@ async function buildSchedulePersistencePayload(
     }
 
     const playlistDurationSeconds = playlist.items.reduce((sum, item) => sum + item.mediaItem.durationSeconds, 0);
-    let resolvedEndTime = data.endTime ?? '';
+    let resolvedEndTime = data.endTime ?? '24:00';
 
     if (data.type !== ScheduleType.DEFAULT && data.endMode === 'playlist') {
         if (playlistDurationSeconds <= 0) {
@@ -153,6 +154,15 @@ async function buildSchedulePersistencePayload(
                 ok: false as const,
                 field: 'playlistId' as const,
                 message: 'La playlist doit contenir au moins une durée exploitable.',
+            };
+        }
+
+        const endMinutes = timeStringToMinutes(data.startTime ?? '00:00') + Math.ceil(playlistDurationSeconds / 60);
+        if (endMinutes > (24 * 60)) {
+            return {
+                ok: false as const,
+                field: 'startTime' as const,
+                message: 'La durée de la playlist dépasse la journée autorisée.',
             };
         }
 
@@ -178,12 +188,13 @@ async function buildSchedulePersistencePayload(
         };
     }
 
+    const eventEndDate = data.endDate?.trim() || data.date || '';
     const slots = data.type === ScheduleType.RECURRING
         ? createRecurringScheduleSlots(data.daysOfWeek, data.startTime ?? '00:00', resolvedEndTime)
-        : createEventScheduleSlots(data.date ?? '', data.startTime ?? '00:00', resolvedEndTime);
+        : createEventScheduleSlots(data.date ?? '', eventEndDate, data.startTime ?? '00:00', resolvedEndTime);
 
-    const startDate = data.type === ScheduleType.EVENT ? createDateOnlyUTC(data.date ?? '') : null;
-    const endDate = data.type === ScheduleType.EVENT ? createDateOnlyUTC(data.date ?? '') : null;
+    const startDate = data.type === ScheduleType.EVENT ? createDateOnlyUTC(data.date!) : null;
+    const endDate = data.type === ScheduleType.EVENT ? createDateOnlyUTC(eventEndDate) : null;
     const existingSchedules = await getExistingSchedulesForConflicts(channel.id);
     const conflicts = findScheduleConflicts(
         createScheduleDraft({

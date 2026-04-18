@@ -5,8 +5,11 @@ import { Temporal } from 'temporal-polyfill';
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
 import {
     ALL_DAYS_OF_WEEK,
-    DAY_OF_WEEK_LABELS,
+    getScheduleLifecycleStatus,
+    getDayOfWeekLabel,
+    isEndOfDayTime,
     SCHEDULE_TYPE_LABELS,
+    type ScheduleLifecycleStatus,
     formatScheduleDateRange,
     formatScheduleDays,
     formatScheduleTimeRange,
@@ -26,6 +29,7 @@ export type ScheduleViewModel = {
     daysLabel: string;
     dateLabel: string;
     timeLabel: string;
+    lifecycleStatus: ScheduleLifecycleStatus;
     updatedAt: string;
     createdAt: string;
     slots: Array<{
@@ -77,6 +81,7 @@ export function toScheduleViewModel(schedule: PrismaScheduleLike): ScheduleViewM
     });
 
     const firstSlot = orderedSlots[0] ?? null;
+    const uniqueDays = ALL_DAYS_OF_WEEK.filter((day) => orderedSlots.some((slot) => slot.dayOfWeek === day));
 
     return {
         id: schedule.id,
@@ -88,13 +93,18 @@ export function toScheduleViewModel(schedule: PrismaScheduleLike): ScheduleViewM
         channelName: schedule.channel.name,
         startDate: schedule.startDate?.toISOString() ?? null,
         endDate: schedule.endDate?.toISOString() ?? null,
-        daysLabel: schedule.type === ScheduleType.RECURRING
-            ? formatScheduleDays(orderedSlots.map((slot) => slot.dayOfWeek))
-            : firstSlot
-                ? DAY_OF_WEEK_LABELS[firstSlot.dayOfWeek]
-                : 'Aucun jour',
+        daysLabel: schedule.type === ScheduleType.EVENT
+            ? uniqueDays.length === 1
+                ? getDayOfWeekLabel(uniqueDays[0]!)
+                : formatScheduleDays(uniqueDays)
+            : formatScheduleDays(uniqueDays),
         dateLabel: formatScheduleDateRange(schedule.startDate, schedule.endDate),
         timeLabel: firstSlot ? formatScheduleTimeRange(firstSlot.startTime, firstSlot.endTime) : 'Non défini',
+        lifecycleStatus: getScheduleLifecycleStatus({
+            type: schedule.type,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+        }),
         updatedAt: schedule.updatedAt.toISOString(),
         createdAt: schedule.createdAt.toISOString(),
         slots: orderedSlots.map((slot) => ({
@@ -147,7 +157,11 @@ export function createCalendarEventsForRange(params: {
                     description: SCHEDULE_TYPE_LABELS[schedule.type],
                     calendarId: SCHEDULE_CALENDAR_IDS[schedule.type],
                     start: params.createZonedDateTime(`${dateKey}T${slot.startTime.slice(11, 16)}:00[${params.timezone}]`),
-                    end: params.createZonedDateTime(`${dateKey}T${slot.endTime.slice(11, 16)}:00[${params.timezone}]`),
+                    end: params.createZonedDateTime(
+                        isEndOfDayTime(new Date(slot.endTime))
+                            ? `${formatDateKey(cursor.add({days: 1}))}T00:00:00[${params.timezone}]`
+                            : `${dateKey}T${slot.endTime.slice(11, 16)}:00[${params.timezone}]`,
+                    ),
                 });
             }
         }

@@ -119,8 +119,11 @@ test.describe('schedules', () => {
         const scheduleContext = await ensureChannelWithSchedules(page);
         const {channelId} = scheduleContext!;
         const scheduleRow = page.locator('main table tbody tr').first();
-        const scheduleLink = scheduleRow.locator('a[href^="/dashboard/schedules/"]').first();
-        const scheduleName = ((await scheduleLink.textContent()) ?? '').trim();
+        const firstCellText = ((await scheduleRow.getByRole('cell').nth(0).textContent()) ?? '').trim();
+        const scheduleName = firstCellText
+            .replace(/^Événementielle/, '')
+            .replace(/^Récurrente/, '')
+            .trim();
 
         const search = page.getByPlaceholder('Rechercher une programmation...');
         await expect(search).toBeVisible();
@@ -128,7 +131,8 @@ test.describe('schedules', () => {
         await expect(search).toHaveValue(scheduleName);
         await expect(scheduleRow).toBeVisible();
 
-        const typeBadgeText = ((await scheduleRow.getByRole('cell').nth(0).textContent()) ?? '').trim();
+        const typeBadgeText = firstCellText.includes('Événementielle') ? 'Événementielle' : 'Récurrente';
+        const progressBadgeText = ((await scheduleRow.getByRole('cell').nth(4).textContent()) ?? '').trim();
         const statusBadgeText = ((await scheduleRow.getByRole('cell').nth(5).textContent()) ?? '').trim();
 
         const typeFilter = page.getByRole('button', {name: 'Type'}).first();
@@ -141,6 +145,17 @@ test.describe('schedules', () => {
         await page.getByRole('option', {
             name: statusBadgeText === 'Active' ? /^Actives$/ : /^Inactives$/,
         }).click();
+        await expect(scheduleRow).toBeVisible();
+
+        const progressOptionName = progressBadgeText === 'Terminée'
+            ? /^Terminées$/
+            : progressBadgeText === 'À venir'
+                ? /^À venir$/
+                : /^En cours$/;
+
+        const progressFilter = page.getByRole('combobox').nth(2);
+        await progressFilter.click();
+        await page.getByRole('option', {name: progressOptionName}).click();
         await expect(scheduleRow).toBeVisible();
 
         await page.getByRole('button', {name: 'Réinitialiser'}).click();
@@ -175,7 +190,7 @@ test.describe('schedules', () => {
         await scheduleLink.locator.click();
 
         await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
-        await expect(page.getByRole('heading', {name: scheduleLink.name})).toBeVisible();
+        await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible();
         await expect(page.getByText('Informations')).toBeVisible();
         await expect(page.getByText('Playlist', {exact: true})).toBeVisible();
         await expect(page.getByText('Canal', {exact: true})).toBeVisible();

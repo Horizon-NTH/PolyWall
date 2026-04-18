@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
 
 const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const endTimePattern = /^(?:([01]\d|2[0-3]):([0-5]\d)|24:00)$/;
 
 const commonScheduleSchema = z.object({
     type: z.enum(ScheduleType),
@@ -13,6 +14,7 @@ const commonScheduleSchema = z.object({
     endMode: z.enum(['time', 'playlist']).default('playlist'),
     endTime: z.string().trim().optional(),
     date: z.string().trim().optional(),
+    endDate: z.string().trim().optional(),
     daysOfWeek: z.array(z.enum(DayOfWeek)).default([]),
 });
 
@@ -42,7 +44,7 @@ export const scheduleCreateSchema = commonScheduleSchema.superRefine((data, ctx)
                 path: ['endTime'],
                 message: 'L\'heure de fin est requise.',
             });
-        } else if (!timePattern.test(data.endTime)) {
+        } else if (!endTimePattern.test(data.endTime)) {
             ctx.addIssue({
                 code: 'custom',
                 path: ['endTime'],
@@ -79,6 +81,22 @@ export const scheduleCreateSchema = commonScheduleSchema.superRefine((data, ctx)
                 message: 'La date est invalide.',
             });
         }
+
+        if (data.endDate) {
+            if (Number.isNaN(new Date(`${data.endDate}T00:00:00Z`).getTime())) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['endDate'],
+                    message: 'La date de fin est invalide.',
+                });
+            } else if (data.date && data.endDate < data.date) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['endDate'],
+                    message: 'La date de fin doit être postérieure ou égale à la date de début.',
+                });
+            }
+        }
     }
 });
 
@@ -92,6 +110,7 @@ export const scheduleListFilterSchema = z.object({
     q: z.string().trim().default(''),
     type: z.enum(['all', ScheduleType.RECURRING, ScheduleType.EVENT]).default('all'),
     active: z.enum(['all', 'active', 'inactive']).default('all'),
+    progress: z.enum(['all', 'ongoing', 'upcoming', 'completed']).default('all'),
     sort: z
         .enum([
             'updatedAt-desc',

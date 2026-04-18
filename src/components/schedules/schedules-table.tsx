@@ -40,13 +40,15 @@ import { appendReturnTo } from '@/lib/return-to';
 import { useDataTable } from '@/hooks/use-data-table';
 import { ScheduleType } from '@/generated/prisma/enums';
 import { type ScheduleViewModel } from '@/lib/schedules/schedule-view-model';
-import { SCHEDULE_TYPE_LABELS } from '@/lib/schedules/schedule-utils';
-import { formatDate } from '@/lib/utils';
+import { SCHEDULE_LIFECYCLE_LABELS, SCHEDULE_TYPE_LABELS } from '@/lib/schedules/schedule-utils';
+import { cn, formatDate } from '@/lib/utils';
 import { type ScheduleListFilterValues, scheduleListFilterSchema } from '@/schemas/schedule-schema';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type SortFilter = ScheduleListFilterValues['sort'] | 'none';
 type TypeFilter = ScheduleListFilterValues['type'];
 type ActiveFilter = ScheduleListFilterValues['active'];
+type ProgressFilter = ScheduleListFilterValues['progress'];
 
 const equalsFilter: FilterFn<ScheduleViewModel> = (row, columnId, value) => {
     if (!value || value === 'all') return true;
@@ -56,6 +58,11 @@ const equalsFilter: FilterFn<ScheduleViewModel> = (row, columnId, value) => {
 const activeFilter: FilterFn<ScheduleViewModel> = (row, _columnId, value) => {
     if (!value || value === 'all') return true;
     return value === 'active' ? row.original.active : !row.original.active;
+};
+
+const progressFilter: FilterFn<ScheduleViewModel> = (row, _columnId, value) => {
+    if (!value || value === 'all') return true;
+    return row.original.lifecycleStatus === value;
 };
 
 const sortBy: Record<Exclude<SortFilter, 'none'>, { id: string; desc: boolean }> = {
@@ -80,6 +87,7 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
     const defaults = scheduleListFilterSchema.parse({});
     const [typeFilterValue, setTypeFilterValue] = React.useState<TypeFilter>(defaults.type);
     const [activeFilterValue, setActiveFilterValue] = React.useState<ActiveFilter>(defaults.active);
+    const [progressFilterValue, setProgressFilterValue] = React.useState<ProgressFilter>(defaults.progress);
     const [sortFilterValue, setSortFilterValue] = React.useState<SortFilter>('none');
     const [deleteTarget, setDeleteTarget] = React.useState<ScheduleViewModel | null>(null);
     const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
@@ -88,7 +96,7 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
     const columns = React.useMemo<ColumnDef<ScheduleViewModel>[]>(() => [
         {
             id: 'searchText',
-            accessorFn: (row) => `${row.playlistName} ${row.channelName} ${row.type} ${row.dateLabel} ${row.daysLabel}`,
+            accessorFn: (row) => `${row.playlistName} ${row.type} ${row.dateLabel} ${row.daysLabel}`,
             enableHiding: true,
             enableSorting: false,
             enableColumnFilter: true,
@@ -102,17 +110,26 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
         },
         {
             accessorKey: 'playlistName',
-            meta: {label: 'Playlist'},
-            header: ({column}) => <DataTableColumnHeader column={column} title="Playlist" />,
+            meta: {label: 'Programmation'},
+            header: ({column}) => <DataTableColumnHeader column={column} title="Programmation" />,
             cell: ({row}) => (
-                <div className="flex min-w-0 max-w-72 flex-col gap-1">
+                <div className="flex min-w-0 max-w-70 flex-col gap-1">
                     <Link
                         href={appendReturnTo(`/dashboard/schedules/${row.original.id}`, currentReturnTo)}
-                        className="truncate font-medium underline-offset-4 hover:underline"
+                        className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
                     >
-                        {row.original.playlistName}
+                        {SCHEDULE_TYPE_LABELS[row.original.type]}
                     </Link>
-                    <div className="text-muted-foreground truncate text-sm">{row.original.channelName}</div>
+                    <Tooltip delayDuration={700}>
+                        <TooltipTrigger asChild>
+                            <span className="text-muted-foreground max-w-full self-start truncate text-sm">
+                                {row.original.playlistName}
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            Playlist concernée par<br />cette programmation
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
             ),
         },
@@ -134,6 +151,17 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
             meta: {label: 'Horaire'},
             header: ({column}) => <DataTableColumnHeader column={column} title="Horaire" />,
             cell: ({row}) => <div className="text-sm">{row.original.timeLabel}</div>,
+        },
+        {
+            accessorKey: 'lifecycleStatus',
+            meta: {label: 'Avancement'},
+            header: ({column}) => <DataTableColumnHeader column={column} title="Avancement" />,
+            cell: ({row}) => (
+                <Badge variant={row.original.lifecycleStatus === 'completed' ? 'outline' : 'secondary'}>
+                    {SCHEDULE_LIFECYCLE_LABELS[row.original.lifecycleStatus]}
+                </Badge>
+            ),
+            filterFn: progressFilter,
         },
         {
             accessorKey: 'active',
@@ -173,7 +201,8 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
                     {canManage ? (
                         <>
                             <DropdownMenuItem asChild>
-                                <Link href={appendReturnTo(`/dashboard/schedules/${row.original.id}/edit`, currentReturnTo)}>
+                                <Link
+                                    href={appendReturnTo(`/dashboard/schedules/${row.original.id}/edit`, currentReturnTo)}>
                                     Modifier
                                 </Link>
                             </DropdownMenuItem>
@@ -200,6 +229,7 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
         enablePagination: true,
         initialColumnVisibility: {
             searchText: false,
+            type: false,
             updatedAt: false,
             createdAt: false,
         },
@@ -212,6 +242,10 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
     React.useEffect(() => {
         table.getColumn('active')?.setFilterValue(activeFilterValue === 'all' ? undefined : activeFilterValue);
     }, [table, activeFilterValue]);
+
+    React.useEffect(() => {
+        table.getColumn('lifecycleStatus')?.setFilterValue(progressFilterValue === 'all' ? undefined : progressFilterValue);
+    }, [progressFilterValue, table]);
 
     React.useEffect(() => {
         if (sortFilterValue === 'none') {
@@ -250,13 +284,25 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
                         <>
                             <Select value={activeFilterValue}
                                     onValueChange={(value) => setActiveFilterValue(value as ActiveFilter)}>
-                                <SelectTrigger className="w-45">
+                                <SelectTrigger>
                                     <SelectValue placeholder="Statut" />
                                 </SelectTrigger>
                                 <SelectContent align="start">
                                     <SelectItem value="all">Tous les statuts</SelectItem>
                                     <SelectItem value="active">Actives</SelectItem>
                                     <SelectItem value="inactive">Inactives</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select value={progressFilterValue}
+                                    onValueChange={(value) => setProgressFilterValue(value as ProgressFilter)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Avancement" />
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                    <SelectItem value="all">Tous les états</SelectItem>
+                                    <SelectItem value="ongoing">En cours</SelectItem>
+                                    <SelectItem value="upcoming">À venir</SelectItem>
+                                    <SelectItem value="completed">Terminées</SelectItem>
                                 </SelectContent>
                             </Select>
                             <DropdownMenu>
@@ -306,10 +352,17 @@ export function SchedulesTable({data, canManage}: SchedulesTableProps) {
                     onReset={() => {
                         setTypeFilterValue(defaults.type);
                         setActiveFilterValue(defaults.active);
+                        setProgressFilterValue(defaults.progress);
                         setSortFilterValue('none');
                     }}
                 />
-                <DataTableView table={table} emptyMessage="Aucune programmation récurrente ou événementielle." />
+                <DataTableView
+                    table={table}
+                    emptyMessage="Aucune programmation récurrente ou événementielle."
+                    getRowClassName={(row) => cn(
+                        row.original.lifecycleStatus === 'completed' && 'bg-muted/20 text-muted-foreground',
+                    )}
+                />
                 <DataTablePagination table={table} />
             </div>
 

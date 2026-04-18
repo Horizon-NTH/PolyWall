@@ -99,6 +99,7 @@ export default async function Page({searchParams}: SchedulesPageProps) {
     const {
         channel,
         defaultSchedule,
+        defaultSchedulePlaylist,
         plannedScheduleRows,
         conflicts,
     } = await getChannelSchedulesOverview(organizationId, selectedChannel.id);
@@ -118,11 +119,13 @@ export default async function Page({searchParams}: SchedulesPageProps) {
                     <ChannelScheduleSelector channels={channels} selectedChannelId={selectedChannel.id} />
                     {canManage ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button asChild variant="outline">
-                                <Link href={`/dashboard/schedules/new?channelId=${selectedChannel.id}&type=DEFAULT`}>
-                                    Définir la playlist par défaut
-                                </Link>
-                            </Button>
+                            {!defaultSchedule ? (
+                                <Button asChild variant="outline">
+                                    <Link href={`/dashboard/schedules/new?channelId=${selectedChannel.id}&type=DEFAULT`}>
+                                        Définir la playlist par défaut
+                                    </Link>
+                                </Button>
+                            ) : null}
                             <Button asChild>
                                 <Link href={`/dashboard/schedules/new?channelId=${selectedChannel.id}`}>
                                     Nouvelle programmation
@@ -147,7 +150,11 @@ export default async function Page({searchParams}: SchedulesPageProps) {
 
                             <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
                                 <ScheduleLivePreviewCard />
-                                <ScheduleDefaultCard channelId={selectedChannel.id} defaultSchedule={defaultSchedule} />
+                                <ScheduleDefaultCard
+                                    channelId={selectedChannel.id}
+                                    defaultSchedule={defaultSchedule}
+                                    defaultPlaylist={defaultSchedulePlaylist}
+                                />
                             </div>
 
                             <ScheduleConflictsCard conflicts={conflicts} />

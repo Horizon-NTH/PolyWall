@@ -26,6 +26,7 @@ describe('ScheduleSummaryCard', () => {
                     daysLabel: 'Lundi',
                     dateLabel: '6 avr. 2026',
                     timeLabel: '09:00 - 10:00',
+                    lifecycleStatus: 'ongoing',
                     updatedAt: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     slots: [],

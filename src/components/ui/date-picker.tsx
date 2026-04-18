@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, XIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -13,6 +13,7 @@ type DatePickerProps = {
     onChange: (value: string) => void;
     placeholder?: string;
     disabled?: boolean;
+    clearButton?: boolean;
     'aria-invalid'?: boolean;
 };
 
@@ -41,28 +42,54 @@ export function DatePicker({
                                onChange,
                                placeholder = 'Sélectionnez une date',
                                disabled = false,
+                               clearButton,
                                'aria-invalid': ariaInvalid,
                            }: DatePickerProps) {
     const [open, setOpen] = React.useState(false);
     const selectedDate = React.useMemo(() => parseDateString(value), [value]);
+    const hasValue = Boolean(value);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    type="button"
-                    variant="outline"
-                    disabled={disabled}
-                    aria-invalid={ariaInvalid}
-                    className={cn(
-                        'w-full justify-between font-normal',
-                        !value && 'text-muted-foreground',
-                    )}
-                >
-                    <span className="truncate">{formatDisplayDate(value) ?? placeholder}</span>
-                    <CalendarIcon data-icon="inline-end" />
-                </Button>
-            </PopoverTrigger>
+            <div className="relative">
+                <PopoverTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={disabled}
+                        aria-invalid={ariaInvalid}
+                        className={cn(
+                            'w-full justify-start px-3 font-normal',
+                            hasValue ? 'pr-16' : 'pr-10',
+                            !hasValue && 'text-muted-foreground',
+                        )}
+                    >
+                        <span className="truncate">{formatDisplayDate(value) ?? placeholder}</span>
+                        <CalendarIcon data-icon="inline-end" className="ml-auto" />
+                    </Button>
+                </PopoverTrigger>
+                {clearButton && hasValue ? (
+                    <Button
+                        variant="ghost"
+                        disabled={disabled}
+                        aria-label="Vider la date"
+                        size="icon-xs"
+                        className="absolute top-1/2 right-8 -translate-y-1/2"
+                        onMouseDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onChange('');
+                            setOpen(false);
+                        }}
+                    >
+                        <XIcon />
+                    </Button>
+                ) : null}
+            </div>
             <PopoverContent align="start" className="w-auto p-0">
                 <Calendar
                     mode="single"

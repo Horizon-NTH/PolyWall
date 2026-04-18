@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useTransition } from 'react';
+import { useEffect, useMemo, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form';
@@ -10,6 +10,7 @@ import { CheckIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createSchedule, updateSchedule, upsertDefaultSchedule } from '@/actions/schedule-actions';
+import { PlaylistPreviewSummary } from '@/components/playlists/playlist-preview-summary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,7 +35,7 @@ import { TimePicker } from '@/components/ui/time-picker';
 import { ScheduleType } from '@/generated/prisma/enums';
 import {
     ALL_DAYS_OF_WEEK,
-    DAY_OF_WEEK_LABELS,
+    getDayOfWeekLabel,
     SCHEDULE_TYPE_LABELS,
 } from '@/lib/schedules/schedule-utils';
 import {
@@ -43,7 +44,7 @@ import {
     scheduleUpdateSchema,
     type ScheduleUpdateValues,
 } from '@/schemas/schedule-schema';
-import { formatDurationSeconds } from '@/lib/utils';
+import { formatDurationSeconds, minutesToTimeString, timeStringToMinutes } from '@/lib/utils';
 
 type ScheduleFormValues = ScheduleCreateValues;
 
@@ -94,6 +95,7 @@ export function ScheduleForm({
             endMode: 'playlist',
             endTime: '',
             date: '',
+            endDate: '',
             daysOfWeek: [],
             ...defaultValues,
         },
@@ -102,10 +104,63 @@ export function ScheduleForm({
     const watchedType = useWatch({control: form.control, name: 'type'});
     const watchedEndMode = useWatch({control: form.control, name: 'endMode'});
     const watchedPlaylistId = useWatch({control: form.control, name: 'playlistId'});
+    const watchedStartTime = useWatch({control: form.control, name: 'startTime'});
+    const watchedEndTime = useWatch({control: form.control, name: 'endTime'});
+    const isDefaultTypeLocked = defaultValues?.type === ScheduleType.DEFAULT;
+    const isDefaultSchedule = watchedType === ScheduleType.DEFAULT;
+    const typeOptions = isDefaultTypeLocked
+        ? [ScheduleType.DEFAULT]
+        : [ScheduleType.RECURRING, ScheduleType.EVENT];
     const selectedPlaylist = useMemo(
         () => playlists.find((playlist) => playlist.id === watchedPlaylistId) ?? null,
         [playlists, watchedPlaylistId],
     );
+    const formTitle = isDefaultSchedule
+        ? isEdit
+            ? 'Modifier la playlist par défaut'
+            : 'Définir la playlist par défaut'
+        : isEdit
+            ? 'Modifier la programmation'
+            : 'Nouvelle programmation';
+    const formDescription = isDefaultSchedule
+        ? 'Choisissez la playlist utilisée automatiquement quand aucune autre programmation prioritaire ne s\'applique.'
+        : 'Configurez une programmation récurrente ou événementielle pour un canal.';
+    const startTimeMaxValue = useMemo(() => {
+        if (watchedEndMode !== 'time' || !watchedEndTime) {
+            return '23:59';
+        }
+
+        const endMinutes = timeStringToMinutes(watchedEndTime);
+        return endMinutes <= 1 ? '00:00' : minutesToTimeString(endMinutes - 1);
+    }, [watchedEndMode, watchedEndTime]);
+    const endTimeMinValue = useMemo(() => {
+        if (!watchedStartTime) {
+            return '00:01';
+        }
+
+        const startMinutes = timeStringToMinutes(watchedStartTime);
+        return startMinutes >= ((24 * 60) - 1) ? '24:00' : minutesToTimeString(startMinutes + 1);
+    }, [watchedStartTime]);
+
+    useEffect(() => {
+        if (watchedEndMode !== 'time' || !watchedEndTime) {
+            return;
+        }
+
+        if (timeStringToMinutes(watchedEndTime) < timeStringToMinutes(endTimeMinValue)) {
+            form.setValue('endTime', endTimeMinValue, {shouldValidate: true});
+        }
+    }, [endTimeMinValue, form, watchedEndMode, watchedEndTime]);
+
+    useEffect(() => {
+        if (!watchedStartTime) {
+            return;
+        }
+
+        if (timeStringToMinutes(watchedStartTime) > timeStringToMinutes(startTimeMaxValue)) {
+            form.setValue('startTime', startTimeMaxValue, {shouldValidate: true});
+        }
+    }, [form, startTimeMaxValue, watchedStartTime]);
 
     async function onSubmit(values: ScheduleFormValues) {
         form.clearErrors('root');
@@ -141,48 +196,45 @@ export function ScheduleForm({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{isEdit ? 'Modifier la programmation' : 'Nouvelle programmation'}</CardTitle>
-                <CardDescription>
-                    Configurez une playlist par défaut, récurrente ou événementielle pour un canal.
-                </CardDescription>
+                <CardTitle>{formTitle}</CardTitle>
+                <CardDescription>{formDescription}</CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={form.handleSubmit(onSubmit)}>
                     <FieldGroup>
-                        <Controller
-                            name="type"
-                            control={form.control}
-                            render={({field, fieldState}) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel htmlFor="type">Type</FieldLabel>
-                                    <Select
-                                        value={field.value}
-                                        onValueChange={(value) => {
-                                            field.onChange(value);
-                                            if (value === ScheduleType.DEFAULT) {
+                        {!isDefaultTypeLocked ? (
+                            <Controller
+                                name="type"
+                                control={form.control}
+                                render={({field, fieldState}) => (
+                                    <Field data-invalid={fieldState.invalid}>
+                                        <FieldLabel htmlFor="type">Type</FieldLabel>
+                                        <Select
+                                            value={field.value}
+                                            onValueChange={(value) => {
+                                                field.onChange(value);
                                                 form.setValue('date', '');
+                                                form.setValue('endDate', '');
                                                 form.setValue('daysOfWeek', []);
-                                                form.setValue('startTime', '');
-                                                form.setValue('endTime', '');
-                                            }
-                                        }}
-                                        disabled={isEdit && defaultValues?.type === ScheduleType.DEFAULT}
-                                    >
-                                        <SelectTrigger id="type" className="w-full" aria-invalid={fieldState.invalid}>
-                                            <SelectValue placeholder="Sélectionnez un type" />
-                                        </SelectTrigger>
-                                        <SelectContent align="start">
-                                            {Object.values(ScheduleType).map((type) => (
-                                                <SelectItem key={type} value={type}>
-                                                    {SCHEDULE_TYPE_LABELS[type]}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
-                                </Field>
-                            )}
-                        />
+                                            }}
+                                        >
+                                            <SelectTrigger id="type" className="w-full"
+                                                           aria-invalid={fieldState.invalid}>
+                                                <SelectValue placeholder="Sélectionnez un type" />
+                                            </SelectTrigger>
+                                            <SelectContent align="start">
+                                                {typeOptions.map((type) => (
+                                                    <SelectItem key={type} value={type}>
+                                                        {SCHEDULE_TYPE_LABELS[type]}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
+                                    </Field>
+                                )}
+                            />
+                        ) : null}
 
                         <Controller
                             name="channelId"
@@ -236,21 +288,43 @@ export function ScheduleForm({
                         />
 
                         {watchedType === ScheduleType.EVENT ? (
-                            <Controller
-                                name="date"
-                                control={form.control}
-                                render={({field, fieldState}) => (
-                                    <Field data-invalid={fieldState.invalid}>
-                                        <FieldLabel htmlFor="date">Date</FieldLabel>
-                                        <DatePicker
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            aria-invalid={fieldState.invalid}
-                                        />
-                                        {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
-                                    </Field>
-                                )}
-                            />
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <Controller
+                                    name="date"
+                                    control={form.control}
+                                    render={({field, fieldState}) => (
+                                        <Field data-invalid={fieldState.invalid}>
+                                            <FieldLabel htmlFor="date">Date de début</FieldLabel>
+                                            <DatePicker
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                aria-invalid={fieldState.invalid}
+                                            />
+                                            {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
+                                        </Field>
+                                    )}
+                                />
+                                <Controller
+                                    name="endDate"
+                                    control={form.control}
+                                    render={({field, fieldState}) => (
+                                        <Field data-invalid={fieldState.invalid}>
+                                            <FieldLabel htmlFor="endDate">Date de fin</FieldLabel>
+                                            <DatePicker
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Même jour si vide"
+                                                clearButton
+                                                aria-invalid={fieldState.invalid}
+                                            />
+                                            <FieldDescription>
+                                                Laissez vide pour une programmation sur un seul jour.
+                                            </FieldDescription>
+                                            {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
+                                        </Field>
+                                    )}
+                                />
+                            </div>
                         ) : null}
 
                         {watchedType === ScheduleType.RECURRING ? (
@@ -277,7 +351,7 @@ export function ScheduleForm({
                                                             }}
                                                         />
                                                         <FieldLabel
-                                                            htmlFor={`day-${day}`}>{DAY_OF_WEEK_LABELS[day]}</FieldLabel>
+                                                            htmlFor={`day-${day}`}>{getDayOfWeekLabel(day, 'long')}</FieldLabel>
                                                     </Field>
                                                 );
                                             })}
@@ -288,7 +362,7 @@ export function ScheduleForm({
                             />
                         ) : null}
 
-                        {watchedType !== ScheduleType.DEFAULT ? (
+                        {!isDefaultSchedule ? (
                             <>
                                 <Controller
                                     name="startTime"
@@ -299,6 +373,9 @@ export function ScheduleForm({
                                             <TimePicker
                                                 value={field.value}
                                                 onChange={field.onChange}
+                                                minValue="00:00"
+                                                maxValue={startTimeMaxValue}
+                                                presets={[{label: 'Début de journée', value: '00:00'}]}
                                                 aria-invalid={fieldState.invalid}
                                             />
                                             {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
@@ -342,6 +419,9 @@ export function ScheduleForm({
                                                 <TimePicker
                                                     value={field.value}
                                                     onChange={field.onChange}
+                                                    minValue={endTimeMinValue}
+                                                    maxValue="24:00"
+                                                    presets={[{label: 'Fin de journée', value: '24:00'}]}
                                                     aria-invalid={fieldState.invalid}
                                                 />
                                                 {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
@@ -381,7 +461,7 @@ export function ScheduleForm({
                                         <Link href={cancelHref}>Annuler</Link>
                                     </Button>
                                     <Button type="submit" disabled={form.formState.isSubmitting || isPending}>
-                                        {watchedType === ScheduleType.DEFAULT
+                                        {isDefaultSchedule
                                             ? 'Enregistrer la playlist par défaut'
                                             : isEdit
                                                 ? 'Enregistrer'
@@ -412,10 +492,16 @@ function PlaylistSelectPreview({
                                    onValueChange,
                                    ariaInvalid,
                                }: PlaylistSelectPreviewProps) {
+    const selectedPlaylist = playlists.find((playlist) => playlist.id === value) ?? null;
+
     return (
         <Select value={value} onValueChange={onValueChange}>
             <SelectTrigger id={selectId} className="w-full" aria-invalid={ariaInvalid}>
-                <SelectValue placeholder="Sélectionnez une playlist" />
+                {selectedPlaylist ? (
+                    <span>{selectedPlaylist.name}</span>
+                ) : (
+                    <SelectValue placeholder="Sélectionnez une playlist" />
+                )}
             </SelectTrigger>
             <SelectContent align="start" position="popper" className="max-w-(--radix-select-trigger-width)">
                 {playlists.map((playlist) => (
@@ -433,39 +519,17 @@ function PlaylistPreviewSelectItem({playlist}: { playlist: ScheduleFormOption })
             textValue={playlist.name}
             className="focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-3 rounded-sm py-2 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50"
         >
-            <div className="flex shrink-0 -space-x-2" aria-hidden="true">
-                {playlist.previewItems?.length
-                    ? playlist.previewItems.map((item, index) => (
-                        <div
-                            key={`${playlist.id}-${index}`}
-                            className="bg-muted ring-background flex h-10 w-10 items-center justify-center overflow-hidden rounded-md ring-2"
-                        >
-                            {item.thumbUrl ? (
-                                <img
-                                    src={item.thumbUrl}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                />
-                            ) : (
-                                <span className="text-muted-foreground text-[10px] font-medium">Aperçu</span>
-                            )}
-                        </div>
-                    ))
-                    : (
-                        <div
-                            className="bg-muted text-muted-foreground ring-background flex h-10 w-10 items-center justify-center rounded-md text-[10px] font-medium ring-2">
-                            Vide
-                        </div>
-                    )}
-            </div>
-            <div className="min-w-0" aria-hidden="true">
-                <SelectPrimitive.ItemText>
-                    <span className="truncate font-medium">{playlist.name}</span>
-                </SelectPrimitive.ItemText>
-                <div className="text-muted-foreground line-clamp-1 text-xs">
-                    {buildPlaylistPreviewLine(playlist)}
-                </div>
-            </div>
+            <SelectPrimitive.ItemText>
+                <span className="sr-only">{playlist.name}</span>
+            </SelectPrimitive.ItemText>
+            <PlaylistPreviewSummary
+                name={playlist.name}
+                mediaCount={playlist.mediaCount ?? 0}
+                totalDurationLabel={formatDurationSeconds(playlist.totalDurationSeconds ?? 0)}
+                previewItems={(playlist.previewItems ?? []).map((item) => ({thumbUrl: item.thumbUrl}))}
+                size="sm"
+                className="min-w-0 flex-1"
+            />
             <span className="absolute right-2 flex size-3.5 items-center justify-center">
                 <SelectPrimitive.ItemIndicator>
                     <CheckIcon className="size-4" />
@@ -473,16 +537,4 @@ function PlaylistPreviewSelectItem({playlist}: { playlist: ScheduleFormOption })
             </span>
         </SelectPrimitive.Item>
     );
-}
-
-function buildPlaylistPreviewLine(playlist: ScheduleFormOption) {
-    const titles = playlist.previewItems?.map((item) => item.title).filter(Boolean) ?? [];
-    const remainingCount = Math.max((playlist.mediaCount ?? titles.length) - titles.length, 0);
-    const metadata = [
-        titles.length > 0 ? titles.join(' • ') : 'Aucun média',
-        remainingCount > 0 ? `+${remainingCount} autre${remainingCount > 1 ? 's' : ''}` : null,
-        playlist.totalDurationSeconds ? formatDurationSeconds(playlist.totalDurationSeconds) : null,
-    ].filter(Boolean);
-
-    return metadata.join(' · ');
 }

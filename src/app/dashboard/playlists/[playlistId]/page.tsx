@@ -12,11 +12,10 @@ import {
 } from '@/components/playlists/playlist-editor';
 import { PlaylistSummaryCard } from '@/components/playlists/playlist-summary-card';
 import { Button } from '@/components/ui/button';
-import { env } from '@/env';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
 import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
-import { getStorageService } from '@/lib/storage/storage-service';
+import { resolveThumbUrl } from '@/lib/storage/presigned-url';
 import { formatDate } from '@/lib/utils';
 
 type PlaylistDetailsPageProps = {
@@ -125,16 +124,6 @@ export default async function Page({params, searchParams}: PlaylistDetailsPagePr
         },
         orderBy: {title: 'asc'},
     });
-
-    const storage = getStorageService();
-    const resolveThumbUrl = async (file: { storageBucket: string; objectKey: string } | null) => {
-        if (!file) return null;
-        return storage.presignGet({
-            bucket: file.storageBucket,
-            key: file.objectKey,
-            expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-        });
-    };
 
     const availableMedia: AvailableMediaItem[] = await Promise.all(
         availableMediaRaw.map(async (media) => ({

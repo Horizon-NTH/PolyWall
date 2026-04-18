@@ -37,6 +37,7 @@ describe('SchedulePageTabs', () => {
                     daysLabel: 'Ponctuelle',
                     dateLabel: '18 avr. 2026',
                     timeLabel: '15:00 - 16:00',
+                    lifecycleStatus: 'ongoing',
                     updatedAt: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     slots: [],
