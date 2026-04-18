@@ -37,7 +37,7 @@ export function ChannelScheduleSelector({channels, selectedChannelId}: ChannelSc
                 router.push(`${pathname}?${params.toString()}`);
             }}
         >
-            <SelectTrigger className="w-full sm:w-80">
+            <SelectTrigger className="w-full sm:w-66">
                 <SelectValue placeholder="Sélectionnez un canal" />
             </SelectTrigger>
             <SelectContent align="start">

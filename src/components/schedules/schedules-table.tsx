@@ -79,11 +79,12 @@ const sortBy: Record<Exclude<SortFilter, 'none'>, { id: string; desc: boolean }>
 type SchedulesTableProps = {
     data: ScheduleViewModel[];
     canManage: boolean;
+    returnTo?: string;
 };
 
-export function SchedulesTable({data, canManage}: SchedulesTableProps) {
+export function SchedulesTable({data, canManage, returnTo}: SchedulesTableProps) {
     const router = useRouter();
-    const currentReturnTo = useCurrentReturnTo();
+    const currentReturnTo = returnTo ?? useCurrentReturnTo();
     const defaults = scheduleListFilterSchema.parse({});
     const [typeFilterValue, setTypeFilterValue] = React.useState<TypeFilter>(defaults.type);
     const [activeFilterValue, setActiveFilterValue] = React.useState<ActiveFilter>(defaults.active);

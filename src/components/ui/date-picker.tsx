@@ -13,6 +13,7 @@ type DatePickerProps = {
     onChange: (value: string) => void;
     placeholder?: string;
     disabled?: boolean;
+    disabledDays?: React.ComponentProps<typeof Calendar>['disabled'];
     clearButton?: boolean;
     'aria-invalid'?: boolean;
 };
@@ -42,6 +43,7 @@ export function DatePicker({
                                onChange,
                                placeholder = 'Sélectionnez une date',
                                disabled = false,
+                               disabledDays,
                                clearButton,
                                'aria-invalid': ariaInvalid,
                            }: DatePickerProps) {
@@ -94,6 +96,7 @@ export function DatePicker({
                 <Calendar
                     mode="single"
                     selected={selectedDate}
+                    disabled={disabledDays}
                     onSelect={(date) => {
                         if (!date) return;
                         onChange(formatDateString(date));

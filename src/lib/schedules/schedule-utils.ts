@@ -69,6 +69,12 @@ export type ScheduleConflict = {
     title: string;
     conflictingTitle: string;
     message: string;
+    overlappingDays: DayOfWeek[];
+    overlappingDaysLabel: string;
+    overlappingTimeStart: string;
+    overlappingTimeEnd: string;
+    overlappingTimeLabel: string;
+    overlappingDateLabel: string | null;
 };
 
 type ExistingScheduleForConflict = {
@@ -146,6 +152,32 @@ function dateRangesOverlap(startA: Date | null, endA: Date | null, startB: Date 
     return startA <= endB && startB <= endA;
 }
 
+function getOverlappingDateRange(startA: Date | null, endA: Date | null, startB: Date | null, endB: Date | null) {
+    if (!startA || !endA || !startB || !endB) {
+        return null;
+    }
+
+    const start = startA > startB ? startA : startB;
+    const end = endA < endB ? endA : endB;
+
+    if (start > end) {
+        return null;
+    }
+
+    return { start, end };
+}
+
+function formatMinutesRange(startMinutes: number, endMinutes: number) {
+    const start = minutesToTimeString(startMinutes);
+    const end = minutesToTimeString(endMinutes);
+
+    if (start === '00:00' && end === END_OF_DAY_TIME) {
+        return 'Toute la journée';
+    }
+
+    return `${start} - ${end}`;
+}
+
 export function formatScheduleDays(days: DayOfWeek[]) {
     const uniqueDays = ALL_DAYS_OF_WEEK.filter((day) => days.includes(day));
 
@@ -209,23 +241,53 @@ export function findScheduleConflicts(
             return [];
         }
 
-        const conflictingSlot = existing.timeSlots.find((slot) => draft.slots.some((draftSlot) => (
-            draftSlot.dayOfWeek === slot.dayOfWeek
-            && doTimeRangesOverlap(
-                draftSlot.startMinutes,
-                draftSlot.endMinutes,
-                timeToMinutes(slot.startTime),
-                timeToEndMinutes(slot.endTime),
-            )
-        )));
+        const overlappingSlots = existing.timeSlots.flatMap((slot) => draft.slots
+            .filter((draftSlot) => draftSlot.dayOfWeek === slot.dayOfWeek)
+            .flatMap((draftSlot) => {
+                const existingStartMinutes = timeToMinutes(slot.startTime);
+                const existingEndMinutes = timeToEndMinutes(slot.endTime);
+                const overlapStart = Math.max(draftSlot.startMinutes, existingStartMinutes);
+                const overlapEnd = Math.min(draftSlot.endMinutes, existingEndMinutes);
+                if (!doTimeRangesOverlap(
+                    draftSlot.startMinutes,
+                    draftSlot.endMinutes,
+                    existingStartMinutes,
+                    existingEndMinutes,
+                )) {
+                    return [];
+                }
 
-        if (!conflictingSlot) {
+                return [{
+                    dayOfWeek: slot.dayOfWeek,
+                    overlapStart,
+                    overlapEnd,
+                }];
+            }));
+
+        if (overlappingSlots.length === 0) {
             return [];
         }
 
+        const overlappingDays = ALL_DAYS_OF_WEEK.filter((day) => overlappingSlots.some((slot) => slot.dayOfWeek === day));
+        const overlapStartMinutes = overlappingSlots.reduce(
+            (minimum, slot) => Math.min(minimum, slot.overlapStart),
+            MINUTES_PER_DAY,
+        );
+        const overlapEndMinutes = overlappingSlots.reduce((maximum, slot) => Math.max(maximum, slot.overlapEnd), 0);
+        const overlappingDaysLabel = formatScheduleDays(overlappingDays);
+        const overlappingTimeLabel = formatMinutesRange(overlapStartMinutes, overlapEndMinutes);
+        const overlapDateRange = getOverlappingDateRange(
+            draftStartDate,
+            draftEndDate,
+            normalizeDateOnly(existing.startDate),
+            normalizeDateOnly(existing.endDate),
+        );
+        const overlappingDateLabel = overlapDateRange
+            ? formatScheduleDateRange(overlapDateRange.start, overlapDateRange.end)
+            : null;
         const message = existing.type === ScheduleType.EVENT
-            ? `Cette programmation chevauche "${existing.playlist.name}" sur la même date et plage horaire.`
-            : `Cette programmation chevauche "${existing.playlist.name}" sur au moins un jour et une plage horaire.`;
+            ? `Conflit avec "${existing.playlist.name}" (${overlappingDateLabel ?? 'dates non précisées'}, ${overlappingTimeLabel}).`
+            : `Conflit avec "${existing.playlist.name}" (${overlappingDaysLabel}, ${overlappingTimeLabel}).`;
 
         return [{
             scheduleId: draft.scheduleId ?? 'draft',
@@ -235,6 +297,12 @@ export function findScheduleConflicts(
             title: 'Conflit détecté',
             conflictingTitle: existing.playlist.name,
             message,
+            overlappingDays,
+            overlappingDaysLabel,
+            overlappingTimeStart: minutesToTimeString(overlapStartMinutes),
+            overlappingTimeEnd: minutesToTimeString(overlapEndMinutes),
+            overlappingTimeLabel,
+            overlappingDateLabel,
         }];
     });
 }

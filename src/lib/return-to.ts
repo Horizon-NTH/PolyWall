@@ -17,3 +17,15 @@ export function appendReturnTo(href: string, returnTo: string | null | undefined
     url.searchParams.set(RETURN_TO_PARAM, safeReturnTo);
     return `${url.pathname}${url.search}${url.hash}`;
 }
+
+export function appendQueryParamToHref(href: string, key: string, value: string) {
+    const url = new URL(href, 'http://localhost');
+    url.searchParams.set(key, value);
+    return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function removeQueryParamFromHref(href: string, key: string) {
+    const url = new URL(href, 'http://localhost');
+    url.searchParams.delete(key);
+    return `${url.pathname}${url.search}${url.hash}`;
+}

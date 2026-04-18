@@ -61,7 +61,7 @@ export default async function Page({params, searchParams}: ScheduleDetailsPagePr
             <DashboardHeader
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
-                    {label: 'Planification', href: `/dashboard/schedules?channelId=${schedule.channelId}`},
+                    {label: 'Planification', href: returnHref},
                     {label: schedule.playlistName},
                 ]}
             />

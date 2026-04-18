@@ -16,6 +16,7 @@ import {
     createRecurringScheduleSlots,
     createScheduleDraft,
     findScheduleConflicts,
+    type ScheduleConflict,
 } from '@/lib/schedules/schedule-utils';
 import {
     scheduleCreateSchema,
@@ -28,7 +29,7 @@ type ScheduleField = keyof z.infer<typeof scheduleCreateSchema> | 'root';
 
 type ScheduleActionResult =
     | { ok: true; scheduleId?: string }
-    | { ok: false; field?: ScheduleField; message: string };
+    | { ok: false; field?: ScheduleField; message: string; conflicts?: ScheduleConflict[] };
 
 async function ensureScheduleAccess(requiredAction: 'read' | 'create' | 'update' | 'delete') {
     const session = await auth();
@@ -295,7 +296,12 @@ export async function createSchedule(
             channelId: prepared.channel.id,
             playlistId: prepared.playlist.id,
         });
-        return {ok: false, field: 'root', message: prepared.conflicts[0].message};
+        return {
+            ok: false,
+            field: 'root',
+            message: `${prepared.conflicts.length} conflit${prepared.conflicts.length > 1 ? 's' : ''} détecté${prepared.conflicts.length > 1 ? 's' : ''}.`,
+            conflicts: prepared.conflicts,
+        };
     }
 
     try {
@@ -407,7 +413,12 @@ export async function updateSchedule(
             channelId: prepared.channel.id,
             playlistId: prepared.playlist.id,
         });
-        return {ok: false, field: 'root', message: prepared.conflicts[0].message};
+        return {
+            ok: false,
+            field: 'root',
+            message: `${prepared.conflicts.length} conflit${prepared.conflicts.length > 1 ? 's' : ''} détecté${prepared.conflicts.length > 1 ? 's' : ''}.`,
+            conflicts: prepared.conflicts,
+        };
     }
 
     try {

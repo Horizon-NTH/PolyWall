@@ -5,7 +5,6 @@ import { auth } from '@/auth';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { ChannelScheduleSelector } from '@/components/schedules/channel-schedule-selector';
-import { ScheduleConflictsCard } from '@/components/schedules/schedule-conflicts-card';
 import { ScheduleDefaultCard } from '@/components/schedules/schedule-default-card';
 import { ScheduleLivePreviewCard } from '@/components/schedules/schedule-live-preview-card';
 import { ScheduleOverviewCards } from '@/components/schedules/schedule-overview-cards';
@@ -101,7 +100,6 @@ export default async function Page({searchParams}: SchedulesPageProps) {
         defaultSchedule,
         defaultSchedulePlaylist,
         plannedScheduleRows,
-        conflicts,
     } = await getChannelSchedulesOverview(organizationId, selectedChannel.id);
 
     const canManage = ability.can('create', 'PlaylistSchedule');
@@ -138,7 +136,6 @@ export default async function Page({searchParams}: SchedulesPageProps) {
                 <SchedulePageTabs
                     schedules={plannedScheduleRows}
                     canManage={canManage}
-                    conflicts={conflicts}
                     channelContent={(
                         <div className="flex flex-col gap-4">
                             <ScheduleOverviewCards
@@ -156,8 +153,6 @@ export default async function Page({searchParams}: SchedulesPageProps) {
                                     defaultPlaylist={defaultSchedulePlaylist}
                                 />
                             </div>
-
-                            <ScheduleConflictsCard conflicts={conflicts} />
                         </div>
                     )}
                 />

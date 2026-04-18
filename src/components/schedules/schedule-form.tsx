@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Select as SelectPrimitive } from 'radix-ui';
-import { CheckIcon } from 'lucide-react';
+import { AlertTriangleIcon, CheckIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createSchedule, updateSchedule, upsertDefaultSchedule } from '@/actions/schedule-actions';
@@ -14,7 +14,9 @@ import { PlaylistPreviewSummary } from '@/components/playlists/playlist-preview-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Separator } from '@/components/ui/separator';
 import {
     Field,
     FieldDescription,
@@ -37,7 +39,10 @@ import {
     ALL_DAYS_OF_WEEK,
     getDayOfWeekLabel,
     SCHEDULE_TYPE_LABELS,
+    type ScheduleConflict,
 } from '@/lib/schedules/schedule-utils';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendQueryParamToHref, appendReturnTo, removeQueryParamFromHref } from '@/lib/return-to';
 import {
     scheduleCreateSchema,
     type ScheduleCreateValues,
@@ -68,6 +73,18 @@ type ScheduleFormProps = {
     cancelHref: string;
 };
 
+const CONFLICT_DRAFT_STORAGE_KEY = 'polywall:schedule-form:conflict-draft';
+const CONFLICT_RESTORE_PARAM = 'restoreConflictDraft';
+
+type ConflictDraftSnapshot = {
+    route: string;
+    mode: 'create' | 'edit';
+    scheduleId: string | null;
+    values: ScheduleFormValues;
+    conflicts: ScheduleConflict[];
+    rootErrorMessage: string | null;
+};
+
 export function ScheduleForm({
                                  mode,
                                  scheduleId,
@@ -77,8 +94,12 @@ export function ScheduleForm({
                                  cancelHref,
                              }: ScheduleFormProps) {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const currentReturnTo = useCurrentReturnTo();
     const isEdit = mode === 'edit';
     const [isPending, startTransition] = useTransition();
+    const [detectedConflicts, setDetectedConflicts] = useState<ScheduleConflict[]>([]);
 
     const resolver = zodResolver(
         isEdit ? scheduleUpdateSchema : scheduleCreateSchema,
@@ -106,6 +127,7 @@ export function ScheduleForm({
     const watchedPlaylistId = useWatch({control: form.control, name: 'playlistId'});
     const watchedStartTime = useWatch({control: form.control, name: 'startTime'});
     const watchedEndTime = useWatch({control: form.control, name: 'endTime'});
+    const watchedDate = useWatch({control: form.control, name: 'date'});
     const isDefaultTypeLocked = defaultValues?.type === ScheduleType.DEFAULT;
     const isDefaultSchedule = watchedType === ScheduleType.DEFAULT;
     const typeOptions = isDefaultTypeLocked
@@ -141,6 +163,87 @@ export function ScheduleForm({
         const startMinutes = timeStringToMinutes(watchedStartTime);
         return startMinutes >= ((24 * 60) - 1) ? '24:00' : minutesToTimeString(startMinutes + 1);
     }, [watchedStartTime]);
+    const endDateDisabledDays = useMemo(() => {
+        if (!watchedDate) {
+            return undefined;
+        }
+
+        const [year, month, day] = watchedDate.split('-').map(Number);
+        if (!year || !month || !day) {
+            return undefined;
+        }
+
+        return {
+            before: new Date(year, month - 1, day),
+        };
+    }, [watchedDate]);
+    const conflictRestoreReturnTo = useMemo(
+        () => appendQueryParamToHref(currentReturnTo, CONFLICT_RESTORE_PARAM, '1'),
+        [currentReturnTo],
+    );
+
+    const clearConflictDraftSnapshot = () => {
+        if (typeof window === 'undefined') return;
+        window.sessionStorage.removeItem(CONFLICT_DRAFT_STORAGE_KEY);
+    };
+
+    const saveConflictDraftSnapshot = () => {
+        if (typeof window === 'undefined') return;
+
+        const rootErrorMessage = form.formState.errors.root?.message;
+        const payload: ConflictDraftSnapshot = {
+            route: conflictRestoreReturnTo,
+            mode,
+            scheduleId: scheduleId ?? null,
+            values: form.getValues(),
+            conflicts: detectedConflicts,
+            rootErrorMessage: typeof rootErrorMessage === 'string' ? rootErrorMessage : null,
+        };
+
+        window.history.replaceState(window.history.state, '', conflictRestoreReturnTo);
+        window.sessionStorage.setItem(CONFLICT_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    };
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const currentRoute = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+        const hasRestoreFlag = searchParams.get(CONFLICT_RESTORE_PARAM) === '1';
+        if (!hasRestoreFlag) {
+            return;
+        }
+
+        const rawPayload = window.sessionStorage.getItem(CONFLICT_DRAFT_STORAGE_KEY);
+        if (!rawPayload) {
+            router.replace(removeQueryParamFromHref(currentRoute, CONFLICT_RESTORE_PARAM));
+            return;
+        }
+
+        try {
+            const snapshot = JSON.parse(rawPayload) as ConflictDraftSnapshot;
+            const expectedScheduleId = scheduleId ?? null;
+
+            if (
+                snapshot.route !== currentRoute
+                || snapshot.mode !== mode
+                || snapshot.scheduleId !== expectedScheduleId
+            ) {
+                window.sessionStorage.removeItem(CONFLICT_DRAFT_STORAGE_KEY);
+                router.replace(removeQueryParamFromHref(currentRoute, CONFLICT_RESTORE_PARAM));
+                return;
+            }
+
+            form.reset(snapshot.values);
+            setDetectedConflicts(snapshot.conflicts);
+            if (snapshot.rootErrorMessage) {
+                form.setError('root', {message: snapshot.rootErrorMessage});
+            }
+        } catch {
+        } finally {
+            window.sessionStorage.removeItem(CONFLICT_DRAFT_STORAGE_KEY);
+            router.replace(removeQueryParamFromHref(currentRoute, CONFLICT_RESTORE_PARAM));
+        }
+    }, [form, mode, pathname, router, scheduleId, searchParams]);
 
     useEffect(() => {
         if (watchedEndMode !== 'time' || !watchedEndTime) {
@@ -164,6 +267,7 @@ export function ScheduleForm({
 
     async function onSubmit(values: ScheduleFormValues) {
         form.clearErrors('root');
+        setDetectedConflicts([]);
 
         const result = values.type === ScheduleType.DEFAULT
             ? await upsertDefaultSchedule(values)
@@ -175,6 +279,7 @@ export function ScheduleForm({
             form.setError((result.field ?? 'root') as keyof ScheduleFormValues, {
                 message: result.message,
             });
+            setDetectedConflicts(result.conflicts ?? []);
             return;
         }
 
@@ -183,6 +288,7 @@ export function ScheduleForm({
             : isEdit
                 ? 'Programmation mise à jour.'
                 : 'Programmation créée.');
+        clearConflictDraftSnapshot();
 
         startTransition(() => {
             router.push(values.type === ScheduleType.DEFAULT
@@ -314,6 +420,7 @@ export function ScheduleForm({
                                                 value={field.value}
                                                 onChange={field.onChange}
                                                 placeholder="Même jour si vide"
+                                                disabledDays={endDateDisabledDays}
                                                 clearButton
                                                 aria-invalid={fieldState.invalid}
                                             />
@@ -450,6 +557,37 @@ export function ScheduleForm({
                         />
 
                         <Field>
+                            {detectedConflicts.length > 0 ? (
+                                <Alert variant="destructive" className="mb-3">
+                                    <AlertTriangleIcon />
+                                    <AlertTitle>Conflit détecté</AlertTitle>
+                                    <AlertDescription className="gap-3">
+                                        <p>Modifiez les dates, jours ou horaires pour éviter le chevauchement.</p>
+                                        {detectedConflicts.map((conflict, index) => (
+                                            <div key={`${conflict.scheduleId}-${conflict.conflictingScheduleId}`}>
+                                                {index > 0 ? <Separator className="my-3" /> : null}
+                                                <p className="font-medium">{conflict.conflictingTitle}</p>
+                                                <p className="mt-1">
+                                                    {conflict.conflictingType === ScheduleType.EVENT
+                                                        ? `Dates en conflit : ${conflict.overlappingDateLabel ?? 'non précisées'}`
+                                                        : `Jours en conflit : ${conflict.overlappingDaysLabel}`}
+                                                </p>
+                                                <p>Horaire en conflit : {conflict.overlappingTimeLabel}</p>
+                                                <Link
+                                                    className="mt-2 inline-block underline-offset-4 hover:underline"
+                                                    href={appendReturnTo(
+                                                        `/dashboard/schedules/${conflict.conflictingScheduleId}`,
+                                                        conflictRestoreReturnTo,
+                                                    )}
+                                                    onClick={saveConflictDraftSnapshot}
+                                                >
+                                                    Voir la programmation en conflit
+                                                </Link>
+                                            </div>
+                                        ))}
+                                    </AlertDescription>
+                                </Alert>
+                            ) : null}
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className="min-h-5 flex-1">
                                     {form.formState.errors.root ? (
@@ -458,7 +596,7 @@ export function ScheduleForm({
                                 </div>
                                 <div className="ml-auto flex items-center gap-2">
                                     <Button asChild variant="outline">
-                                        <Link href={cancelHref}>Annuler</Link>
+                                        <Link href={cancelHref} onClick={clearConflictDraftSnapshot}>Annuler</Link>
                                     </Button>
                                     <Button type="submit" disabled={form.formState.isSubmitting || isPending}>
                                         {isDefaultSchedule

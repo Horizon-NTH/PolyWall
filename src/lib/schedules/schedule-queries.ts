@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 
 import { ScheduleType } from '@/generated/prisma/enums';
 import { prisma } from '@/lib/prisma';
-import { createScheduleDraft, findScheduleConflicts } from '@/lib/schedules/schedule-utils';
 import { toScheduleViewModel } from '@/lib/schedules/schedule-view-model';
 import { resolveThumbUrl, type StorageObjectRef } from '@/lib/storage/presigned-url';
 import { formatDurationSeconds } from '@/lib/utils';
@@ -226,47 +225,11 @@ export async function getChannelSchedulesOverview(organizationId: string, channe
     const defaultSchedule = channel.schedules.find((schedule) => schedule.type === ScheduleType.DEFAULT) ?? null;
     const plannedSchedules = channel.schedules.filter((schedule) => schedule.type !== ScheduleType.DEFAULT);
     const plannedScheduleRows = plannedSchedules.map(toScheduleViewModel);
-    const conflicts = createDisplayedConflicts(plannedSchedules);
 
     return {
         channel,
         defaultSchedule: defaultSchedule ? toScheduleViewModel(defaultSchedule) : null,
         defaultSchedulePlaylist: defaultSchedule ? await buildPlaylistPreviewData(defaultSchedule.playlist) : null,
         plannedScheduleRows,
-        conflicts,
     };
-}
-
-function createDisplayedConflicts(schedules: Parameters<typeof toScheduleViewModel>[0][]) {
-    const conflicts = schedules.flatMap((schedule) => findScheduleConflicts(
-        createScheduleDraft({
-            scheduleId: schedule.id,
-            channelId: schedule.channelId,
-            playlistId: schedule.playlistId,
-            type: schedule.type,
-            active: schedule.active,
-            startDate: schedule.startDate,
-            endDate: schedule.endDate,
-            slots: schedule.timeSlots,
-        }),
-        schedules.map((current) => ({
-            id: current.id,
-            type: current.type,
-            active: current.active,
-            startDate: current.startDate,
-            endDate: current.endDate,
-            playlist: current.playlist,
-            timeSlots: current.timeSlots,
-        })),
-    ));
-
-    const unique = new Map<string, (typeof conflicts)[number]>();
-    for (const conflict of conflicts) {
-        const key = [conflict.scheduleId, conflict.conflictingScheduleId].sort().join(':');
-        if (!unique.has(key)) {
-            unique.set(key, conflict);
-        }
-    }
-
-    return Array.from(unique.values());
 }

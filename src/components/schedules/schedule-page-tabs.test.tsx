@@ -3,6 +3,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { ScheduleType } from '@/generated/prisma/enums';
 
+const replaceMock = vi.fn();
+
+vi.mock('next/navigation', () => ({
+    usePathname: () => '/dashboard/schedules',
+    useSearchParams: () => new URLSearchParams(''),
+    useRouter: () => ({replace: replaceMock}),
+}));
+
 vi.mock('@/components/schedules/schedules-table', () => ({
     SchedulesTable: () => <div>Table schedules</div>,
 }));
@@ -11,18 +19,14 @@ vi.mock('@/components/schedules/schedules-calendar', () => ({
     SchedulesCalendar: () => <div>Calendar schedules</div>,
 }));
 
-vi.mock('@/components/schedules/schedule-conflicts-card', () => ({
-    ScheduleConflictsCard: () => <div>Conflicts card</div>,
-}));
-
 describe('SchedulePageTabs', () => {
     it('switches from table to calendar view', async () => {
+        replaceMock.mockReset();
         const {SchedulePageTabs} = await import('@/components/schedules/schedule-page-tabs');
 
         render(
             <SchedulePageTabs
                 canManage
-                conflicts={[]}
                 channelContent={<div>Channel content</div>}
                 schedules={[{
                     id: 'schedule-1',
@@ -48,7 +52,12 @@ describe('SchedulePageTabs', () => {
         expect(screen.getByText('Table schedules')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('tab', {name: 'Planning'}));
         expect(screen.getByText('Calendar schedules')).toBeInTheDocument();
+        expect(replaceMock).toHaveBeenCalledWith('/dashboard/schedules?tab=calendar');
         fireEvent.click(screen.getByRole('tab', {name: 'Canal'}));
         expect(screen.getByText('Channel content')).toBeInTheDocument();
+        expect(replaceMock).toHaveBeenCalledWith('/dashboard/schedules?tab=channel');
+        fireEvent.click(screen.getByRole('tab', {name: 'Programmations'}));
+        expect(replaceMock).toHaveBeenCalledWith('/dashboard/schedules?tab=schedules');
+        expect(replaceMock).toHaveBeenCalledTimes(3);
     });
 });

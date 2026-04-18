@@ -130,7 +130,13 @@ describe('schedule-actions', () => {
         expect(result).toEqual({
             ok: false,
             field: 'root',
-            message: 'Cette programmation chevauche "Playlist existante" sur au moins un jour et une plage horaire.',
+            message: '1 conflit détecté.',
+            conflicts: [expect.objectContaining({
+                conflictingScheduleId: 'schedule-existing',
+                conflictingTitle: 'Playlist existante',
+                overlappingDaysLabel: 'Lun',
+                overlappingTimeLabel: '08:30 - 09:00',
+            })],
         });
     });
 

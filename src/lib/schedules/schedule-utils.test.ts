@@ -91,6 +91,12 @@ describe('schedule-utils', () => {
         );
 
         expect(conflicts).toHaveLength(1);
+        expect(conflicts[0]).toMatchObject({
+            overlappingDaysLabel: 'Lun',
+            overlappingTimeLabel: '09:00 - 10:00',
+            overlappingDateLabel: null,
+            message: 'Conflit avec "Actus" (Lun, 09:00 - 10:00).',
+        });
     });
 
     it('does not detect conflict across different priorities', () => {
