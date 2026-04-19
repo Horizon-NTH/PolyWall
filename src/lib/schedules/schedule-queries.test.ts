@@ -2,23 +2,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
 import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+type ResolveThumbUrl = typeof import('@/lib/storage/presigned-url')['resolveThumbUrl'];
+type ToScheduleViewModel = typeof import('@/lib/schedules/schedule-view-model')['toScheduleViewModel'];
 
 const notFoundMock = vi.fn(() => {
     throw new Error('NOT_FOUND');
 });
-const resolveThumbUrlMock = vi.fn(async (ref: unknown) => (ref ? 'https://cdn/thumb.jpg' : null));
-const toScheduleViewModelMock = vi.fn((value: { id: string }) => ({id: `vm-${value.id}`}));
+const resolveThumbUrlMock = vi.fn<ResolveThumbUrl>(async (ref) => (ref ? 'https://cdn/thumb.jpg' : null));
+const toScheduleViewModelMock = vi.fn<ToScheduleViewModel>((value) => ({id: `vm-${value.id}`} as ReturnType<ToScheduleViewModel>));
 
 vi.mock('next/navigation', () => ({
     notFound: () => notFoundMock(),
 }));
 
 vi.mock('@/lib/storage/presigned-url', () => ({
-    resolveThumbUrl: (...args: unknown[]) => resolveThumbUrlMock(...args),
+    resolveThumbUrl: (...args: Parameters<ResolveThumbUrl>) => resolveThumbUrlMock(...args),
 }));
 
 vi.mock('@/lib/schedules/schedule-view-model', () => ({
-    toScheduleViewModel: (...args: unknown[]) => toScheduleViewModelMock(...args),
+    toScheduleViewModel: (...args: Parameters<ToScheduleViewModel>) => toScheduleViewModelMock(...args),
 }));
 
 mockPrismaModule();
@@ -34,9 +36,9 @@ describe('schedule-queries', () => {
 
         notFoundMock.mockReset();
         resolveThumbUrlMock.mockReset();
-        resolveThumbUrlMock.mockImplementation(async (ref: unknown) => (ref ? 'https://cdn/thumb.jpg' : null));
+        resolveThumbUrlMock.mockImplementation(async (ref) => (ref ? 'https://cdn/thumb.jpg' : null));
         toScheduleViewModelMock.mockReset();
-        toScheduleViewModelMock.mockImplementation((value: { id: string }) => ({id: `vm-${value.id}`}));
+        toScheduleViewModelMock.mockImplementation((value) => ({id: `vm-${value.id}`} as ReturnType<ToScheduleViewModel>));
     });
 
     it('returns organization channels ordered by name', async () => {

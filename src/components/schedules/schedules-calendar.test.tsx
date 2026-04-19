@@ -4,8 +4,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ScheduleType } from '@/generated/prisma/enums';
 import { SchedulesCalendar } from '@/components/schedules/schedules-calendar';
+type CreateCalendarEventsForRange = typeof import('@/lib/schedules/schedule-view-model')['createCalendarEventsForRange'];
 
-const createCalendarEventsForRangeMock = vi.fn(() => []);
+const createCalendarEventsForRangeMock = vi.fn<CreateCalendarEventsForRange>(() => []);
 
 vi.mock('next/link', () => ({
     __esModule: true,
@@ -17,7 +18,7 @@ vi.mock('@/hooks/use-current-return-to', () => ({
 }));
 
 vi.mock('@/lib/schedules/schedule-view-model', () => ({
-    createCalendarEventsForRange: (...args: unknown[]) => createCalendarEventsForRangeMock(...args),
+    createCalendarEventsForRange: (...args: Parameters<CreateCalendarEventsForRange>) => createCalendarEventsForRangeMock(...args),
 }));
 
 vi.mock('@schedule-x/calendar', () => ({

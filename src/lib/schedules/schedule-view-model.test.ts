@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import { Temporal } from 'temporal-polyfill';
 
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
 import { getDayOfWeekLabel } from '@/lib/schedules/schedule-utils';
 import { createCalendarEventsForRange, toScheduleViewModel } from '@/lib/schedules/schedule-view-model';
+import type { CalendarEvent } from '@schedule-x/calendar';
 
 function timeAt(hours: number, minutes: number) {
     return new Date(Date.UTC(1970, 0, 1, hours, minutes, 0));
@@ -39,7 +41,7 @@ describe('schedule-view-model', () => {
     });
 
     it('creates events for active schedules in range and handles end-of-day slots', () => {
-        const createZonedDateTime = vi.fn((value: string) => value);
+        const createZonedDateTime = vi.fn((value: string): CalendarEvent['start'] => Temporal.ZonedDateTime.from(value));
 
         const events = createCalendarEventsForRange({
             schedules: [
@@ -98,9 +100,9 @@ describe('schedule-view-model', () => {
         expect(events[0]).toMatchObject({
             scheduleId: 'schedule-rec',
             title: 'Matin',
-            start: '2026-04-20T23:00:00[Europe/Paris]',
-            end: '2026-04-21T00:00:00[Europe/Paris]',
         });
+        expect(events[0]?.start?.toString()).toBe('2026-04-20T23:00:00+02:00[Europe/Paris]');
+        expect(events[0]?.end?.toString()).toBe('2026-04-21T00:00:00+02:00[Europe/Paris]');
         expect(createZonedDateTime).toHaveBeenCalledTimes(2);
     });
 });
