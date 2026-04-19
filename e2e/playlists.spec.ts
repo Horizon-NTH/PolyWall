@@ -125,7 +125,7 @@ test.describe('playlists', () => {
         await login(page, CONTENT_MANAGER_CREDENTIALS.email, CONTENT_MANAGER_CREDENTIALS.password);
         await safeGoto(page, '/dashboard/playlists');
         await expect(page).toHaveURL(/\/dashboard\/playlists$/);
-        await expect(page.getByRole('button', {name: 'Créer'})).toBeVisible();
+        await expect(page.getByPlaceholder('Rechercher une playlist...')).toBeVisible();
 
         await safeGoto(page, '/dashboard/playlists/new');
         await expect(page).toHaveURL(/\/dashboard\/playlists\/new$/);

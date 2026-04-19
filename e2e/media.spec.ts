@@ -160,7 +160,7 @@ test.describe('media', () => {
 
         await page.getByTestId('organization-select-trigger').click();
         await page.getByRole('option', {name: DEMO_ORG_NAME}).click();
-        await expect(page.getByRole('button', {name: 'Créer'})).toBeVisible();
+        await expect(page.getByPlaceholder('Rechercher un média...')).toBeVisible();
     });
 
     test('list page supports search, filter controls, reset, and row actions', async ({

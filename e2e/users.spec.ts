@@ -149,7 +149,7 @@ test.describe('users', () => {
         await page.getByTestId('organization-select-trigger').click();
         await page.getByRole('option', {name: DEMO_ORG_NAME}).click();
 
-        await expect(page.getByRole('button', {name: 'Créer'})).toBeVisible();
+        await expect(page.getByPlaceholder('Rechercher un utilisateur...')).toBeVisible();
     });
 
     test('list page supports filters and row actions', async ({page}, testInfo) => {

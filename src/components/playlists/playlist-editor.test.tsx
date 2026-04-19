@@ -7,6 +7,7 @@ import {
     type AvailableMediaItem,
     type TimelineMediaItem,
 } from '@/components/playlists/playlist-editor';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const refreshMock = vi.fn();
 const replacePlaylistTimelineMock = vi.fn();
@@ -127,6 +128,18 @@ const timeline: TimelineMediaItem[] = [
 ];
 
 describe('PlaylistEditor', () => {
+    function renderEditor() {
+        return render(
+            <TooltipProvider>
+                <PlaylistEditor
+                    playlistId="playlist-1"
+                    availableMedia={availableMedia}
+                    initialTimeline={timeline}
+                />
+            </TooltipProvider>,
+        );
+    }
+
     beforeEach(() => {
         refreshMock.mockReset();
         replacePlaylistTimelineMock.mockReset();
@@ -140,13 +153,7 @@ describe('PlaylistEditor', () => {
     });
 
     it('filters available media and clears query', () => {
-        render(
-            <PlaylistEditor
-                playlistId="playlist-1"
-                availableMedia={availableMedia}
-                initialTimeline={timeline}
-            />,
-        );
+        renderEditor();
 
         fireEvent.change(screen.getByPlaceholderText('Rechercher un média actif...'), {
             target: {value: 'inexistant'},
@@ -163,13 +170,7 @@ describe('PlaylistEditor', () => {
         replacePlaylistTimelineMock.mockResolvedValueOnce({ok: true});
         vi.useFakeTimers();
 
-        render(
-            <PlaylistEditor
-                playlistId="playlist-1"
-                availableMedia={availableMedia}
-                initialTimeline={timeline}
-            />,
-        );
+        renderEditor();
 
         fireEvent.click(screen.getAllByRole('button', {name: 'Descendre'})[0]);
 
@@ -185,13 +186,7 @@ describe('PlaylistEditor', () => {
     it('reactivates an inactive media and refreshes page', async () => {
         toggleMediaItemActiveMock.mockResolvedValueOnce({ok: true});
 
-        render(
-            <PlaylistEditor
-                playlistId="playlist-1"
-                availableMedia={availableMedia}
-                initialTimeline={timeline}
-            />,
-        );
+        renderEditor();
 
         fireEvent.click(screen.getByRole('button', {name: 'Réactiver le média'}));
 
@@ -208,13 +203,7 @@ describe('PlaylistEditor', () => {
             .mockResolvedValueOnce({ok: false, message: 'Sauvegarde impossible.'})
             .mockResolvedValueOnce({ok: true});
 
-        render(
-            <PlaylistEditor
-                playlistId="playlist-1"
-                availableMedia={availableMedia}
-                initialTimeline={timeline}
-            />,
-        );
+        renderEditor();
 
         fireEvent.click(screen.getAllByRole('button', {name: 'Retirer'})[0]);
         await act(async () => {
