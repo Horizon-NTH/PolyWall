@@ -24,6 +24,7 @@ describe('PlaylistSummaryCard', () => {
         expect(screen.getByText('Résumé de la playlist et de sa timeline.')).toBeInTheDocument();
         expect(screen.getByText('Diffusion écran accueil')).toBeInTheDocument();
         expect(screen.getByText('4')).toBeInTheDocument();
+        expect(screen.getByText('Durée diffusable')).toBeInTheDocument();
         expect(screen.getByText('1:02:03')).toBeInTheDocument();
 
         const inactiveCount = screen.getByText('2');

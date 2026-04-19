@@ -24,6 +24,8 @@ import { DataTableRowActions } from '@/components/table/data-table-row-actions';
 import { DataTableToolbar } from '@/components/table/data-table-toolbar';
 import { DataTableView } from '@/components/table/data-table';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 
 export type OrganizationRow = {
@@ -48,125 +50,124 @@ const countPresenceFilter: FilterFn<OrganizationRow> = (
     return true;
 };
 
-export const columns: ColumnDef<OrganizationRow>[] = [
-    {
-        accessorKey: 'name',
-        meta: {label: 'Organisation'},
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Organisation" />
-        ),
-        cell: ({row}) => {
-            const description = row.original.description;
-            return (
-                <div className="space-y-1 min-w-0 max-w-60">
-                    <Link
-                        href={`/dashboard/organizations/${row.original.id}`}
-                        className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
-                        title={row.original.name}
-                    >
-                        {row.getValue('name')}
-                    </Link>
-                    <div
-                        className="text-muted-foreground truncate text-sm"
-                        title={description}
-                    >
-                        {description}
-                    </div>
-                </div>
-            );
-        },
-    },
-    {
-        accessorKey: 'usersCount',
-        meta: {label: 'Utilisateurs'},
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Utilisateurs" />
-        ),
-        cell: ({row}) => (
-            <div className="text-right font-medium">
-                {row.getValue('usersCount')}
-            </div>
-        ),
-        filterFn: countPresenceFilter,
-    },
-    {
-        accessorKey: 'screensCount',
-        meta: {label: 'Écrans'},
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Écrans" />
-        ),
-        cell: ({row}) => (
-            <div className="text-right font-medium">
-                {row.getValue('screensCount')}
-            </div>
-        ),
-        filterFn: countPresenceFilter,
-    },
-    {
-        accessorKey: 'channelsCount',
-        meta: {label: 'Canaux'},
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Canaux" />
-        ),
-        cell: ({row}) => (
-            <div className="text-right font-medium">
-                {row.getValue('channelsCount')}
-            </div>
-        ),
-    },
-    {
-        accessorKey: 'createdAt',
-        meta: {label: 'Créée le'},
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Créée le" />
-        ),
-        cell: ({row}) => (
-            <div className="text-muted-foreground text-sm">
-                {formatDate(new Date(row.getValue('createdAt')))}
-            </div>
-        ),
-    },
-    {
-        id: 'actions',
-        enableHiding: false,
-        cell: ({row}) => {
-            const organization = row.original;
-
-            return (
-                <DataTableRowActions>
-                    <DropdownMenuItem
-                        onClick={() => {
-                            navigator.clipboard.writeText(organization.id)
-                                .then(() => toast.success('ID copié.'))
-                                .catch(() => toast.error('Impossible de copier l\'ID.'));
-                        }}
-                    >
-                        Copier l&apos;ID
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/organizations/${organization.id}`}>
-                            Voir la fiche
-                        </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/organizations/${organization.id}/edit`}>
-                            Modifier
-                        </Link>
-                    </DropdownMenuItem>
-                </DataTableRowActions>
-            );
-        },
-    },
-];
-
 type OrganizationsTableProps = {
     data: OrganizationRow[];
 };
 
 export function OrganizationsTable({data}: OrganizationsTableProps) {
+    const currentReturnTo = useCurrentReturnTo();
     const [usersFilter, setUsersFilter] = React.useState<CountPresenceFilter>('all');
     const [screensFilter, setScreensFilter] = React.useState<CountPresenceFilter>('all');
+
+    const columns = React.useMemo<ColumnDef<OrganizationRow>[]>(() => [
+        {
+            accessorKey: 'name',
+            meta: {label: 'Organisation'},
+            header: ({column}) => (
+                <DataTableColumnHeader column={column} title="Organisation" />
+            ),
+            cell: ({row}) => {
+                const description = row.original.description;
+                return (
+                    <div className="space-y-1 min-w-0 max-w-60">
+                        <Link
+                            href={appendReturnTo(`/dashboard/organizations/${row.original.id}`, currentReturnTo)}
+                            className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
+                            title={row.original.name}
+                        >
+                            {row.getValue('name')}
+                        </Link>
+                        <div className="text-muted-foreground truncate text-sm" title={description}>
+                            {description}
+                        </div>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'usersCount',
+            meta: {label: 'Utilisateurs'},
+            header: ({column}) => (
+                <DataTableColumnHeader column={column} title="Utilisateurs" />
+            ),
+            cell: ({row}) => (
+                <div className="text-right font-medium">
+                    {row.getValue('usersCount')}
+                </div>
+            ),
+            filterFn: countPresenceFilter,
+        },
+        {
+            accessorKey: 'screensCount',
+            meta: {label: 'Écrans'},
+            header: ({column}) => (
+                <DataTableColumnHeader column={column} title="Écrans" />
+            ),
+            cell: ({row}) => (
+                <div className="text-right font-medium">
+                    {row.getValue('screensCount')}
+                </div>
+            ),
+            filterFn: countPresenceFilter,
+        },
+        {
+            accessorKey: 'channelsCount',
+            meta: {label: 'Canaux'},
+            header: ({column}) => (
+                <DataTableColumnHeader column={column} title="Canaux" />
+            ),
+            cell: ({row}) => (
+                <div className="text-right font-medium">
+                    {row.getValue('channelsCount')}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'createdAt',
+            meta: {label: 'Créée le'},
+            header: ({column}) => (
+                <DataTableColumnHeader column={column} title="Créée le" />
+            ),
+            cell: ({row}) => (
+                <div className="text-muted-foreground text-sm">
+                    {formatDate(new Date(row.getValue('createdAt')))}
+                </div>
+            ),
+        },
+        {
+            id: 'actions',
+            enableHiding: false,
+            cell: ({row}) => {
+                const organization = row.original;
+
+                return (
+                    <DataTableRowActions>
+                        <DropdownMenuItem
+                            onClick={() => {
+                                navigator.clipboard.writeText(organization.id)
+                                    .then(() => toast.success('ID copié.'))
+                                    .catch(() => toast.error('Impossible de copier l\'ID.'));
+                            }}
+                        >
+                            Copier l&apos;ID
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <Link href={appendReturnTo(`/dashboard/organizations/${organization.id}`, currentReturnTo)}>
+                                Voir la fiche
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link
+                                href={appendReturnTo(`/dashboard/organizations/${organization.id}/edit`, currentReturnTo)}>
+                                Modifier
+                            </Link>
+                        </DropdownMenuItem>
+                    </DataTableRowActions>
+                );
+            },
+        },
+    ], [currentReturnTo]);
 
     const table = useDataTable({
         data,
@@ -193,7 +194,7 @@ export function OrganizationsTable({data}: OrganizationsTableProps) {
     };
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 max-w-full flex-col gap-4">
             <DataTableToolbar
                 table={table}
                 searchColumnId="name"

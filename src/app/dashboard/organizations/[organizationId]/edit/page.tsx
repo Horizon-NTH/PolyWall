@@ -5,19 +5,21 @@ import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { OrganizationForm } from '@/components/organizations/organization-form';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo } from '@/lib/return-to';
 
 type OrganizationEditPageProps = {
-    params: Promise<{ organizationId: string }>
+    params: Promise<{ organizationId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: OrganizationEditPageProps) {
+export default async function Page({params, searchParams}: OrganizationEditPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('view', 'SuperAdminSection')) redirect('/dashboard');
 
-    const {organizationId} = await params;
+    const [{organizationId}, query] = await Promise.all([params, searchParams]);
 
     if (!organizationId) {
         notFound();
@@ -35,6 +37,7 @@ export default async function Page({params}: OrganizationEditPageProps) {
     if (!organization) {
         notFound();
     }
+    const detailHref = appendReturnTo(`/dashboard/organizations/${organization.id}`, query.returnTo);
 
     return (
         <>
@@ -42,7 +45,7 @@ export default async function Page({params}: OrganizationEditPageProps) {
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
                     {label: 'Organisations', href: '/dashboard/organizations'},
-                    {label: organization.name, href: `/dashboard/organizations/${organization.id}`},
+                    {label: organization.name, href: detailHref},
                     {label: 'Modifier'},
                 ]}
             />
@@ -50,7 +53,7 @@ export default async function Page({params}: OrganizationEditPageProps) {
                 <OrganizationForm
                     mode="edit"
                     organizationId={organization.id}
-                    cancelHref={`/dashboard/organizations/${organization.id}`}
+                    cancelHref={detailHref}
                     defaultValues={{
                         name: organization.name,
                         description: organization.description,

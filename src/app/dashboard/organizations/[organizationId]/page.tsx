@@ -8,19 +8,21 @@ import { OrganizationDeleteCard } from '@/components/organizations/organization-
 import { Button } from '@/components/ui/button';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 
 type OrganizationDetailsPageProps = {
-    params: Promise<{ organizationId: string }>
+    params: Promise<{ organizationId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: OrganizationDetailsPageProps) {
+export default async function Page({params, searchParams}: OrganizationDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('view', 'SuperAdminSection')) redirect('/dashboard');
 
-    const {organizationId} = await params;
+    const [{organizationId}, query] = await Promise.all([params, searchParams]);
 
     if (!organizationId) {
         notFound();
@@ -50,6 +52,8 @@ export default async function Page({params}: OrganizationDetailsPageProps) {
     if (!organization) {
         notFound();
     }
+    const returnHref = resolveReturnTo(query.returnTo, '/dashboard/organizations');
+    const editHref = appendReturnTo(`/dashboard/organizations/${organization.id}/edit`, query.returnTo);
 
     return (
         <>
@@ -66,10 +70,10 @@ export default async function Page({params}: OrganizationDetailsPageProps) {
                     actions={
                         <>
                             <Button asChild variant="outline">
-                                <Link href="/dashboard/organizations">Retour</Link>
+                                <Link href={returnHref}>Retour</Link>
                             </Button>
                             <Button asChild>
-                                <Link href={`/dashboard/organizations/${organization.id}/edit`}>
+                                <Link href={editHref}>
                                     Modifier
                                 </Link>
                             </Button>

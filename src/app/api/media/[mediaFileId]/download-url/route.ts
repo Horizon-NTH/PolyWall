@@ -3,7 +3,7 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { createActionLogger } from '@/actions/action-logging';
 import { UserRole } from '@/generated/prisma/enums';
-import { getStorageService } from '@/lib/storage/storage-service';
+import { presignStorageObjectGetUrl } from '@/lib/storage/presigned-url';
 import { env } from '@/env';
 
 type Params = {
@@ -67,12 +67,7 @@ export async function GET(_: Request, {params}: Params) {
     }
 
     try {
-        const storage = getStorageService();
-        const downloadUrl = await storage.presignGet({
-            bucket: mediaFile.storageBucket,
-            key: mediaFile.objectKey,
-            expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-        });
+        const downloadUrl = await presignStorageObjectGetUrl(mediaFile);
 
         const expiresAt = new Date(
             Date.now() + env.DOWNLOAD_URL_TTL_SECONDS * 1000,

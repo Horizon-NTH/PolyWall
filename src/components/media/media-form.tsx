@@ -103,7 +103,7 @@ export function MediaForm({
 
             toast.success('Média mis à jour.');
             startTransition(() => {
-                router.push(`/dashboard/media/${mediaItemId}`);
+                router.push(cancelHref);
             });
             return;
         }

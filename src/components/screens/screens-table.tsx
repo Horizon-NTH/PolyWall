@@ -8,6 +8,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Check, ChevronDown, X } from 'lucide-react';
 
 import { deleteScreen, reactivateScreen, revokeScreen } from '@/actions/screen-actions';
+import { ScreenDeleteDialog } from '@/components/screens/screen-delete-dialog';
 import { ScreenEmptyState } from '@/components/screens/screen-empty-state';
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header';
 import { DataTablePagination } from '@/components/table/data-table-pagination';
@@ -37,6 +38,8 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 import { type ScreenListFilterValues, screenListFilterSchema } from '@/schemas/screen-schema';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -85,6 +88,7 @@ const sortBy: Record<Exclude<SortFilter, 'none'>, { id: string; desc: boolean }>
 
 export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
     const router = useRouter();
+    const currentReturnTo = useCurrentReturnTo();
     const defaults = screenListFilterSchema.parse({});
     const [activeTab, setActiveTab] = React.useState<TabValue>('ACTIVE');
     const [interactiveFilterValue, setInteractiveFilterValue] = React.useState<InteractiveFilter>(defaults.interactive);
@@ -113,7 +117,7 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
             cell: ({row}) => (
                 <div className="flex min-w-0 max-w-70 flex-col gap-1">
                     <Link
-                        href={`/dashboard/screens/${row.original.id}`}
+                        href={appendReturnTo(`/dashboard/screens/${row.original.id}`, currentReturnTo)}
                         className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
                         title={row.original.name}
                     >
@@ -184,7 +188,7 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
                 canManage && row.original.status === ScreenStatus.PENDING ? (
                     <div className="flex items-center gap-1">
                         <Button asChild variant="outline" size="icon" aria-label="Valider l'écran">
-                            <Link href={`/dashboard/screens/${row.original.id}/edit`}>
+                            <Link href={appendReturnTo(`/dashboard/screens/${row.original.id}/edit`, currentReturnTo)}>
                                 <Check />
                             </Link>
                         </Button>
@@ -203,12 +207,14 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
                 ) : (
                     <DataTableRowActions>
                         <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/screens/${row.original.id}`}>Voir la fiche</Link>
+                            <Link href={appendReturnTo(`/dashboard/screens/${row.original.id}`, currentReturnTo)}>
+                                Voir la fiche
+                            </Link>
                         </DropdownMenuItem>
                         {canManage ? (
                             <>
                                 <DropdownMenuItem asChild>
-                                    <Link href={`/dashboard/screens/${row.original.id}/edit`}>
+                                    <Link href={appendReturnTo(`/dashboard/screens/${row.original.id}/edit`, currentReturnTo)}>
                                         {row.original.status === ScreenStatus.PENDING ? 'Valider' : 'Modifier'}
                                     </Link>
                                 </DropdownMenuItem>
@@ -248,7 +254,7 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
                 )
             ),
         },
-    ], [canManage]);
+    ], [canManage, currentReturnTo]);
 
     const filteredData = React.useMemo(
         () => data.filter((row) => row.status === activeTab),
@@ -350,7 +356,7 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
     }
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 max-w-full flex-col gap-4">
             <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as TabValue)}>
                 <TabsList>
                     <TabsTrigger value="PENDING" className="gap-2">
@@ -423,22 +429,12 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
             />
             <DataTablePagination table={table} />
 
-            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer cet écran ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Cette action est définitive.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} variant="destructive" disabled={isPending}>
-                            Supprimer
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ScreenDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                onConfirm={handleDelete}
+                confirmDisabled={isPending}
+            />
 
             <AlertDialog open={isRevokeOpen} onOpenChange={setIsRevokeOpen}>
                 <AlertDialogContent>

@@ -5,20 +5,22 @@ import { AdminForm } from '@/components/admins/admin-form';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo } from '@/lib/return-to';
 import { isAdminRole } from '@/schemas/admin-schema';
 
 type AdminEditPageProps = {
     params: Promise<{ adminId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: AdminEditPageProps) {
+export default async function Page({params, searchParams}: AdminEditPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('view', 'SuperAdminSection')) redirect('/dashboard');
 
-    const {adminId} = await params;
+    const [{adminId}, query] = await Promise.all([params, searchParams]);
 
     if (!adminId) {
         notFound();
@@ -46,6 +48,7 @@ export default async function Page({params}: AdminEditPageProps) {
     if (!admin || !isAdminRole(admin.role)) {
         notFound();
     }
+    const detailHref = appendReturnTo(`/dashboard/administrators/${admin.id}`, query.returnTo);
 
     return (
         <>
@@ -53,7 +56,7 @@ export default async function Page({params}: AdminEditPageProps) {
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
                     {label: 'Administrateurs', href: '/dashboard/administrators'},
-                    {label: admin.fullName, href: `/dashboard/administrators/${admin.id}`},
+                    {label: admin.fullName, href: detailHref},
                     {label: 'Modifier'},
                 ]}
             />
@@ -62,7 +65,7 @@ export default async function Page({params}: AdminEditPageProps) {
                     mode="edit"
                     adminId={admin.id}
                     organizations={organizations}
-                    cancelHref={`/dashboard/administrators/${admin.id}`}
+                    cancelHref={detailHref}
                     defaultValues={{
                         fullName: admin.fullName,
                         email: admin.email,

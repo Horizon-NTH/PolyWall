@@ -7,12 +7,14 @@ import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { UserRole } from '@/generated/prisma/enums';
+import { appendReturnTo } from '@/lib/return-to';
 
 type UserEditPageProps = {
     params: Promise<{ userId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: UserEditPageProps) {
+export default async function Page({params, searchParams}: UserEditPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
@@ -23,7 +25,7 @@ export default async function Page({params}: UserEditPageProps) {
 
     if (!canView) redirect('/dashboard');
 
-    const {userId} = await params;
+    const [{userId}, query] = await Promise.all([params, searchParams]);
 
     if (!userId) {
         notFound();
@@ -68,6 +70,7 @@ export default async function Page({params}: UserEditPageProps) {
     if (!user || user.role !== UserRole.CONTENT_MANAGER || user.organizationId !== organizationId) {
         notFound();
     }
+    const detailHref = appendReturnTo(`/dashboard/users/${user.id}`, query.returnTo);
 
     return (
         <>
@@ -75,7 +78,7 @@ export default async function Page({params}: UserEditPageProps) {
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
                     {label: 'Utilisateurs', href: '/dashboard/users'},
-                    {label: user.fullName, href: `/dashboard/users/${user.id}`},
+                    {label: user.fullName, href: detailHref},
                     {label: 'Modifier'},
                 ]}
             />
@@ -83,7 +86,7 @@ export default async function Page({params}: UserEditPageProps) {
                 <UserForm
                     mode="edit"
                     userId={user.id}
-                    cancelHref={`/dashboard/users/${user.id}`}
+                    cancelHref={detailHref}
                     defaultValues={{
                         fullName: user.fullName,
                         email: user.email,

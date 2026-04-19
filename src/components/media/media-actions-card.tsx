@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { deleteMediaItem, toggleMediaItemActive } from '@/actions/media-actions';
+import { MediaDeleteDialog } from '@/components/media/media-delete-dialog';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -13,25 +14,18 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 type MediaActionsCardProps = {
     mediaItemId: string;
     mediaTitle: string;
     isActive: boolean;
+    playlistUsage: {
+        count: number;
+        playlistNames: string[];
+    };
 };
 
-export function MediaActionsCard({mediaItemId, mediaTitle, isActive}: MediaActionsCardProps) {
+export function MediaActionsCard({mediaItemId, mediaTitle, isActive, playlistUsage}: MediaActionsCardProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
 
@@ -75,27 +69,17 @@ export function MediaActionsCard({mediaItemId, mediaTitle, isActive}: MediaActio
                 >
                     {isActive ? 'Désactiver' : 'Activer'}
                 </Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                <MediaDeleteDialog
+                    playlistUsage={playlistUsage}
+                    onConfirm={handleDelete}
+                    confirmDisabled={isPending}
+                    trigger={
                         <Button variant="destructive" disabled={isPending}>
                             Supprimer
                         </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle className="break-all">Supprimer {mediaTitle} ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Cette action est définitive. Le média, son original et ses variantes seront supprimés.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} variant="destructive" disabled={isPending}>
-                                Supprimer
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                    }
+                    title={<span className="break-all">Supprimer {mediaTitle} ?</span>}
+                />
             </CardContent>
         </Card>
     );

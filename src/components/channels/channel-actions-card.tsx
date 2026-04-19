@@ -5,19 +5,9 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { deleteChannel } from '@/actions/channel-actions';
+import { ChannelDeleteDialog } from '@/components/channels/channel-delete-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import {
     Select,
     SelectContent,
@@ -112,40 +102,27 @@ export function ChannelActionsCard({
                     </div>
                 ) : null}
 
-                <AlertDialog open={open} onOpenChange={setOpen}>
-                    <AlertDialogTrigger asChild>
+                <ChannelDeleteDialog
+                    open={open}
+                    onOpenChange={setOpen}
+                    screensCount={screensCount}
+                    reassignToChannelId={reassignToChannelId}
+                    onReassignToChannelIdChange={setReassignToChannelId}
+                    reassignOptions={reassignOptions}
+                    showReassignField={false}
+                    onConfirm={handleDelete}
+                    confirmDisabled={isPending || !canDelete}
+                    keepOpenOnConfirm={true}
+                    trigger={
                         <Button
                             variant="destructive"
                             disabled={isPending || (needsReassign && reassignOptions.length === 0)}
                         >
                             Supprimer
                         </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle className="break-all">Supprimer {channelName} ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Cette action est définitive.
-                                {needsReassign
-                                    ? ' Les écrans seront réaffectés au canal sélectionné.'
-                                    : ' Le canal sera supprimé immédiatement.'}
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={(event) => {
-                                    event.preventDefault();
-                                    handleDelete();
-                                }}
-                                variant="destructive"
-                                disabled={isPending || !canDelete}
-                            >
-                                Supprimer
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                    }
+                    title={<span className="break-all">Supprimer {channelName} ?</span>}
+                />
             </CardContent>
         </Card>
     );

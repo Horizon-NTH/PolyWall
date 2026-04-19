@@ -5,26 +5,18 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { deletePlaylist } from '@/actions/playlist-actions';
+import { type PlaylistScheduleImpact } from '@/lib/playlists/playlist-schedule-impact';
+import { PlaylistDeleteDialog } from '@/components/playlists/playlist-delete-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 type PlaylistActionsCardProps = {
     playlistId: string;
     playlistName: string;
+    impactedSchedules: PlaylistScheduleImpact[];
 };
 
-export function PlaylistActionsCard({playlistId, playlistName}: PlaylistActionsCardProps) {
+export function PlaylistActionsCard({playlistId, playlistName, impactedSchedules}: PlaylistActionsCardProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
 
@@ -48,27 +40,18 @@ export function PlaylistActionsCard({playlistId, playlistName}: PlaylistActionsC
                 <CardDescription>Supprimez cette playlist si elle n&apos;est plus utile.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                <PlaylistDeleteDialog
+                    impactedSchedules={impactedSchedules}
+                    onConfirm={handleDelete}
+                    confirmDisabled={isPending}
+                    trigger={
                         <Button variant="destructive" disabled={isPending}>
                             Supprimer
                         </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle className="break-all">Supprimer {playlistName} ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Cette action est définitive. La playlist et sa timeline seront supprimées.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} variant="destructive" disabled={isPending}>
-                                Supprimer
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                    }
+                    title={<span className="break-all">Supprimer {playlistName} ?</span>}
+                    descriptionPrefix="Cette action est définitive. La playlist et sa timeline seront supprimées."
+                />
             </CardContent>
         </Card>
     );

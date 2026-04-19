@@ -33,13 +33,13 @@ describe('Nav sections', () => {
         ).toHaveAttribute('data-active', 'true');
     });
 
-    it('marks nested paths as active', () => {
+    it('does not mark dashboard root as active on nested paths', () => {
         pathname = '/dashboard/settings';
         renderWithSidebar(<NavSection label="Main" items={items} />);
 
         expect(
             screen.getByRole('link', {name: 'Dashboard'}),
-        ).toHaveAttribute('data-active', 'true');
+        ).toHaveAttribute('data-active', 'false');
     });
 
     it('never marks hash links as active', () => {

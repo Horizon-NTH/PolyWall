@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -33,10 +34,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn, formatDurationSeconds } from '@/lib/utils';
 import type { PlaylistTimelineReplaceValues } from '@/schemas/playlist-schema';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { MediaKindIcon } from '@/components/media/media-card';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { getPlaylistMetrics } from '@/lib/playlists/playlist-metrics';
+import { appendReturnTo } from '@/lib/return-to';
 
 type AvailableMediaItem = {
     id: string;
@@ -172,7 +177,15 @@ function DraggableMediaCard({media}: { media: AvailableMediaItem }) {
                     <GripVertical className="size-4" />
                 </div>
                 {media.thumbUrl ? (
-                    <img src={media.thumbUrl} alt={media.title} className="h-14 w-14 rounded object-cover" />
+                    <Image
+                        src={media.thumbUrl}
+                        alt={media.title}
+                        width={56}
+                        height={56}
+                        unoptimized
+                        sizes="56px"
+                        className="h-14 w-14 rounded object-cover"
+                    />
                 ) : (
                     <div
                         className="bg-muted text-muted-foreground flex h-14 w-14 items-center justify-center rounded">
@@ -190,7 +203,6 @@ function DraggableMediaCard({media}: { media: AvailableMediaItem }) {
 }
 
 type SortableTimelineItemProps = {
-    playlistId: string;
     item: TimelineMediaItem;
     index: number;
     count: number;
@@ -202,7 +214,6 @@ type SortableTimelineItemProps = {
 };
 
 function SortableTimelineItem({
-                                  playlistId,
                                   item,
                                   index,
                                   count,
@@ -212,6 +223,7 @@ function SortableTimelineItem({
                                   onReactivate,
                                   isReactivating,
                               }: SortableTimelineItemProps) {
+    const currentReturnTo = useCurrentReturnTo();
     const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({
         id: makeTimelineId(item.entryId),
         data: {source: 'timeline'},
@@ -247,7 +259,15 @@ function SortableTimelineItem({
                 </button>
 
                 {item.thumbUrl ? (
-                    <img src={item.thumbUrl} alt={item.title} className="h-14 w-14 rounded object-cover" />
+                    <Image
+                        src={item.thumbUrl}
+                        alt={item.title}
+                        width={56}
+                        height={56}
+                        unoptimized
+                        sizes="56px"
+                        className="h-14 w-14 rounded object-cover"
+                    />
                 ) : (
                     <div
                         className="bg-muted text-muted-foreground flex h-14 w-14 items-center justify-center rounded">
@@ -258,7 +278,7 @@ function SortableTimelineItem({
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <Link
-                            href={`/dashboard/media/${item.mediaItemId}?backTo=${encodeURIComponent(`/dashboard/playlists/${playlistId}`)}`}
+                            href={appendReturnTo(`/dashboard/media/${item.mediaItemId}`, currentReturnTo)}
                             className="truncate text-sm font-medium underline-offset-4 hover:underline"
                             title={item.title}
                         >
@@ -423,9 +443,10 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
         return () => observer.disconnect();
     }, [isSideBySide]);
 
-    const mediaCount = timeline.length;
-    const totalDurationSeconds = timeline.reduce((sum, item) => sum + item.durationSeconds, 0);
-    const inactiveMediaCount = timeline.reduce((sum, item) => sum + (item.active ? 0 : 1), 0);
+    const metrics = getPlaylistMetrics(timeline.map((item) => ({
+        durationSeconds: item.durationSeconds,
+        active: item.active,
+    })));
 
     const persistTimeline = React.useCallback(async (
         payload: PlaylistTimelineReplaceValues,
@@ -761,13 +782,29 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
                                 </CardDescription>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="secondary">{pluralizeMedia(mediaCount)}</Badge>
-                                <Badge variant="secondary">{formatDurationSeconds(totalDurationSeconds)}</Badge>
+                                <Badge variant="secondary">{pluralizeMedia(metrics.mediaCount)}</Badge>
+                                {metrics.inactiveMediaCount > 0 ? (
+                                    <Tooltip delayDuration={250}>
+                                        <TooltipTrigger asChild>
+                                            <Badge variant="outline" className="border-amber-400 text-amber-700">
+                                                <TriangleAlert className="size-3.5" />
+                                                {formatDurationSeconds(metrics.diffusableDurationSeconds)}
+                                            </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" sideOffset={6}>
+                                            Les médias inactifs ne sont pas comptés dans cette durée.
+                                        </TooltipContent>
+                                    </Tooltip>
+                                ) : (
+                                    <Badge variant="secondary">
+                                        {formatDurationSeconds(metrics.diffusableDurationSeconds)}
+                                    </Badge>
+                                )}
                                 <Badge
-                                    variant={inactiveMediaCount > 0 ? 'outline' : 'secondary'}
-                                    className={inactiveMediaCount > 0 ? 'text-amber-700 border-amber-400' : undefined}
+                                    variant={metrics.inactiveMediaCount > 0 ? 'outline' : 'secondary'}
+                                    className={metrics.inactiveMediaCount > 0 ? 'text-amber-700 border-amber-400' : undefined}
                                 >
-                                    {pluralizeInactive(inactiveMediaCount)}
+                                    {pluralizeInactive(metrics.inactiveMediaCount)}
                                 </Badge>
                                 <Badge
                                     variant={saveStatus === 'error' ? 'destructive' : 'outline'}
@@ -817,7 +854,6 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
                                                 <TimelineInsertPlaceholder />
                                             ) : null}
                                             <SortableTimelineItem
-                                                playlistId={playlistId}
                                                 item={item}
                                                 index={index}
                                                 count={timeline.length}
@@ -846,9 +882,13 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
                                 <GripVertical className="size-4" />
                             </div>
                             {activeLibraryMedia.thumbUrl ? (
-                                <img
+                                <Image
                                     src={activeLibraryMedia.thumbUrl}
                                     alt={activeLibraryMedia.title}
+                                    width={56}
+                                    height={56}
+                                    unoptimized
+                                    sizes="56px"
                                     className="h-14 w-14 rounded object-cover"
                                 />
                             ) : (

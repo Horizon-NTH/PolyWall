@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { Clock3, FileImage, FileText, FileVideo, FileWarning, HardDrive, LoaderCircle } from 'lucide-react';
 
@@ -8,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { DataTableRowActions } from '@/components/table/data-table-row-actions';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { formatBytes, formatDate } from '@/lib/utils';
 import type { MediaFileStatus } from '@/generated/prisma/enums';
 import type { MediaKind } from '@/lib/media/media-view-model';
@@ -47,18 +50,23 @@ export function MediaKindIcon({kind}: { kind: MediaKind }) {
 }
 
 export function MediaCard({item, statusLabel, kindLabel, onToggle, onDelete, isPending}: MediaCardProps) {
+    const currentReturnTo = useCurrentReturnTo();
+    const detailHref = appendReturnTo(`/dashboard/media/${item.id}`, currentReturnTo);
+    const editHref = appendReturnTo(`/dashboard/media/${item.id}/edit`, currentReturnTo);
+
     return (
         <Card className="overflow-hidden border-border/60 pt-0 transition-shadow hover:shadow-md">
             <div
                 className="relative flex aspect-video items-center justify-center overflow-hidden bg-muted">
                 {item.thumbUrl ? (
-                    <>
-                        <img
-                            src={item.thumbUrl}
-                            alt={`Aperçu ${item.title}`}
-                            className="h-full w-full object-cover"
-                        />
-                    </>
+                    <Image
+                        src={item.thumbUrl}
+                        alt={`Aperçu ${item.title}`}
+                        fill
+                        unoptimized
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover"
+                    />
                 ) : (
                     <MediaFallback kind={item.kind} />
                 )}
@@ -87,10 +95,10 @@ export function MediaCard({item, statusLabel, kindLabel, onToggle, onDelete, isP
                     <div className="ml-auto shrink-0">
                         <DataTableRowActions label="Actions">
                             <DropdownMenuItem asChild disabled={isPending}>
-                                <Link href={`/dashboard/media/${item.id}`}>Voir la fiche</Link>
+                                <Link href={detailHref}>Voir la fiche</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild disabled={isPending}>
-                                <Link href={`/dashboard/media/${item.id}/edit`}>Modifier</Link>
+                                <Link href={editHref}>Modifier</Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem disabled={isPending} onClick={onToggle}>
@@ -127,7 +135,7 @@ export function MediaCard({item, statusLabel, kindLabel, onToggle, onDelete, isP
             </CardContent>
             <CardFooter>
                 <Button asChild variant="outline" size="sm" className="w-full">
-                    <Link href={`/dashboard/media/${item.id}`}>Ouvrir</Link>
+                    <Link href={detailHref}>Ouvrir</Link>
                 </Button>
             </CardFooter>
         </Card>

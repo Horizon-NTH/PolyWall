@@ -12,24 +12,27 @@ import {
 } from '@/components/playlists/playlist-editor';
 import { PlaylistSummaryCard } from '@/components/playlists/playlist-summary-card';
 import { Button } from '@/components/ui/button';
-import { env } from '@/env';
 import { defineAbilityFor } from '@/lib/casl/ability';
+import { getPlaylistMetrics } from '@/lib/playlists/playlist-metrics';
+import { toPlaylistScheduleImpact } from '@/lib/playlists/playlist-schedule-impact';
 import { prisma } from '@/lib/prisma';
-import { getStorageService } from '@/lib/storage/storage-service';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
+import { resolveThumbUrl } from '@/lib/storage/presigned-url';
 import { formatDate } from '@/lib/utils';
 
 type PlaylistDetailsPageProps = {
-    params: Promise<{ playlistId: string }>
+    params: Promise<{ playlistId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: PlaylistDetailsPageProps) {
+export default async function Page({params, searchParams}: PlaylistDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('read', 'Playlist')) redirect('/dashboard');
 
-    const {playlistId} = await params;
+    const [{playlistId}, query] = await Promise.all([params, searchParams]);
     if (!playlistId) notFound();
 
     const organizationId = session.user.organizationId;
@@ -93,6 +96,26 @@ export default async function Page({params}: PlaylistDetailsPageProps) {
                     },
                 },
             },
+            schedules: {
+                select: {
+                    id: true,
+                    type: true,
+                    startDate: true,
+                    endDate: true,
+                    timeSlots: {
+                        select: {
+                            dayOfWeek: true,
+                            startTime: true,
+                            endTime: true,
+                        },
+                        orderBy: [
+                            {dayOfWeek: 'asc'},
+                            {startTime: 'asc'},
+                        ],
+                    },
+                },
+                orderBy: {updatedAt: 'desc'},
+            },
         },
     });
 
@@ -124,16 +147,6 @@ export default async function Page({params}: PlaylistDetailsPageProps) {
         orderBy: {title: 'asc'},
     });
 
-    const storage = getStorageService();
-    const resolveThumbUrl = async (file: { storageBucket: string; objectKey: string } | null) => {
-        if (!file) return null;
-        return storage.presignGet({
-            bucket: file.storageBucket,
-            key: file.objectKey,
-            expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-        });
-    };
-
     const availableMedia: AvailableMediaItem[] = await Promise.all(
         availableMediaRaw.map(async (media) => ({
             id: media.id,
@@ -156,9 +169,12 @@ export default async function Page({params}: PlaylistDetailsPageProps) {
         })),
     );
 
-    const mediaCount = initialTimeline.length;
-    const activeMediaCount = initialTimeline.reduce((sum, item) => sum + (item.active ? 1 : 0), 0);
-    const totalDurationSeconds = initialTimeline.reduce((sum, item) => sum + item.durationSeconds, 0);
+    const metrics = getPlaylistMetrics(initialTimeline.map((item) => ({
+        durationSeconds: item.durationSeconds,
+        active: item.active,
+    })));
+    const returnHref = resolveReturnTo(query.returnTo, '/dashboard/playlists');
+    const editHref = appendReturnTo(`/dashboard/playlists/${playlist.id}/edit`, query.returnTo);
 
     return (
         <>
@@ -179,10 +195,10 @@ export default async function Page({params}: PlaylistDetailsPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href="/dashboard/playlists">Retour</Link>
+                            <Link href={returnHref}>Retour</Link>
                         </Button>
                         <Button asChild>
-                            <Link href={`/dashboard/playlists/${playlist.id}/edit`}>Modifier infos</Link>
+                            <Link href={editHref}>Modifier infos</Link>
                         </Button>
                     </div>
                 </div>
@@ -197,15 +213,19 @@ export default async function Page({params}: PlaylistDetailsPageProps) {
                     <div className="grid gap-4 lg:col-span-2">
                         <PlaylistSummaryCard
                             description={playlist.description}
-                            mediaCount={mediaCount}
-                            totalDurationSeconds={totalDurationSeconds}
-                            inactiveMediaCount={mediaCount - activeMediaCount}
+                            mediaCount={metrics.mediaCount}
+                            totalDurationSeconds={metrics.diffusableDurationSeconds}
+                            inactiveMediaCount={metrics.inactiveMediaCount}
                             createdAt={playlist.createdAt.toISOString()}
                             updatedAt={playlist.updatedAt.toISOString()}
                         />
                     </div>
 
-                    <PlaylistActionsCard playlistId={playlist.id} playlistName={playlist.name} />
+                    <PlaylistActionsCard
+                        playlistId={playlist.id}
+                        playlistName={playlist.name}
+                        impactedSchedules={playlist.schedules.map(toPlaylistScheduleImpact)}
+                    />
                 </div>
             </div>
         </>

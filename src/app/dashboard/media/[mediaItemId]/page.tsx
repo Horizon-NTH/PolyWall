@@ -8,7 +8,6 @@ import { MediaDetailPreview } from '@/components/media/media-detail-preview';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { env } from '@/env';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import {
     extractMediaMetaSummary,
@@ -22,19 +21,14 @@ import {
     type MediaFileLike,
 } from '@/lib/media/media-view-model';
 import { prisma } from '@/lib/prisma';
-import { getStorageService } from '@/lib/storage/storage-service';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
+import { presignStorageObjectGetUrl } from '@/lib/storage/presigned-url';
 import { formatBytes, formatDate } from '@/lib/utils';
 
 type MediaDetailsPageProps = {
     params: Promise<{ mediaItemId: string }>;
-    searchParams: Promise<{ backTo?: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
-
-function getSafeBackHref(backTo: string | undefined) {
-    if (!backTo) return '/dashboard/media';
-    if (!backTo.startsWith('/dashboard')) return '/dashboard/media';
-    return backTo;
-}
 
 export default async function Page({params, searchParams}: MediaDetailsPageProps) {
     const session = await auth();
@@ -47,7 +41,7 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
     if (!mediaItemId) {
         notFound();
     }
-    const backHref = getSafeBackHref(query.backTo);
+    const backHref = resolveReturnTo(query.returnTo, '/dashboard/media');
 
     const organizationId = session.user.organizationId;
     if (!organizationId) {
@@ -84,6 +78,21 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
             active: true,
             createdAt: true,
             updatedAt: true,
+            playlistItems: {
+                distinct: ['playlistId'],
+                select: {
+                    playlist: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    playlist: {
+                        name: 'asc',
+                    },
+                },
+            },
             files: {
                 select: {
                     id: true,
@@ -112,14 +121,9 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
     const files = mediaItem.files as MediaFileLike[];
     const original = selectPrimaryOriginalFile(files);
 
-    const storage = getStorageService();
     const originalUrl =
         original && (original.status === 'READY' || original.status === 'UPLOADED' || original.status === 'PROCESSING')
-            ? await storage.presignGet({
-                bucket: original.storageBucket,
-                key: original.objectKey,
-                expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-            })
+            ? await presignStorageObjectGetUrl(original)
             : null;
 
     const thumb = selectThumbFile(files, original?.id ?? null);
@@ -129,11 +133,7 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
     const renderUrls = await Promise.all(
         renderFiles.map(async (file) => ({
             index: file.variantIndex,
-            url: await storage.presignGet({
-                bucket: file.storageBucket,
-                key: file.objectKey,
-                expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-            }),
+            url: await presignStorageObjectGetUrl(file),
         })),
     );
 
@@ -166,6 +166,7 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
     if (hasReadyThumb) {
         infoRows.push({label: 'Thumbnail', value: 'Disponible'});
     }
+    const editHref = appendReturnTo(`/dashboard/media/${mediaItem.id}/edit`, query.returnTo);
 
     return (
         <>
@@ -188,7 +189,7 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
                             <Link href={backHref}>Retour</Link>
                         </Button>
                         <Button asChild>
-                            <Link href={`/dashboard/media/${mediaItem.id}/edit`}>Modifier</Link>
+                            <Link href={editHref}>Modifier</Link>
                         </Button>
                     </div>
                 </div>
@@ -235,6 +236,10 @@ export default async function Page({params, searchParams}: MediaDetailsPageProps
                                 mediaItemId={mediaItem.id}
                                 mediaTitle={mediaItem.title}
                                 isActive={mediaItem.active}
+                                playlistUsage={{
+                                    count: mediaItem.playlistItems.length,
+                                    playlistNames: mediaItem.playlistItems.map((item) => item.playlist.name),
+                                }}
                             />
                         </div>
                     </div>

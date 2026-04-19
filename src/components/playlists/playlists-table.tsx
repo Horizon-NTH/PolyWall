@@ -8,6 +8,7 @@ import { type ColumnDef, type FilterFn } from '@tanstack/react-table';
 import { ChevronDown } from 'lucide-react';
 
 import { deletePlaylist } from '@/actions/playlist-actions';
+import { PlaylistDeleteDialog } from '@/components/playlists/playlist-delete-dialog';
 import { PlaylistEmptyState } from '@/components/playlists/playlist-empty-state';
 import { DataTableColumnHeader } from '@/components/table/data-table-column-header';
 import { DataTablePagination } from '@/components/table/data-table-pagination';
@@ -15,16 +16,6 @@ import { DataTableRowActions } from '@/components/table/data-table-row-actions';
 import { DataTableToolbar } from '@/components/table/data-table-toolbar';
 import { DataTableView } from '@/components/table/data-table';
 import { Button } from '@/components/ui/button';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -36,6 +27,9 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { type PlaylistScheduleImpact } from '@/lib/playlists/playlist-schedule-impact';
+import { appendReturnTo } from '@/lib/return-to';
 import { formatDate, formatDurationSeconds } from '@/lib/utils';
 import { type PlaylistListFilterValues, playlistListFilterSchema } from '@/schemas/playlist-schema';
 
@@ -46,6 +40,7 @@ export type PlaylistRow = {
     mediaCount: number;
     activeMediaCount: number;
     totalDurationSeconds: number;
+    impactedSchedules: PlaylistScheduleImpact[];
     createdAt: string;
     updatedAt: string;
 };
@@ -92,6 +87,7 @@ type PlaylistsTableProps = {
 
 export function PlaylistsTable({data}: PlaylistsTableProps) {
     const router = useRouter();
+    const currentReturnTo = useCurrentReturnTo();
     const defaults = playlistListFilterSchema.parse({});
     const [inactiveFilterValue, setInactiveFilterValue] = React.useState<InactiveFilter>(defaults.inactive);
     const [sortFilterValue, setSortFilterValue] = React.useState<SortFilter>('none');
@@ -119,7 +115,7 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
             cell: ({row}) => (
                 <div className="space-y-1 min-w-0 max-w-70">
                     <Link
-                        href={`/dashboard/playlists/${row.original.id}`}
+                        href={appendReturnTo(`/dashboard/playlists/${row.original.id}`, currentReturnTo)}
                         className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
                         title={row.original.name}
                     >
@@ -197,10 +193,14 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
             cell: ({row}) => (
                 <DataTableRowActions>
                     <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/playlists/${row.original.id}`}>Voir la fiche</Link>
+                        <Link href={appendReturnTo(`/dashboard/playlists/${row.original.id}`, currentReturnTo)}>
+                            Voir la fiche
+                        </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/playlists/${row.original.id}/edit`}>Modifier infos</Link>
+                        <Link href={appendReturnTo(`/dashboard/playlists/${row.original.id}/edit`, currentReturnTo)}>
+                            Modifier infos
+                        </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onClick={() => openDeleteDialog(row.original)}>
@@ -209,7 +209,7 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
                 </DataTableRowActions>
             ),
         },
-    ], [openDeleteDialog]);
+    ], [currentReturnTo, openDeleteDialog]);
 
     const table = useDataTable({
         data,
@@ -263,7 +263,7 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
     }
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 max-w-full flex-col gap-4">
             <DataTableToolbar
                 table={table}
                 searchColumnId="searchText"
@@ -327,26 +327,13 @@ export function PlaylistsTable({data}: PlaylistsTableProps) {
             <DataTableView table={table} />
             <DataTablePagination table={table} />
 
-            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer cette playlist ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Cette action est définitive. Les éléments de la timeline seront supprimés.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => startTransition(handleDelete)}
-                            variant="destructive"
-                            disabled={isPending}
-                        >
-                            Supprimer
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <PlaylistDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                impactedSchedules={deleteTarget?.impactedSchedules ?? []}
+                onConfirm={() => startTransition(handleDelete)}
+                confirmDisabled={isPending}
+            />
         </div>
     );
 }

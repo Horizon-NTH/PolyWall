@@ -13,6 +13,8 @@ vi.mock('next/navigation', () => ({
     useRouter: () => ({
         refresh: refreshMock,
     }),
+    usePathname: () => '/dashboard/playlists',
+    useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('next/link', () => ({
@@ -47,6 +49,12 @@ describe('PlaylistsTable', () => {
             mediaCount: 3,
             activeMediaCount: 2,
             totalDurationSeconds: 120,
+            impactedSchedules: [{
+                id: 'schedule-1',
+                typeLabel: 'Récurrente',
+                dateLabel: 'Toujours active',
+                timeLabel: '08:00 - 10:00',
+            }],
             createdAt: '2026-01-01T10:00:00.000Z',
             updatedAt: '2026-01-02T10:00:00.000Z',
         },
@@ -58,7 +66,10 @@ describe('PlaylistsTable', () => {
         expect(screen.getByText('Default')).toBeInTheDocument();
         expect(screen.getByText('Playlist principale')).toBeInTheDocument();
         expect(screen.getByText('1 média inactif')).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'Default'})).toHaveAttribute('href', '/dashboard/playlists/playlist-1');
+        expect(screen.getByRole('link', {name: 'Default'})).toHaveAttribute(
+            'href',
+            '/dashboard/playlists/playlist-1?returnTo=%2Fdashboard%2Fplaylists',
+        );
     });
 
     it('shows empty state when there are no playlists', () => {
@@ -77,6 +88,8 @@ describe('PlaylistsTable', () => {
         fireEvent.click(await screen.findByRole('menuitem', {name: 'Supprimer'}));
 
         const dialog = await screen.findByRole('alertdialog');
+        expect(within(dialog).getByText('Récurrente')).toBeInTheDocument();
+        expect(within(dialog).getByText('Toujours active')).toBeInTheDocument();
         fireEvent.click(within(dialog).getByRole('button', {name: 'Supprimer'}));
 
         await waitFor(() => {

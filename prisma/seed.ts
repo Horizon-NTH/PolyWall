@@ -68,8 +68,8 @@ function dateOnlyUTC(y: number, m: number, d: number) {
     return new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
 }
 
-function timeOfDayUTC(h: number, min: number) {
-    return new Date(Date.UTC(1970, 0, 1, h, min, 0));
+function timeOfDayUTC(h: number, min: number, sec = 0, ms = 0) {
+    return new Date(Date.UTC(1970, 0, 1, h, min, sec, ms));
 }
 
 function getMime(fileName: string) {
@@ -809,7 +809,7 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
                     scheduleId: schDefault.id,
                     dayOfWeek: day,
                     startTime: timeOfDayUTC(0, 0),
-                    endTime: timeOfDayUTC(23, 59),
+                    endTime: timeOfDayUTC(23, 59, 59, 999),
                 })),
                 skipDuplicates: true,
             });

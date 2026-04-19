@@ -6,19 +6,21 @@ import { OrganizationEmptyState } from '@/components/organizations/organization-
 import { ScreenForm } from '@/components/screens/screen-form';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo } from '@/lib/return-to';
 
 type ScreenEditPageProps = {
     params: Promise<{ screenId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: ScreenEditPageProps) {
+export default async function Page({params, searchParams}: ScreenEditPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('update', 'Screen')) redirect('/dashboard');
 
-    const {screenId} = await params;
+    const [{screenId}, query] = await Promise.all([params, searchParams]);
     if (!screenId) notFound();
 
     const organizationId = session.user.organizationId;
@@ -69,6 +71,7 @@ export default async function Page({params}: ScreenEditPageProps) {
     ]);
 
     if (!screen) notFound();
+    const detailHref = appendReturnTo(`/dashboard/screens/${screen.id}`, query.returnTo);
 
     return (
         <>
@@ -76,7 +79,7 @@ export default async function Page({params}: ScreenEditPageProps) {
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
                     {label: 'Écrans', href: '/dashboard/screens'},
-                    {label: screen.name, href: `/dashboard/screens/${screen.id}`},
+                    {label: screen.name, href: detailHref},
                     {label: screen.status === 'PENDING' ? 'Valider' : 'Modifier'},
                 ]}
             />
@@ -85,7 +88,7 @@ export default async function Page({params}: ScreenEditPageProps) {
                     mode={screen.status === 'PENDING' ? 'approve' : 'edit'}
                     screenId={screen.id}
                     channels={channels}
-                    cancelHref={`/dashboard/screens/${screen.id}`}
+                    cancelHref={detailHref}
                     defaultValues={{
                         name: screen.name,
                         location: screen.location,

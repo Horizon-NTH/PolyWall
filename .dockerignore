@@ -9,3 +9,10 @@ docker-compose.dev.yaml
 Dockerfile.dev
 README.md
 .next
+.pnpm-store
+.playwright
+playwright-report
+coverage
+test-results
+.idea
+.DS_Store

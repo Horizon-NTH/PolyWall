@@ -128,7 +128,7 @@ describe('AdminForm', () => {
                 mode="edit"
                 adminId="admin-2"
                 organizations={organizations}
-                cancelHref="/dashboard/administrators"
+                cancelHref="/dashboard/administrators/admin-2"
                 defaultValues={{
                     fullName: 'Jean Dupont',
                     email: 'jean@example.com',

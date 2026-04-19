@@ -45,7 +45,7 @@ export function UserForm({
 
     const handleSuccess = () => {
         if (isEdit) {
-            router.push(`/dashboard/users/${userId}`);
+            router.push(cancelHref);
         } else {
             router.push('/dashboard/users');
         }

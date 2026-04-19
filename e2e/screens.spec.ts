@@ -26,14 +26,14 @@ test.describe('screens', () => {
 
         await expect(page).toHaveURL(/\/dashboard\/screens$/);
         await expect(page.getByText('Appairage d\'un écran')).toHaveCount(0);
+        const firstScreenLink = page.locator('main table a[href^="/dashboard/screens/"]').first();
+        await expect(firstScreenLink).toBeVisible();
+        await firstScreenLink.click();
 
-        const firstRowMenu = page.getByRole('button', {name: 'Ouvrir le menu'}).first();
-        if ((await firstRowMenu.count()) > 0) {
-            await firstRowMenu.click();
-            await expect(page.getByRole('menuitem', {name: 'Voir la fiche'})).toBeVisible();
-            await expect(page.getByRole('menuitem', {name: 'Supprimer'})).toHaveCount(0);
-            await expect(page.getByRole('menuitem', {name: /Valider|Modifier/})).toHaveCount(0);
-        }
+        await expect(page).toHaveURL(/\/dashboard\/screens\/[^/]+(\?.*)?$/);
+        await expect(page.getByRole('link', {name: 'Retour'})).toBeVisible();
+        await expect(page.getByRole('link', {name: /Valider|Modifier/})).toHaveCount(0);
+        await expect(page.getByRole('button', {name: /Supprimer|Révoquer|Réactiver/})).toHaveCount(0);
     });
 
     test('admin can pair and approve a screen', async ({page, context}) => {
@@ -80,7 +80,7 @@ test.describe('screens', () => {
         const pendingScreenLink = page.getByRole('link', {name: pendingScreenName});
         await expect(pendingScreenLink).toBeVisible();
         const pendingRow = page.locator('tr', {has: pendingScreenLink});
-        await pendingRow.locator('a[href$="/edit"]').first().click();
+        await pendingRow.getByRole('link', {name: "Valider l'écran"}).click();
 
         await page.getByLabel('Nom').fill(`E2E écran ${Date.now()}`);
         await page.getByLabel('Localisation').fill('E2E - Hall');
@@ -93,5 +93,12 @@ test.describe('screens', () => {
 
         await expect(page.getByText('Écran validé.')).toBeVisible();
         await expect(page).toHaveURL(/\/dashboard\/screens\/[^/]+$/);
+
+        await page.getByRole('button', {name: 'Supprimer'}).click();
+        const deleteDialog = page.getByRole('alertdialog');
+        await deleteDialog.getByRole('button', {name: 'Supprimer'}).click();
+        await expect(page.getByText('Écran supprimé.')).toBeVisible();
+        await safeGoto(page, '/dashboard/screens');
+        await expect(page).toHaveURL(/\/dashboard\/screens$/);
     });
 });

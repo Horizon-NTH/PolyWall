@@ -89,7 +89,7 @@ export function ChannelForm({
 
             toast.success('Canal mis à jour.');
             startTransition(() => {
-                router.push(`/dashboard/channels/${channelId}`);
+                router.push(cancelHref);
             });
             return;
         }

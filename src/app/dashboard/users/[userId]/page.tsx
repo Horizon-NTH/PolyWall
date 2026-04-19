@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/card';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 import { getRoleLabel } from '@/lib/roles';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
@@ -21,9 +22,10 @@ import { UserRole } from '@/generated/prisma/enums';
 
 type UserDetailsPageProps = {
     params: Promise<{ userId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
 };
 
-export default async function Page({params}: UserDetailsPageProps) {
+export default async function Page({params, searchParams}: UserDetailsPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
@@ -34,7 +36,7 @@ export default async function Page({params}: UserDetailsPageProps) {
 
     if (!canView) redirect('/dashboard');
 
-    const {userId} = await params;
+    const [{userId}, query] = await Promise.all([params, searchParams]);
 
     if (!userId) {
         notFound();
@@ -81,6 +83,8 @@ export default async function Page({params}: UserDetailsPageProps) {
     if (!user || user.role !== UserRole.CONTENT_MANAGER || user.organizationId !== organizationId) {
         notFound();
     }
+    const returnHref = resolveReturnTo(query.returnTo, '/dashboard/users');
+    const editHref = appendReturnTo(`/dashboard/users/${user.id}/edit`, query.returnTo);
 
     return (
         <>
@@ -103,10 +107,10 @@ export default async function Page({params}: UserDetailsPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                         <Button asChild variant="outline">
-                            <Link href="/dashboard/users">Retour</Link>
+                            <Link href={returnHref}>Retour</Link>
                         </Button>
                         <Button asChild>
-                            <Link href={`/dashboard/users/${user.id}/edit`}>
+                            <Link href={editHref}>
                                 Modifier
                             </Link>
                         </Button>

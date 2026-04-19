@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from 'sonner';
 import React from 'react';
 import { geistSans } from '@/lib/font';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 export const metadata: Metadata = {
     title: 'Create Next App',
@@ -17,7 +18,9 @@ export default function RootLayout({
     return (
         <html lang="fr">
         <body className={`${geistSans.className} antialiased`}>
-        {children}
+        <TooltipProvider>
+            {children}
+        </TooltipProvider>
         <Toaster />
         </body>
         </html>

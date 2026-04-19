@@ -127,7 +127,7 @@ describe('OrganizationForm', () => {
             <OrganizationForm
                 mode="edit"
                 organizationId="org-2"
-                cancelHref="/dashboard/organizations"
+                cancelHref="/dashboard/organizations/org-2"
                 defaultValues={{name: 'Org Name', description: 'Description'}}
             />,
         );

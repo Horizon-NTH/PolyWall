@@ -19,7 +19,8 @@ function trackMediaId(mediaItemId: string) {
 }
 
 function extractMediaId(url: string) {
-    const match = url.match(/\/dashboard\/media\/(?!new$)([^/]+)$/);
+    const pathname = new URL(url, 'http://localhost').pathname;
+    const match = pathname.match(/\/dashboard\/media\/(?!new$)([^/]+)$/);
     if (!match) throw new Error(`Impossible de lire l'ID média depuis l'URL: ${url}`);
     return match[1];
 }
@@ -159,7 +160,7 @@ test.describe('media', () => {
 
         await page.getByTestId('organization-select-trigger').click();
         await page.getByRole('option', {name: DEMO_ORG_NAME}).click();
-        await expect(page.getByRole('button', {name: 'Créer'})).toBeVisible();
+        await expect(page.getByPlaceholder('Rechercher un média...')).toBeVisible();
     });
 
     test('list page supports search, filter controls, reset, and row actions', async ({
@@ -200,7 +201,7 @@ test.describe('media', () => {
         await expect(page.getByRole('menuitem', {name: 'Supprimer'})).toBeVisible();
         await page.getByRole('menuitem', {name: 'Voir la fiche'}).click();
 
-        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}$`));
+        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}(\\?.*)?$`));
         await expect(page.getByRole('heading', {name: mediaTitle})).toBeVisible();
 
         await page.getByRole('link', {name: 'Retour'}).click();
@@ -209,11 +210,11 @@ test.describe('media', () => {
         await filterMedia(page, mediaTitle);
         await page.getByRole('button', {name: 'Ouvrir le menu'}).first().click();
         await Promise.all([
-            page.waitForURL(new RegExp(`/dashboard/media/${mediaId}/edit$`)),
+            page.waitForURL(new RegExp(`/dashboard/media/${mediaId}/edit(\\?.*)?$`)),
             page.getByRole('menuitem', {name: 'Modifier'}).click(),
         ]);
         await page.getByRole('link', {name: 'Annuler'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}$`));
+        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}(\\?.*)?$`));
     });
 
     test('create form validates required fields and rejects unsupported mime', async ({

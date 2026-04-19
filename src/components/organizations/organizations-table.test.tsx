@@ -7,6 +7,11 @@ const toastSuccessMock = vi.fn();
 const toastErrorMock = vi.fn();
 const writeTextMock = vi.fn();
 
+vi.mock('next/navigation', () => ({
+    usePathname: () => '/dashboard/organizations',
+    useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock('next/link', () => ({
     __esModule: true,
     default: (props: React.ComponentProps<'a'>) => <a {...props} />,
@@ -49,7 +54,7 @@ describe('OrganizationsTable', () => {
         expect(screen.getByText('Description One')).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Org One' })).toHaveAttribute(
             'href',
-            '/dashboard/organizations/org-1',
+            '/dashboard/organizations/org-1?returnTo=%2Fdashboard%2Forganizations',
         );
     });
 

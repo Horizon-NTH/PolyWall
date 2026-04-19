@@ -24,6 +24,7 @@ describe('media-actions', () => {
         prisma.mediaItem.findFirst.mockReset();
         prisma.mediaItem.update.mockReset();
         prisma.mediaItem.delete.mockReset();
+        prisma.playlistItem.findMany.mockReset();
         defineAbilityFor.mockReset();
         defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
     });
@@ -154,6 +155,7 @@ describe('media-actions', () => {
             active: true,
             files: [{id: 'mf-1', storageBucket: 'b', objectKey: 'k'}],
         });
+        prisma.playlistItem.findMany.mockResolvedValueOnce([]);
         prisma.mediaItem.delete.mockResolvedValueOnce({id: 'media-1'});
 
         const {deleteMediaItem} = await import('@/actions/media-actions');
@@ -164,5 +166,30 @@ describe('media-actions', () => {
             where: {id: 'media-1'},
             select: {id: true},
         });
+    });
+
+    it('blocks deletion when media is still used in playlists', async () => {
+        const {auth} = await getAuthMocks();
+        const prisma = await getPrismaMock();
+        auth.mockResolvedValueOnce(buildSession({user: {organizationId: 'org-1'}}));
+        prisma.mediaItem.findFirst.mockResolvedValueOnce({
+            id: 'media-1',
+            active: true,
+            files: [{id: 'mf-1', storageBucket: 'b', objectKey: 'k'}],
+        });
+        prisma.playlistItem.findMany.mockResolvedValueOnce([
+            {playlist: {name: 'Actus'}},
+            {playlist: {name: 'Événements'}},
+        ]);
+
+        const {deleteMediaItem} = await import('@/actions/media-actions');
+        const result = await deleteMediaItem('media-1');
+
+        expect(result).toEqual({
+            ok: false,
+            field: 'root',
+            message: 'Suppression impossible: ce média est utilisé dans 2 playlists (Actus, Événements).',
+        });
+        expect(prisma.mediaItem.delete).not.toHaveBeenCalled();
     });
 });

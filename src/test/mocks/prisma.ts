@@ -25,6 +25,7 @@ export const mockPrismaModule = () => {
             },
             playlist: {
                 findFirst: vi.fn(),
+                findMany: vi.fn(),
                 create: vi.fn(),
                 update: vi.fn(),
                 delete: vi.fn(),
@@ -57,6 +58,14 @@ export const mockPrismaModule = () => {
             playlistItem: {
                 deleteMany: vi.fn(),
                 createMany: vi.fn(),
+                findMany: vi.fn(),
+            },
+            playlistSchedule: {
+                findFirst: vi.fn(),
+                findMany: vi.fn(),
+                create: vi.fn(),
+                update: vi.fn(),
+                delete: vi.fn(),
             },
             $transaction: vi.fn(),
         },
@@ -88,6 +97,7 @@ export const getPrismaMock = async () => {
         };
         playlist: {
             findFirst: ReturnType<typeof vi.fn>;
+            findMany: ReturnType<typeof vi.fn>;
             create: ReturnType<typeof vi.fn>;
             update: ReturnType<typeof vi.fn>;
             delete: ReturnType<typeof vi.fn>;
@@ -120,6 +130,14 @@ export const getPrismaMock = async () => {
         playlistItem: {
             deleteMany: ReturnType<typeof vi.fn>;
             createMany: ReturnType<typeof vi.fn>;
+            findMany: ReturnType<typeof vi.fn>;
+        };
+        playlistSchedule: {
+            findFirst: ReturnType<typeof vi.fn>;
+            findMany: ReturnType<typeof vi.fn>;
+            create: ReturnType<typeof vi.fn>;
+            update: ReturnType<typeof vi.fn>;
+            delete: ReturnType<typeof vi.fn>;
         };
         $transaction: ReturnType<typeof vi.fn>;
     };

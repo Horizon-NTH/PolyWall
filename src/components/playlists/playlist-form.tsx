@@ -61,7 +61,7 @@ export function PlaylistForm({mode, playlistId, defaultValues, cancelHref}: Play
 
             toast.success('Playlist mise à jour.');
             startTransition(() => {
-                router.push(`/dashboard/playlists/${playlistId}`);
+                router.push(cancelHref);
             });
             return;
         }

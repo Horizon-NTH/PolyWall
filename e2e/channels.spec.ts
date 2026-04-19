@@ -32,14 +32,15 @@ async function ensureChannelsList(page: Parameters<typeof login>[0]) {
 
     await safeGoto(page, '/dashboard/channels');
     await page.waitForURL(/\/dashboard\/channels$/, {timeout: 15000});
+    await page.waitForLoadState('domcontentloaded');
 }
 
 async function filterChannels(page: Parameters<typeof login>[0], query: string) {
     await ensureChannelsList(page);
-    const search = page.getByPlaceholder('Rechercher un canal...');
+    const search = page.getByRole('textbox', {name: /Rechercher un canal/i});
     await expect(search).toBeVisible();
     await search.fill(query);
-    await expect(search).toHaveValue(query);
+    await expect(page.getByRole('link', {name: new RegExp(query, 'i')}).first()).toBeVisible();
 }
 
 async function createChannel(

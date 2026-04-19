@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, type LucideIcon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import {
@@ -21,27 +21,15 @@ function isActivePath(pathname: string, url: string) {
     if (url === '#' || url.length === 0) {
         return false;
     }
-    return pathname === url || pathname.startsWith(`${url}/`);
-}
 
-export function NavCreate() {
-    return (
-        <SidebarGroup>
-            <SidebarMenu>
-                <SidebarMenuItem>
-                    <SidebarMenuButton
-                        asChild
-                        className="bg-blue-dark text-white hover:bg-blue-dark/90 hover:text-white active:bg-blue-dark/90 active:text-white"
-                    >
-                        <button type="button">
-                            <Plus />
-                            <span>Créer</span>
-                        </button>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
-            </SidebarMenu>
-        </SidebarGroup>
-    );
+    const cleanPathname = pathname.replace(/\/$/, '');
+    const cleanUrl = url.replace(/\/$/, '');
+
+    if (cleanUrl === '/dashboard') {
+        return cleanPathname === cleanUrl;
+    }
+
+    return cleanPathname === cleanUrl || cleanPathname.startsWith(`${cleanUrl}/`);
 }
 
 export function NavSingle({items}: { items: NavItem[] }) {

@@ -4,7 +4,6 @@ import { auth } from '@/auth';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { MediaGrid, type MediaGridItem } from '@/components/media/media-grid';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
-import { env } from '@/env';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import {
     getMediaKindFromMimeType,
@@ -14,7 +13,7 @@ import {
     type MediaFileLike,
 } from '@/lib/media/media-view-model';
 import { prisma } from '@/lib/prisma';
-import { getStorageService } from '@/lib/storage/storage-service';
+import { resolveThumbUrl } from '@/lib/storage/presigned-url';
 
 export default async function Page() {
     const session = await auth();
@@ -55,6 +54,21 @@ export default async function Page() {
             active: true,
             createdAt: true,
             updatedAt: true,
+            playlistItems: {
+                distinct: ['playlistId'],
+                select: {
+                    playlist: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    playlist: {
+                        name: 'asc',
+                    },
+                },
+            },
             files: {
                 where: {
                     variant: {
@@ -83,8 +97,6 @@ export default async function Page() {
         },
     });
 
-    const storage = getStorageService();
-
     const rows = await Promise.all(
         mediaItems.map(async (mediaItem) => {
             const files = mediaItem.files as MediaFileLike[];
@@ -94,11 +106,7 @@ export default async function Page() {
             const thumb = selectThumbFile(files, original.id);
             const thumbUrl =
                 thumb && thumb.status === 'READY'
-                    ? await storage.presignGet({
-                        bucket: thumb.storageBucket,
-                        key: thumb.objectKey,
-                        expiresInSeconds: env.DOWNLOAD_URL_TTL_SECONDS,
-                    })
+                    ? await resolveThumbUrl(thumb)
                     : null;
 
             const row: MediaGridItem = {
@@ -112,6 +120,10 @@ export default async function Page() {
                 status: original.status,
                 thumbUrl,
                 sizeBytes: toNumberFileSize(original.fileSizeBytes),
+                playlistUsage: {
+                    count: mediaItem.playlistItems.length,
+                    playlistNames: mediaItem.playlistItems.map((item) => item.playlist.name),
+                },
             };
 
             return row;

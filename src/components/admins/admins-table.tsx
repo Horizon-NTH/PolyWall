@@ -26,6 +26,8 @@ import { DataTableRowActions } from '@/components/table/data-table-row-actions';
 import { DataTableToolbar } from '@/components/table/data-table-toolbar';
 import { DataTableView } from '@/components/table/data-table';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useCurrentReturnTo } from '@/hooks/use-current-return-to';
+import { appendReturnTo } from '@/lib/return-to';
 import { formatDate } from '@/lib/utils';
 import {
     AlertDialog,
@@ -82,6 +84,7 @@ type AdminsTableProps = {
 
 export function AdminsTable({data, organizations}: AdminsTableProps) {
     const router = useRouter();
+    const currentReturnTo = useCurrentReturnTo();
     const [roleFilter, setRoleFilter] = React.useState<RoleFilter>('all');
     const [statusFilterValue, setStatusFilterValue] = React.useState<StatusFilter>('all');
     const [organizationFilter, setOrganizationFilter] = React.useState<OrganizationFilter>('all');
@@ -122,7 +125,7 @@ export function AdminsTable({data, organizations}: AdminsTableProps) {
             cell: ({row}) => (
                 <div className="space-y-1 min-w-0 max-w-60">
                     <Link
-                        href={`/dashboard/administrators/${row.original.id}`}
+                        href={appendReturnTo(`/dashboard/administrators/${row.original.id}`, currentReturnTo)}
                         className="text-foreground block truncate font-medium underline-offset-4 hover:underline"
                         title={row.original.fullName}
                     >
@@ -198,12 +201,12 @@ export function AdminsTable({data, organizations}: AdminsTableProps) {
                 return (
                     <DataTableRowActions>
                         <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/administrators/${admin.id}`}>
+                            <Link href={appendReturnTo(`/dashboard/administrators/${admin.id}`, currentReturnTo)}>
                                 Voir la fiche
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                            <Link href={`/dashboard/administrators/${admin.id}/edit`}>
+                            <Link href={appendReturnTo(`/dashboard/administrators/${admin.id}/edit`, currentReturnTo)}>
                                 Modifier
                             </Link>
                         </DropdownMenuItem>
@@ -218,7 +221,7 @@ export function AdminsTable({data, organizations}: AdminsTableProps) {
                 );
             },
         },
-    ], [handleToggleActive, openDeleteDialog]);
+    ], [currentReturnTo, handleToggleActive, openDeleteDialog]);
 
     const table = useDataTable({
         data,
@@ -270,7 +273,7 @@ export function AdminsTable({data, organizations}: AdminsTableProps) {
     };
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 max-w-full flex-col gap-4">
             <DataTableToolbar
                 table={table}
                 searchColumnId="searchText"

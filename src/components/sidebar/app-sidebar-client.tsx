@@ -13,7 +13,7 @@ import {
     Radio, Shield, Users,
 } from 'lucide-react';
 
-import { NavCreate, NavSection, NavSingle } from '@/components/sidebar/nav-sections';
+import { NavSection, NavSingle } from '@/components/sidebar/nav-sections';
 import { NavUser } from '@/components/sidebar/nav-user';
 import { OrganizationSwitcher, OrganizationOption } from '@/components/sidebar/organization-switcher';
 import {
@@ -35,7 +35,7 @@ const sidebarItems = {
         {title: 'Plus', url: '#', icon: MoreHorizontal},
     ],
     diffusion: [
-        {title: 'Planification', url: '#', icon: CalendarClock},
+        {title: 'Planification', url: '/dashboard/schedules', icon: CalendarClock},
         {title: 'Canaux', url: '/dashboard/channels', icon: Radio},
         {title: 'Écrans', url: '/dashboard/screens', icon: Monitor},
     ],
@@ -86,7 +86,6 @@ export function AppSidebarClient({
                     </SidebarMenu>
                 </SidebarHeader>
                 <SidebarContent className="gap-1">
-                    <NavCreate />
                     <NavSingle items={sidebarItems.main} />
                     <NavSection label="Contenus" items={sidebarItems.contenus} />
                     <NavSection label="Diffusion" items={sidebarItems.diffusion} />
