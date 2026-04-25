@@ -6,6 +6,7 @@ import { CalendarIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { formatDateOnlyLocal, parseDateOnlyString } from '@/lib/date';
 import { cn, formatDate } from '@/lib/utils';
 
 type DatePickerProps = {
@@ -18,21 +19,8 @@ type DatePickerProps = {
     'aria-invalid'?: boolean;
 };
 
-function parseDateString(value?: string) {
-    if (!value) return undefined;
-    const [year, month, day] = value.split('-').map(Number);
-    return new Date(year, month - 1, day);
-}
-
-function formatDateString(value: Date) {
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, '0');
-    const day = String(value.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
 function formatDisplayDate(value?: string) {
-    const date = parseDateString(value);
+    const date = parseDateOnlyString(value);
     if (!date) return null;
 
     return formatDate(date, 'long');
@@ -48,7 +36,7 @@ export function DatePicker({
                                'aria-invalid': ariaInvalid,
                            }: DatePickerProps) {
     const [open, setOpen] = React.useState(false);
-    const selectedDate = React.useMemo(() => parseDateString(value), [value]);
+    const selectedDate = React.useMemo(() => parseDateOnlyString(value) ?? undefined, [value]);
     const hasValue = Boolean(value);
 
     return (
@@ -99,7 +87,7 @@ export function DatePicker({
                     disabled={disabledDays}
                     onSelect={(date) => {
                         if (!date) return;
-                        onChange(formatDateString(date));
+                        onChange(formatDateOnlyLocal(date));
                         setOpen(false);
                     }}
                 />

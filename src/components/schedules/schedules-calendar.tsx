@@ -19,6 +19,7 @@ import {
     PopoverHeader,
     PopoverTitle,
 } from '@/components/ui/popover';
+import { formatDateOnlyParts } from '@/lib/date';
 import { SCHEDULE_TYPE_LABELS } from '@/lib/schedules/schedule-utils';
 
 type SchedulesCalendarProps = {
@@ -42,10 +43,6 @@ const dayMonthFormatter = new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
     month: 'short',
 });
-
-function toDateKey(value: CalendarRangeDate) {
-    return `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`;
-}
 
 function formatRangeLabel(range: CalendarRange | null) {
     if (!range) {
@@ -149,8 +146,8 @@ export function SchedulesCalendar({schedules, returnTo}: SchedulesCalendarProps)
                 });
             },
             fetchEvents: async (range) => {
-                const startDate = toDateKey(range.start);
-                const endDate = toDateKey(range.end);
+                const startDate = formatDateOnlyParts(range.start);
+                const endDate = formatDateOnlyParts(range.end);
 
                 return createCalendarEventsForRange({
                     schedules: schedulesRef.current,

@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
         },
     },
     consumeDisplayApiLimit: vi.fn(),
+    getDisplayStateByDeviceId: vi.fn(),
+    getDisplayRuntimeSnapshotByDeviceId: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -24,6 +26,11 @@ vi.mock('@/lib/rate-limit/display', () => ({
     DisplayRateLimitExceeded: class DisplayRateLimitExceeded extends Error {
         msBeforeNext = 1000;
     },
+}));
+
+vi.mock('@/lib/screens/display-runtime-snapshot', () => ({
+    getDisplayStateByDeviceId: mocks.getDisplayStateByDeviceId,
+    getDisplayRuntimeSnapshotByDeviceId: mocks.getDisplayRuntimeSnapshotByDeviceId,
 }));
 
 describe('display API routes', () => {
@@ -90,13 +97,15 @@ describe('display API routes', () => {
     });
 
     it('GET /api/display/state returns active screen configuration', async () => {
-        mocks.prisma.screen.findFirst.mockResolvedValueOnce({
-            id: 'screen-1',
+        mocks.getDisplayStateByDeviceId.mockResolvedValueOnce({
+            screenId: 'screen-1',
             status: 'ACTIVE',
             channelId: 'channel-1',
             interactive: true,
             interactiveUrl: 'https://example.com',
             inactivityTimeoutSeconds: 60,
+            revision: 'rev-1',
+            serverNow: '2026-04-23T10:00:00.000Z',
         });
         mocks.prisma.screen.update.mockResolvedValueOnce({id: 'screen-1'});
 
@@ -109,16 +118,20 @@ describe('display API routes', () => {
         expect(response.status).toBe(200);
         expect(json.status).toBe('ACTIVE');
         expect(json.channelId).toBe('channel-1');
+        expect(json.revision).toBe('rev-1');
+        expect(json.serverNow).toBe('2026-04-23T10:00:00.000Z');
     });
 
     it('GET /api/display/state returns 403 for revoked screen', async () => {
-        mocks.prisma.screen.findFirst.mockResolvedValueOnce({
-            id: 'screen-1',
+        mocks.getDisplayStateByDeviceId.mockResolvedValueOnce({
+            screenId: 'screen-1',
             status: 'REVOKED',
             channelId: null,
             interactive: false,
             interactiveUrl: null,
             inactivityTimeoutSeconds: null,
+            revision: null,
+            serverNow: '2026-04-23T10:00:00.000Z',
         });
         mocks.prisma.screen.update.mockResolvedValueOnce({id: 'screen-1'});
 
@@ -128,5 +141,58 @@ describe('display API routes', () => {
         );
 
         expect(response.status).toBe(403);
+    });
+
+    it('GET /api/display/runtime returns a runtime snapshot for active screens', async () => {
+        mocks.getDisplayRuntimeSnapshotByDeviceId.mockResolvedValueOnce({
+            screenStatus: 'ACTIVE',
+            snapshot: {
+                revision: 'rev-2',
+                serverNow: '2026-04-23T10:00:00.000Z',
+                screen: {
+                    screenId: 'screen-1',
+                    channelId: 'channel-1',
+                    interactive: false,
+                    interactiveUrl: null,
+                    inactivityTimeoutSeconds: null,
+                },
+                channel: {
+                    id: 'channel-1',
+                    name: 'Hall',
+                    timezone: 'Europe/Paris',
+                    template: {
+                        id: 'template-1',
+                        name: 'Plein écran',
+                        templateKey: 'fullscreen',
+                        resolutionX: 1920,
+                        resolutionY: 1080,
+                        zones: [{
+                            id: 'zone-1',
+                            name: 'Main',
+                            slotName: 'main',
+                            zoneType: 'PLAYLIST',
+                            orderIndex: 0,
+                            positionX: 0,
+                            positionY: 0,
+                            width: 1920,
+                            height: 1080,
+                        }],
+                    },
+                },
+                schedules: [],
+                playlists: [],
+            },
+        });
+        mocks.prisma.screen.update.mockResolvedValueOnce({id: 'screen-1'});
+
+        const mod = await import('@/app/api/display/runtime/route');
+        const response = await mod.GET(
+            new Request('http://localhost/api/display/runtime?deviceId=550e8400-e29b-41d4-a716-446655440000'),
+        );
+
+        const json = await response.json();
+        expect(response.status).toBe(200);
+        expect(json.revision).toBe('rev-2');
+        expect(json.channel.timezone).toBe('Europe/Paris');
     });
 });

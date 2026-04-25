@@ -86,6 +86,67 @@ function guessDurationSeconds(fileName: string) {
     return faker.number.int({min: 8, max: 20});
 }
 
+async function ensureTemplateWithZones(params: {
+    organizationId: string;
+    templateKey: string;
+    name: string;
+    description: string;
+    resolutionX: number;
+    resolutionY: number;
+    zones: Array<{
+        name: string;
+        slotName: string;
+        zoneType: ZoneType;
+        orderIndex: number;
+        positionX: number;
+        positionY: number;
+        width: number;
+        height: number;
+    }>;
+}) {
+    const template =
+        (await prisma.displayTemplate.findUnique({
+            where: {templateKey: params.templateKey},
+        })) ??
+        (await prisma.displayTemplate.create({
+            data: {
+                name: params.name,
+                description: params.description,
+                templateKey: params.templateKey,
+                resolutionX: params.resolutionX,
+                resolutionY: params.resolutionY,
+                organizationId: params.organizationId,
+            },
+        }));
+
+    const zones: { id: string; slotName: string }[] = [];
+    for (const zone of params.zones) {
+        const existing = await prisma.displayZone.findUnique({
+            where: {
+                templateId_slotName: {
+                    templateId: template.id,
+                    slotName: zone.slotName,
+                },
+            },
+        });
+
+        if (existing) {
+            zones.push(existing);
+            continue;
+        }
+
+        const created = await prisma.displayZone.create({
+            data: {
+                ...zone,
+                templateId: template.id,
+            },
+        });
+        zones.push(created);
+    }
+
+    return {template, zones};
+}
+
 let seedS3Client: S3Client | null = null;
 let seedBucketReady = false;
 
@@ -302,69 +363,57 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
 
     // Templates + Zones + Channels + Screens
     async function seedOrgDisplay(orgId: string, templateKeyPrefix: string) {
-        const templateKey = `${templateKeyPrefix}-dashboard-16x9`;
-        const template =
-            (await prisma.displayTemplate.findUnique({
-                where: {templateKey},
-            })) ??
-            (await prisma.displayTemplate.create({
-                data: {
-                    name: 'Template Dashboard 16:9',
-                    description: 'Zone principale + zone widgets',
-                    templateKey,
-                    resolutionX: 1920,
-                    resolutionY: 1080,
-                    organizationId: orgId,
+        const {template, zones} = await ensureTemplateWithZones({
+            organizationId: orgId,
+            templateKey: `${templateKeyPrefix}-dashboard-16x9`,
+            name: 'Template Dashboard 16:9',
+            description: 'Zone principale + zone widgets',
+            resolutionX: 1920,
+            resolutionY: 1080,
+            zones: [
+                {
+                    name: 'Main',
+                    slotName: 'main',
+                    zoneType: ZoneType.PLAYLIST,
+                    orderIndex: 0,
+                    positionX: 0,
+                    positionY: 0,
+                    width: 1520,
+                    height: 1080,
                 },
-            }));
-
-        const zonesData = [
-            {
-                name: 'Main',
-                slotName: 'main',
-                zoneType: ZoneType.PLAYLIST,
-                orderIndex: 0,
-                positionX: 0,
-                positionY: 0,
-                width: 1520,
-                height: 1080,
-            },
-            {
-                name: 'Sidebar',
-                slotName: 'sidebar',
-                zoneType: ZoneType.WIDGET,
-                orderIndex: 1,
-                positionX: 1520,
-                positionY: 0,
-                width: 400,
-                height: 1080,
-            },
-        ];
-
-        const zones: { id: string; slotName: string }[] = [];
-        for (const zone of zonesData) {
-            const existing = await prisma.displayZone.findUnique({
-                where: {
-                    templateId_slotName: {
-                        templateId: template.id,
-                        slotName: zone.slotName,
-                    },
+                {
+                    name: 'Sidebar',
+                    slotName: 'sidebar',
+                    zoneType: ZoneType.WIDGET,
+                    orderIndex: 1,
+                    positionX: 1520,
+                    positionY: 0,
+                    width: 400,
+                    height: 1080,
                 },
-            });
+            ],
+        });
 
-            if (existing) {
-                zones.push(existing);
-                continue;
-            }
-
-            const created = await prisma.displayZone.create({
-                data: {
-                    ...zone,
-                    templateId: template.id,
+        await ensureTemplateWithZones({
+            organizationId: orgId,
+            templateKey: `${templateKeyPrefix}-fullscreen-v1`,
+            name: 'Template Player V1 plein écran',
+            description: 'Template minimal compatible avec le player V1',
+            resolutionX: 1920,
+            resolutionY: 1080,
+            zones: [
+                {
+                    name: 'Fullscreen Playlist',
+                    slotName: 'main',
+                    zoneType: ZoneType.PLAYLIST,
+                    orderIndex: 0,
+                    positionX: 0,
+                    positionY: 0,
+                    width: 1920,
+                    height: 1080,
                 },
-            });
-            zones.push(created);
-        }
+            ],
+        });
 
         const channelHall =
             (await prisma.channel.findUnique({

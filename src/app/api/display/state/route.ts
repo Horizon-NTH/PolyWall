@@ -4,6 +4,7 @@ import { createActionLogger } from '@/actions/action-logging';
 import { ScreenStatus } from '@/generated/prisma/enums';
 import { prisma } from '@/lib/prisma';
 import { guardDisplayRateLimit } from '@/lib/screens/display-route-utils';
+import { getDisplayStateByDeviceId } from '@/lib/screens/display-runtime-snapshot';
 import { screenStateQuerySchema } from '@/schemas/screen-schema';
 import { getRequestIp } from '@/lib/utils';
 
@@ -30,22 +31,7 @@ export async function GET(request: Request) {
     }
 
     try {
-        const screen = await prisma.screen.findFirst({
-            where: {
-                deviceId: parsed.data.deviceId,
-            },
-            select: {
-                id: true,
-                status: true,
-                channelId: true,
-                interactive: true,
-                interactiveUrl: true,
-                inactivityTimeoutSeconds: true,
-            },
-            orderBy: {
-                updatedAt: 'desc',
-            },
-        });
+        const screen = await getDisplayStateByDeviceId(parsed.data.deviceId);
 
         if (!screen) {
             log.invalid({reason: 'screen_not_found', ip, deviceId: parsed.data.deviceId});
@@ -53,32 +39,36 @@ export async function GET(request: Request) {
         }
 
         await prisma.screen.update({
-            where: {id: screen.id},
+            where: {id: screen.screenId},
             data: {lastSeenAt: new Date()},
             select: {id: true},
         });
 
         if (screen.status === ScreenStatus.REVOKED) {
-            log.denied({reason: 'screen_revoked', ip, targetId: screen.id});
-            return NextResponse.json({status: 'REVOKED', screenId: screen.id}, {status: 403});
+            log.denied({reason: 'screen_revoked', ip, targetId: screen.screenId});
+            return NextResponse.json({status: 'REVOKED', screenId: screen.screenId}, {status: 403});
         }
 
         if (screen.status === ScreenStatus.ACTIVE && screen.channelId) {
-            log.success({ip, targetId: screen.id, resolvedStatus: 'ACTIVE'});
+            log.success({ip, targetId: screen.screenId, resolvedStatus: 'ACTIVE'});
             return NextResponse.json({
                 status: 'ACTIVE',
-                screenId: screen.id,
+                screenId: screen.screenId,
                 channelId: screen.channelId,
                 interactive: screen.interactive,
                 interactiveUrl: screen.interactiveUrl,
                 inactivityTimeoutSeconds: screen.inactivityTimeoutSeconds,
+                revision: screen.revision,
+                serverNow: screen.serverNow,
             });
         }
 
-        log.success({ip, targetId: screen.id, resolvedStatus: 'PENDING'});
+        log.success({ip, targetId: screen.screenId, resolvedStatus: 'PENDING'});
         return NextResponse.json({
             status: 'PENDING',
-            screenId: screen.id,
+            screenId: screen.screenId,
+            revision: null,
+            serverNow: screen.serverNow,
         });
     } catch (error) {
         log.error(error, {ip, deviceId: parsed.data.deviceId});

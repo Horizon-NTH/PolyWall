@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { TimePicker } from '@/components/ui/time-picker';
 import { ScheduleType } from '@/generated/prisma/enums';
+import { parseDateOnlyString } from '@/lib/date';
 import {
     ALL_DAYS_OF_WEEK,
     getDayOfWeekLabel,
@@ -168,13 +169,13 @@ export function ScheduleForm({
             return undefined;
         }
 
-        const [year, month, day] = watchedDate.split('-').map(Number);
-        if (!year || !month || !day) {
+        const startDate = parseDateOnlyString(watchedDate);
+        if (!startDate) {
             return undefined;
         }
 
         return {
-            before: new Date(year, month - 1, day),
+            before: startDate,
         };
     }, [watchedDate]);
     const conflictRestoreReturnTo = useMemo(

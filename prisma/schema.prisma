@@ -226,6 +226,7 @@ model Channel {
   id          String @id @default(cuid())
   name        String
   description String
+  timezone    String @default("Europe/Paris")
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String

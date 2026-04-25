@@ -9,6 +9,31 @@ mockAuthModule();
 mockCaslModule();
 mockPrismaModule();
 
+function buildMediaItemFixture(overrides?: Partial<{
+    id: string;
+    title: string;
+    durationSeconds: number;
+    active: boolean;
+    mimeType: string;
+    metaJson: unknown;
+}>) {
+    return {
+        id: overrides?.id ?? 'media-1',
+        title: overrides?.title ?? 'Media',
+        durationSeconds: overrides?.durationSeconds ?? 30,
+        active: overrides?.active ?? true,
+        files: [{
+            id: `${overrides?.id ?? 'media-1'}-file`,
+            status: 'READY',
+            variant: 'ORIGINAL',
+            variantIndex: 0,
+            sourceMediaFileId: null,
+            mimeType: overrides?.mimeType ?? 'image/png',
+            metaJson: overrides?.metaJson ?? null,
+        }],
+    };
+}
+
 describe('schedule-actions', () => {
     beforeEach(async () => {
         const {auth} = await getAuthMocks();
@@ -61,7 +86,7 @@ describe('schedule-actions', () => {
         prisma.playlist.findFirst.mockResolvedValueOnce({
             id: 'playlist-1',
             name: 'Actus',
-            items: [{mediaItem: {durationSeconds: 30}}],
+            items: [{id: 'item-1', orderIndex: 0, mediaItem: buildMediaItemFixture()}],
         });
         prisma.playlistSchedule.findMany.mockResolvedValueOnce([]);
         prisma.playlistSchedule.create.mockResolvedValueOnce({id: 'schedule-1'});
@@ -98,7 +123,7 @@ describe('schedule-actions', () => {
         prisma.playlist.findFirst.mockResolvedValueOnce({
             id: 'playlist-1',
             name: 'Actus',
-            items: [{mediaItem: {durationSeconds: 30}}],
+            items: [{id: 'item-1', orderIndex: 0, mediaItem: buildMediaItemFixture()}],
         });
         prisma.playlistSchedule.findMany.mockResolvedValueOnce([{
             id: 'schedule-existing',
@@ -150,8 +175,8 @@ describe('schedule-actions', () => {
             id: 'playlist-1',
             name: 'Actus',
             items: [
-                {mediaItem: {durationSeconds: 120, active: true}},
-                {mediaItem: {durationSeconds: 600, active: false}},
+                {id: 'item-1', orderIndex: 0, mediaItem: buildMediaItemFixture({id: 'media-1', durationSeconds: 120, active: true})},
+                {id: 'item-2', orderIndex: 1, mediaItem: buildMediaItemFixture({id: 'media-2', durationSeconds: 600, active: false})},
             ],
         });
         prisma.playlistSchedule.findMany.mockResolvedValueOnce([]);
@@ -191,7 +216,7 @@ describe('schedule-actions', () => {
         prisma.playlist.findFirst.mockResolvedValueOnce({
             id: 'playlist-1',
             name: 'Default',
-            items: [{mediaItem: {durationSeconds: 30}}],
+            items: [{id: 'item-1', orderIndex: 0, mediaItem: buildMediaItemFixture()}],
         });
         prisma.playlistSchedule.findFirst.mockResolvedValueOnce({id: 'default-1'});
         prisma.playlistSchedule.update.mockResolvedValueOnce({id: 'default-1'});

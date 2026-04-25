@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+ARG APP_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
 
@@ -22,6 +23,8 @@ RUN groupadd --system --gid 1001 polywall && \
   useradd --system --uid 1001 --gid 1001 --create-home --home-dir /home/polywall --shell /usr/sbin/nologin polywall
 
 COPY --chown=polywall:polywall src ./src
+COPY --chown=polywall:polywall public ./public
+RUN if [ "$APP_ENV" != "development" ]; then rm -rf ./public; fi
 
 USER polywall
 
