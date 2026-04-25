@@ -60,26 +60,30 @@ function DisplayMediaViewport(props: TemplateRendererProps) {
 
     if (props.resolvedState.currentItem.mediaKind === 'video') {
         return (
-            <video
-                ref={videoRef}
-                key={props.resolvedState.currentItem.id}
-                src={props.assetSrc}
-                autoPlay
-                muted
-                playsInline
-                preload="auto"
-                className="h-full w-full object-contain"
-            />
+            <div className="flex h-full w-full items-center justify-center overflow-hidden">
+                <video
+                    ref={videoRef}
+                    key={props.resolvedState.currentItem.id}
+                    src={props.assetSrc}
+                    autoPlay
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="block h-auto max-h-full w-auto max-w-full object-contain"
+                />
+            </div>
         );
     }
 
     return (
-        <img
-            src={props.assetSrc}
-            alt={props.resolvedState.currentItem.mediaTitle}
-            className="h-full w-full object-contain"
-            draggable={false}
-        />
+        <div className="flex h-full w-full items-center justify-center overflow-hidden">
+            <img
+                src={props.assetSrc}
+                alt={props.resolvedState.currentItem.mediaTitle}
+                className="block h-auto max-h-full w-auto max-w-full object-contain"
+                draggable={false}
+            />
+        </div>
     );
 }
 
@@ -91,7 +95,7 @@ function SinglePlaylistRenderer(props: TemplateRendererProps) {
             : null;
 
     return (
-        <div className="relative h-full w-full bg-black">
+        <div className="relative h-full w-full overflow-hidden bg-black">
             <DisplayMediaViewport {...props} />
             {overlayLabel ? (
                 <div className="absolute top-4 left-4 rounded-md bg-black/70 px-3 py-1 text-xs text-white">
@@ -111,7 +115,7 @@ const RENDERERS: TemplateRenderer[] = [singlePlaylistRenderer];
 
 function DisplayDiagnostic({title, description}: { title: string; description: string }) {
     return (
-        <div className="flex min-h-screen items-center justify-center bg-black p-6">
+        <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-black p-6">
             <div className="w-full max-w-xl">
                 <Alert>
                     <AlertTitle>{title}</AlertTitle>

@@ -382,7 +382,7 @@ export function DisplayClient() {
             window.removeEventListener('online', handleOnline);
             document.removeEventListener('visibilitychange', handleVisibility);
         };
-    }, [deviceId, fetchState]);
+    }, [deviceId]);
 
     React.useEffect(() => {
         if (!resolvedState || resolvedState.status !== 'PLAYING') {
@@ -442,8 +442,10 @@ export function DisplayClient() {
 
     if (snapshot && resolvedState && ['PLAYING', 'SYNCING', 'DEGRADED'].includes(syncStatus)) {
         return (
-            <main className="min-h-screen bg-black"
-                  onPointerDown={() => interruptionController.notifyUserInteraction()}>
+            <main
+                className="fixed inset-0 overflow-hidden bg-black"
+                onPointerDown={() => interruptionController.notifyUserInteraction()}
+            >
                 <DisplayTemplateShell
                     snapshot={snapshot}
                     resolvedState={resolvedState}
