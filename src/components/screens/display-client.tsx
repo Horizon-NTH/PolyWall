@@ -14,6 +14,7 @@ import {
     getCachedAssetObjectUrl,
     prefetchDisplayAssets,
 } from '@/lib/screens/display-cache';
+import { type DisplayDebugScenario } from '@/lib/screens/display-debug';
 import { createInteractiveInterruptionController } from '@/lib/screens/interactive-interruption-controller';
 
 type DisplayStateResponse =
@@ -103,7 +104,11 @@ function StatusCard(props: {
     );
 }
 
-export function DisplayClient() {
+type DisplayClientProps = {
+    debugScenario?: DisplayDebugScenario | null;
+};
+
+export function DisplayClient(props: DisplayClientProps) {
     const [deviceId, setDeviceId] = React.useState<string | null>(null);
     const [syncStatus, setSyncStatus] = React.useState<DisplaySyncStatus>('SYNCING');
     const [snapshot, setSnapshot] = React.useState<DisplayRuntimeSnapshot | null>(null);
@@ -123,9 +128,14 @@ export function DisplayClient() {
         snapshotRef.current = snapshot;
     }, [snapshot]);
 
+    const effectiveSyncStatus = props.debugScenario?.syncStatus ?? syncStatus;
+    const effectiveSnapshot = props.debugScenario?.snapshot ?? snapshot;
+    const effectiveErrorMessage = props.debugScenario?.errorMessage ?? errorMessage;
+    const isDebugMode = props.debugScenario !== null && props.debugScenario !== undefined;
+
     const resolvedState = React.useMemo(
-        () => (snapshot ? resolveDisplayState(snapshot, Date.now() + serverOffsetMsRef.current) : null),
-        [snapshot, renderTick],
+        () => (effectiveSnapshot ? resolveDisplayState(effectiveSnapshot, Date.now() + serverOffsetMsRef.current) : null),
+        [effectiveSnapshot, renderTick],
     );
 
     const currentAssetKey = resolvedState?.status === 'PLAYING' ? resolvedState.currentItem.asset.cacheKey : null;
@@ -325,6 +335,17 @@ export function DisplayClient() {
     }, []);
 
     React.useEffect(() => {
+        const clockInterval = window.setInterval(() => {
+            setRenderTick((current) => current + 1);
+        }, 250);
+
+        return () => {
+            window.clearInterval(clockInterval);
+        };
+    }, []);
+
+    React.useEffect(() => {
+        if (isDebugMode) return;
         if (!deviceId) return;
 
         let cancelled = false;
@@ -357,10 +378,6 @@ export function DisplayClient() {
             void synchronize();
         }, 15000);
 
-        const clockInterval = window.setInterval(() => {
-            setRenderTick((current) => current + 1);
-        }, 250);
-
         const handleOnline = () => {
             void synchronize();
         };
@@ -378,11 +395,10 @@ export function DisplayClient() {
             cancelled = true;
             syncInFlightRef.current = false;
             window.clearInterval(interval);
-            window.clearInterval(clockInterval);
             window.removeEventListener('online', handleOnline);
             document.removeEventListener('visibilitychange', handleVisibility);
         };
-    }, [deviceId]);
+    }, [deviceId, isDebugMode]);
 
     React.useEffect(() => {
         if (!resolvedState || resolvedState.status !== 'PLAYING') {
@@ -429,35 +445,35 @@ export function DisplayClient() {
 
     const interruptionController = React.useMemo(
         () => createInteractiveInterruptionController({
-            enabled: syncStatus === 'PLAYING' && Boolean(snapshot?.screen.interactive),
-            interactiveUrl: snapshot?.screen.interactiveUrl ?? null,
-            inactivityTimeoutSeconds: snapshot?.screen.inactivityTimeoutSeconds ?? null,
+            enabled: effectiveSyncStatus === 'PLAYING' && Boolean(effectiveSnapshot?.screen.interactive),
+            interactiveUrl: effectiveSnapshot?.screen.interactiveUrl ?? null,
+            inactivityTimeoutSeconds: effectiveSnapshot?.screen.inactivityTimeoutSeconds ?? null,
         }),
-        [snapshot, syncStatus],
+        [effectiveSnapshot, effectiveSyncStatus],
     );
 
     React.useEffect(() => () => {
         interruptionController.dispose();
     }, [interruptionController]);
 
-    if (snapshot && resolvedState && ['PLAYING', 'SYNCING', 'DEGRADED'].includes(syncStatus)) {
-        return (
+    let content: React.ReactNode;
+
+    if (effectiveSnapshot && resolvedState && ['PLAYING', 'SYNCING', 'DEGRADED'].includes(effectiveSyncStatus)) {
+        content = (
             <main
                 className="fixed inset-0 overflow-hidden bg-black"
                 onPointerDown={() => interruptionController.notifyUserInteraction()}
             >
                 <DisplayTemplateShell
-                    snapshot={snapshot}
+                    snapshot={effectiveSnapshot}
                     resolvedState={resolvedState}
-                    syncStatus={syncStatus}
+                    syncStatus={effectiveSyncStatus}
                     assetSrc={assetSrc}
                 />
             </main>
         );
-    }
-
-    if (syncStatus === 'PAIRING') {
-        return (
+    } else if (effectiveSyncStatus === 'PAIRING') {
+        content = (
             <StatusCard
                 title="Affichage Polywall"
                 description="Connexion de l’écran au canal de diffusion."
@@ -489,7 +505,7 @@ export function DisplayClient() {
                     <Button
                         type="button"
                         onClick={() => void submitOtp()}
-                        disabled={!/^\d{6}$/.test(otpCode) || isSubmittingOtp}
+                        disabled={isDebugMode || !/^\d{6}$/.test(otpCode) || isSubmittingOtp}
                     >
                         Valider le code
                     </Button>
@@ -497,43 +513,39 @@ export function DisplayClient() {
                 </div>
             </StatusCard>
         );
-    }
-
-    if (syncStatus === 'PENDING') {
-        return (
+    } else if (effectiveSyncStatus === 'PENDING') {
+        content = (
             <StatusCard
                 title="Écran en attente"
                 description="L’écran a été appairé mais doit encore être validé par un administrateur."
                 deviceId={deviceId}
             />
         );
-    }
-
-    if (syncStatus === 'REVOKED') {
-        return (
+    } else if (effectiveSyncStatus === 'REVOKED') {
+        content = (
             <StatusCard
                 title="Écran révoqué"
                 description="Cet écran n’est plus autorisé à diffuser ce canal."
                 deviceId={deviceId}
             />
         );
-    }
-
-    if (syncStatus === 'ERROR') {
-        return (
+    } else if (effectiveSyncStatus === 'ERROR') {
+        content = (
             <StatusCard
                 title="Erreur de diffusion"
-                description={errorMessage ?? 'Une erreur a empêché le démarrage du player.'}
+                description={effectiveErrorMessage ?? 'Une erreur a empêché le démarrage du player.'}
+                deviceId={deviceId}
+            />
+        );
+    } else {
+        content = (
+            <StatusCard
+                title="Synchronisation"
+                description="Initialisation et récupération de la diffusion en cours."
                 deviceId={deviceId}
             />
         );
     }
 
-    return (
-        <StatusCard
-            title="Synchronisation"
-            description="Initialisation et récupération de la diffusion en cours."
-            deviceId={deviceId}
-        />
-    );
+    return content;
 }

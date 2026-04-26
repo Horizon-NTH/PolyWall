@@ -69,7 +69,7 @@ function DisplayMediaViewport(props: TemplateRendererProps) {
                     muted
                     playsInline
                     preload="auto"
-                    className="block h-auto max-h-full w-auto max-w-full object-contain"
+                    className="h-full w-full object-contain"
                 />
             </div>
         );
@@ -80,7 +80,7 @@ function DisplayMediaViewport(props: TemplateRendererProps) {
             <img
                 src={props.assetSrc}
                 alt={props.resolvedState.currentItem.mediaTitle}
-                className="block h-auto max-h-full w-auto max-w-full object-contain"
+                className="h-full w-full object-contain"
                 draggable={false}
             />
         </div>
