@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 export const mockPrismaModule = () => {
-    vi.mock('@/lib/prisma', () => ({
+    vi.doMock('@/lib/prisma', () => ({
         prisma: {
             user: {
                 findUnique: vi.fn(),

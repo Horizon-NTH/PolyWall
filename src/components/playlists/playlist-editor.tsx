@@ -355,7 +355,9 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
     const [saveStatus, setSaveStatus] = React.useState<'saved' | 'saving' | 'error'>('saved');
     const [isRetrying, setIsRetrying] = React.useState(false);
     const [reactivatingMediaIds, setReactivatingMediaIds] = React.useState<string[]>([]);
-    const [isSideBySide, setIsSideBySide] = React.useState(false);
+    const [isSideBySide, setIsSideBySide] = React.useState(
+        () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+    );
     const [timelineCardHeight, setTimelineCardHeight] = React.useState<number | null>(null);
     const [activeDrag, setActiveDrag] = React.useState<
         | { type: 'library'; mediaId: string }
@@ -419,16 +421,12 @@ export function PlaylistEditor({playlistId, availableMedia, initialTimeline}: Pl
         const handleChange = (event: MediaQueryListEvent) => {
             setIsSideBySide(event.matches);
         };
-        setIsSideBySide(mediaQuery.matches);
         mediaQuery.addEventListener('change', handleChange);
         return () => mediaQuery.removeEventListener('change', handleChange);
     }, []);
 
     React.useEffect(() => {
-        if (!isSideBySide) {
-            setTimelineCardHeight(null);
-            return;
-        }
+        if (!isSideBySide) return;
 
         const node = timelineCardRef.current;
         if (!node) return;

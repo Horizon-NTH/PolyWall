@@ -31,12 +31,7 @@ export function SchedulePageTabs({schedules, canManage, channelContent}: Schedul
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const initialTab = React.useMemo(() => parseTabValue(searchParams.get(TAB_PARAM)), [searchParams]);
-    const [activeTab, setActiveTab] = React.useState<ScheduleTabValue>(initialTab);
-
-    React.useEffect(() => {
-        setActiveTab(initialTab);
-    }, [initialTab]);
+    const activeTab = React.useMemo(() => parseTabValue(searchParams.get(TAB_PARAM)), [searchParams]);
 
     const currentHref = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     const tabbedReturnTo = React.useMemo(
@@ -46,8 +41,6 @@ export function SchedulePageTabs({schedules, canManage, channelContent}: Schedul
 
     const handleTabChange = (value: string) => {
         const nextTab = parseTabValue(value);
-        setActiveTab(nextTab);
-
         const nextHref = appendQueryParamToHref(currentHref, TAB_PARAM, nextTab);
 
         if (nextHref !== currentHref) {

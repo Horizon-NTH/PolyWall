@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 export const mockCaslModule = () => {
-    vi.mock('@/lib/casl/ability', () => ({
+    vi.doMock('@/lib/casl/ability', () => ({
         defineAbilityFor: vi.fn(),
     }));
 };

@@ -1,6 +1,7 @@
 import { Temporal } from 'temporal-polyfill';
 
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
+import { formatDateOnlyUTC } from '@/lib/date';
 import { minutesToTimeString, timeStringToMinutes } from '@/lib/utils';
 
 const MINUTES_PER_DAY = 24 * 60;
@@ -341,11 +342,7 @@ export function createEventScheduleSlots(startDate: string, endDate: string, sta
 }
 
 export function getScheduleFormInitialDate(value: Date | null) {
-    if (!value) return '';
-    const year = value.getUTCFullYear();
-    const month = String(value.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(value.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return formatDateOnlyUTC(value) ?? '';
 }
 
 export function getScheduleLifecycleStatus(params: {

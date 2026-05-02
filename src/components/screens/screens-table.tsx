@@ -351,13 +351,24 @@ export function ScreensTable({data, canManage, channels}: ScreensTableProps) {
         });
     };
 
+    const handleTabChange = (value: string) => {
+        const nextTab = value as TabValue;
+        setActiveTab(nextTab);
+
+        if (nextTab === 'PENDING' && activeTab !== 'PENDING') {
+            startTransition(() => {
+                router.refresh();
+            });
+        }
+    };
+
     if (data.length === 0) {
         return <ScreenEmptyState />;
     }
 
     return (
         <div className="flex min-w-0 max-w-full flex-col gap-4">
-            <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as TabValue)}>
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
                 <TabsList>
                     <TabsTrigger value="PENDING" className="gap-2">
                         En attente

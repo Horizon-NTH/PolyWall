@@ -41,7 +41,9 @@ describe('schedule-view-model', () => {
     });
 
     it('creates events for active schedules in range and handles end-of-day slots', () => {
-        const createZonedDateTime = vi.fn((value: string): CalendarEvent['start'] => Temporal.ZonedDateTime.from(value));
+        const createZonedDateTime = vi.fn((value: string): CalendarEvent['start'] =>
+            Temporal.ZonedDateTime.from(value) as CalendarEvent['start']
+        );
 
         const events = createCalendarEventsForRange({
             schedules: [

@@ -125,4 +125,29 @@ describe('ScreenPairingCard', () => {
         });
         expect(removeSpy).toHaveBeenCalledWith('polywall.screen.pairing-otp.org-1');
     });
+
+    it('reloads token state when the organization changes', async () => {
+        getActiveScreenPairingTokenStateMock
+            .mockResolvedValueOnce({
+                ok: true,
+                hasActiveToken: true,
+                expiresAt: '2099-01-01T00:00:00.000Z',
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                hasActiveToken: false,
+            });
+
+        const {rerender} = render(<ScreenPairingCard organizationId="org-1" />);
+
+        expect(await screen.findByText(/déjà actif côté serveur/i)).toBeInTheDocument();
+
+        rerender(<ScreenPairingCard organizationId="org-2" />);
+
+        await waitFor(() => {
+            expect(screen.queryByText(/déjà actif côté serveur/i)).not.toBeInTheDocument();
+        });
+        expect(window.localStorage.getItem).toHaveBeenCalledWith('polywall.screen.pairing-otp.org-2');
+        expect(getActiveScreenPairingTokenStateMock).toHaveBeenCalledTimes(2);
+    });
 });

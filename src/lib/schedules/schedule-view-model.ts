@@ -3,6 +3,7 @@ import 'temporal-polyfill/global';
 import { Temporal } from 'temporal-polyfill';
 
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
+import { formatDateOnlyParts } from '@/lib/date';
 import {
     ALL_DAYS_OF_WEEK,
     getScheduleLifecycleStatus,
@@ -115,10 +116,6 @@ export function toScheduleViewModel(schedule: PrismaScheduleLike): ScheduleViewM
     };
 }
 
-function formatDateKey(date: Temporal.PlainDate) {
-    return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
-}
-
 function includesDate(schedule: ScheduleViewModel, date: Temporal.PlainDate) {
     if (!schedule.startDate || !schedule.endDate) return true;
     const start = Temporal.PlainDate.from(schedule.startDate.slice(0, 10));
@@ -138,7 +135,7 @@ export function createCalendarEventsForRange(params: {
     const endDate = Temporal.PlainDate.from(params.endDate);
 
     while (Temporal.PlainDate.compare(cursor, endDate) <= 0) {
-        const dateKey = formatDateKey(cursor);
+        const dateKey = formatDateOnlyParts(cursor);
         const weekday = ALL_DAYS_OF_WEEK[cursor.dayOfWeek - 1];
 
         for (const schedule of params.schedules) {
@@ -159,7 +156,7 @@ export function createCalendarEventsForRange(params: {
                     start: params.createZonedDateTime(`${dateKey}T${slot.startTime.slice(11, 16)}:00[${params.timezone}]`),
                     end: params.createZonedDateTime(
                         isEndOfDayTime(new Date(slot.endTime))
-                            ? `${formatDateKey(cursor.add({days: 1}))}T00:00:00[${params.timezone}]`
+                            ? `${formatDateOnlyParts(cursor.add({days: 1}))}T00:00:00[${params.timezone}]`
                             : `${dateKey}T${slot.endTime.slice(11, 16)}:00[${params.timezone}]`,
                     ),
                 });

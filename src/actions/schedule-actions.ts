@@ -6,7 +6,7 @@ import { auth } from '@/auth';
 import { getFirstZodIssue } from '@/actions/action-utils';
 import { createActionLogger } from '@/actions/action-logging';
 import { defineAbilityFor } from '@/lib/casl/ability';
-import { getPlaylistMetrics } from '@/lib/playlists/playlist-metrics';
+import { buildDisplaySequencePlan, getDisplaySequenceDurationSeconds } from '@/lib/display-runtime/media';
 import { prisma } from '@/lib/prisma';
 import { ScheduleType } from '@/generated/prisma/enums';
 import {
@@ -94,11 +94,27 @@ async function findPlaylistInOrganization(playlistId: string, organizationId: st
             id: true,
             name: true,
             items: {
+                orderBy: {orderIndex: 'asc'},
                 select: {
+                    id: true,
+                    orderIndex: true,
                     mediaItem: {
                         select: {
+                            id: true,
+                            title: true,
                             durationSeconds: true,
                             active: true,
+                            files: {
+                                select: {
+                                    id: true,
+                                    status: true,
+                                    variant: true,
+                                    variantIndex: true,
+                                    sourceMediaFileId: true,
+                                    mimeType: true,
+                                    metaJson: true,
+                                },
+                            },
                         },
                     },
                 },
@@ -148,12 +164,7 @@ async function buildSchedulePersistencePayload(
         return {ok: false as const, field: 'playlistId' as const, message: 'Playlist introuvable.'};
     }
 
-    const playlistDurationSeconds = getPlaylistMetrics(
-        playlist.items.map((item) => ({
-            durationSeconds: item.mediaItem.durationSeconds,
-            active: item.mediaItem.active,
-        })),
-    ).diffusableDurationSeconds;
+    const playlistDurationSeconds = getDisplaySequenceDurationSeconds(buildDisplaySequencePlan(playlist.items));
     let resolvedEndTime = data.endTime ?? '24:00';
 
     if (data.type !== ScheduleType.DEFAULT && data.endMode === 'playlist') {

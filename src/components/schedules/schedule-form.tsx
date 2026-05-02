@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { ReadonlyURLSearchParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Select as SelectPrimitive } from 'radix-ui';
@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { TimePicker } from '@/components/ui/time-picker';
 import { ScheduleType } from '@/generated/prisma/enums';
+import { parseDateOnlyString } from '@/lib/date';
 import {
     ALL_DAYS_OF_WEEK,
     getDayOfWeekLabel,
@@ -85,6 +86,39 @@ type ConflictDraftSnapshot = {
     rootErrorMessage: string | null;
 };
 
+function getConflictDraftSnapshot(params: {
+    pathname: string;
+    searchParams: ReadonlyURLSearchParams;
+    mode: 'create' | 'edit';
+    scheduleId?: string;
+}): ConflictDraftSnapshot | null {
+    if (typeof window === 'undefined') return null;
+    if (params.searchParams.get(CONFLICT_RESTORE_PARAM) !== '1') return null;
+
+    const currentRoute = `${params.pathname}${params.searchParams.toString() ? `?${params.searchParams.toString()}` : ''}`;
+    const rawPayload = window.sessionStorage.getItem(CONFLICT_DRAFT_STORAGE_KEY);
+    if (!rawPayload) return null;
+
+    try {
+        const snapshot = JSON.parse(rawPayload) as ConflictDraftSnapshot;
+        const expectedScheduleId = params.scheduleId ?? null;
+
+        if (
+            snapshot.route !== currentRoute
+            || snapshot.mode !== params.mode
+            || snapshot.scheduleId !== expectedScheduleId
+        ) {
+            window.sessionStorage.removeItem(CONFLICT_DRAFT_STORAGE_KEY);
+            return null;
+        }
+
+        return snapshot;
+    } catch {
+        window.sessionStorage.removeItem(CONFLICT_DRAFT_STORAGE_KEY);
+        return null;
+    }
+}
+
 export function ScheduleForm({
                                  mode,
                                  scheduleId,
@@ -99,7 +133,13 @@ export function ScheduleForm({
     const currentReturnTo = useCurrentReturnTo();
     const isEdit = mode === 'edit';
     const [isPending, startTransition] = useTransition();
-    const [detectedConflicts, setDetectedConflicts] = useState<ScheduleConflict[]>([]);
+    const restoredConflictDraft = useMemo(
+        () => getConflictDraftSnapshot({pathname, searchParams, mode, scheduleId}),
+        [mode, pathname, scheduleId, searchParams],
+    );
+    const [detectedConflicts, setDetectedConflicts] = useState<ScheduleConflict[]>(
+        () => restoredConflictDraft?.conflicts ?? [],
+    );
 
     const resolver = zodResolver(
         isEdit ? scheduleUpdateSchema : scheduleCreateSchema,
@@ -119,6 +159,7 @@ export function ScheduleForm({
             endDate: '',
             daysOfWeek: [],
             ...defaultValues,
+            ...restoredConflictDraft?.values,
         },
     });
 
@@ -168,13 +209,13 @@ export function ScheduleForm({
             return undefined;
         }
 
-        const [year, month, day] = watchedDate.split('-').map(Number);
-        if (!year || !month || !day) {
+        const startDate = parseDateOnlyString(watchedDate);
+        if (!startDate) {
             return undefined;
         }
 
         return {
-            before: new Date(year, month - 1, day),
+            before: startDate,
         };
     }, [watchedDate]);
     const conflictRestoreReturnTo = useMemo(
@@ -213,37 +254,13 @@ export function ScheduleForm({
             return;
         }
 
-        const rawPayload = window.sessionStorage.getItem(CONFLICT_DRAFT_STORAGE_KEY);
-        if (!rawPayload) {
-            router.replace(removeQueryParamFromHref(currentRoute, CONFLICT_RESTORE_PARAM));
-            return;
+        if (restoredConflictDraft?.rootErrorMessage) {
+            form.setError('root', {message: restoredConflictDraft.rootErrorMessage});
         }
 
-        try {
-            const snapshot = JSON.parse(rawPayload) as ConflictDraftSnapshot;
-            const expectedScheduleId = scheduleId ?? null;
-
-            if (
-                snapshot.route !== currentRoute
-                || snapshot.mode !== mode
-                || snapshot.scheduleId !== expectedScheduleId
-            ) {
-                window.sessionStorage.removeItem(CONFLICT_DRAFT_STORAGE_KEY);
-                router.replace(removeQueryParamFromHref(currentRoute, CONFLICT_RESTORE_PARAM));
-                return;
-            }
-
-            form.reset(snapshot.values);
-            setDetectedConflicts(snapshot.conflicts);
-            if (snapshot.rootErrorMessage) {
-                form.setError('root', {message: snapshot.rootErrorMessage});
-            }
-        } catch {
-        } finally {
-            window.sessionStorage.removeItem(CONFLICT_DRAFT_STORAGE_KEY);
-            router.replace(removeQueryParamFromHref(currentRoute, CONFLICT_RESTORE_PARAM));
-        }
-    }, [form, mode, pathname, router, scheduleId, searchParams]);
+        window.sessionStorage.removeItem(CONFLICT_DRAFT_STORAGE_KEY);
+        router.replace(removeQueryParamFromHref(currentRoute, CONFLICT_RESTORE_PARAM));
+    }, [form, pathname, restoredConflictDraft, router, searchParams]);
 
     useEffect(() => {
         if (watchedEndMode !== 'time' || !watchedEndTime) {

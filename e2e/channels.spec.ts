@@ -180,6 +180,7 @@ test.describe('channels', () => {
         await expect(page).toHaveURL(new RegExp(`/dashboard/channels/${channelId}$`));
         await expect(page.getByRole('heading', {name: updatedName})).toBeVisible();
         await expect(page.getByText('Canal mis à jour.')).toBeVisible();
+        await expect(page.getByText('Aperçu de diffusion', {exact: true})).toHaveCount(0);
 
         await page.getByRole('button', {name: 'Supprimer'}).first().click();
         const deleteDialog = page.getByRole('alertdialog');

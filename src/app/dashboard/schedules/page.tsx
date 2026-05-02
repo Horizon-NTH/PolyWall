@@ -6,7 +6,6 @@ import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { ChannelScheduleSelector } from '@/components/schedules/channel-schedule-selector';
 import { ScheduleDefaultCard } from '@/components/schedules/schedule-default-card';
-import { ScheduleLivePreviewCard } from '@/components/schedules/schedule-live-preview-card';
 import { ScheduleOverviewCards } from '@/components/schedules/schedule-overview-cards';
 import { SchedulePageTabs } from '@/components/schedules/schedule-page-tabs';
 import { Button } from '@/components/ui/button';
@@ -20,6 +19,7 @@ import {
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
 import { getChannelSchedulesOverview, getOrganizationChannels } from '@/lib/schedules/schedule-queries';
+import { ChannelLivePreviewCard } from '@/components/channels/channel-live-preview-card';
 
 type SchedulesPageProps = {
     searchParams: Promise<{
@@ -119,7 +119,8 @@ export default async function Page({searchParams}: SchedulesPageProps) {
                         <div className="flex flex-wrap items-center gap-2">
                             {!defaultSchedule ? (
                                 <Button asChild variant="outline">
-                                    <Link href={`/dashboard/schedules/new?channelId=${selectedChannel.id}&type=DEFAULT`}>
+                                    <Link
+                                        href={`/dashboard/schedules/new?channelId=${selectedChannel.id}&type=DEFAULT`}>
                                         Définir la playlist par défaut
                                     </Link>
                                 </Button>
@@ -146,7 +147,7 @@ export default async function Page({searchParams}: SchedulesPageProps) {
                             />
 
                             <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-                                <ScheduleLivePreviewCard />
+                                <ChannelLivePreviewCard channelId={selectedChannel.id} />
                                 <ScheduleDefaultCard
                                     channelId={selectedChannel.id}
                                     defaultSchedule={defaultSchedule}

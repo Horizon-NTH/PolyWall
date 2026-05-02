@@ -21,7 +21,8 @@ const eslintConfig = defineConfig([
         "coverage/**",
         "playwright-report/**",
         "test-results/**",
-        "src/components/ui/**"
+        "src/components/ui/**",
+        "src/hooks/use-mobile.ts"
     ]),
 ]);
 

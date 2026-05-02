@@ -65,7 +65,6 @@ describe('auth config', () => {
 
     beforeEach(async () => {
         vi.resetModules();
-        vi.unmock('@/auth');
         process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db?schema=public';
         process.env.AUTH_SECRET = 'test-secret';
         process.env.AUTH_TRUST_HOST = 'false';
