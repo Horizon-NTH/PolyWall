@@ -42,7 +42,10 @@ describe('display-cache', () => {
     });
 
     it('loads a cached asset from Cache Storage and returns an object URL', async () => {
-        const cacheMatch = vi.fn().mockResolvedValue(new Response(new Blob(['hello'], {type: 'text/plain'})));
+        const cacheMatch = vi.fn().mockResolvedValue(new Response('hello', {
+            status: 200,
+            headers: {'Content-Type': 'text/plain'},
+        }));
         Object.defineProperty(window, 'caches', {
             writable: true,
             value: {

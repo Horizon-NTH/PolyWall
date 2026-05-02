@@ -228,7 +228,7 @@ export function SchedulesCalendar({schedules, returnTo}: SchedulesCalendarProps)
                 </Popover>
                 <ScheduleXCalendar calendarApp={calendarApp} />
             </div>
-            <style jsx global>{`
+            <style>{`
                 .schedule-calendar .sx__calendar {
                     border: 0;
                     border-radius: 0;

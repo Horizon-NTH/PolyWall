@@ -11,6 +11,10 @@ const createScheduleMock = vi.fn();
 const updateScheduleMock = vi.fn();
 const upsertDefaultScheduleMock = vi.fn();
 const toastSuccessMock = vi.fn();
+const SelectMockContext = React.createContext<{
+    value?: string;
+    onValueChange?: (value: string) => void;
+} | null>(null);
 
 vi.mock('next/navigation', () => ({
     useRouter: () => ({
@@ -52,13 +56,20 @@ vi.mock('@/components/ui/select', () => ({
         value?: string;
         onValueChange?: (value: string) => void;
     }) => (
-        <select value={value} onChange={(event) => onValueChange?.(event.target.value)}>
+        <SelectMockContext.Provider value={{value, onValueChange}}>
             {children}
-        </select>
+        </SelectMockContext.Provider>
     ),
-    SelectTrigger: ({children}: { children: ReactNode }) => <>{children}</>,
-    SelectValue: ({placeholder}: { placeholder?: string }) => <option value="">{placeholder}</option>,
-    SelectContent: ({children}: { children: ReactNode }) => <>{children}</>,
+    SelectTrigger: () => null,
+    SelectValue: () => null,
+    SelectContent: ({children}: { children: ReactNode }) => {
+        const context = React.useContext(SelectMockContext);
+        return (
+            <select value={context?.value} onChange={(event) => context?.onValueChange?.(event.target.value)}>
+                {children}
+            </select>
+        );
+    },
     SelectItem: ({value, children}: { value: string; children: ReactNode }) => <option value={value}>{children}</option>,
 }));
 
@@ -67,7 +78,9 @@ vi.mock('radix-ui', async (importOriginal) => {
     return {
         ...actual,
         Select: {
-            Item: ({value}: { value: string; children: ReactNode }) => <option value={value}>{value}</option>,
+            Item: ({value, textValue}: { value: string; textValue?: string; children: ReactNode }) => (
+                <option value={value}>{textValue ?? value}</option>
+            ),
             ItemText: () => null,
             ItemIndicator: () => null,
         },
