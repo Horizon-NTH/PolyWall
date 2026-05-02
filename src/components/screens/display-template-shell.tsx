@@ -115,7 +115,7 @@ const RENDERERS: TemplateRenderer[] = [singlePlaylistRenderer];
 
 function DisplayDiagnostic({title, description}: { title: string; description: string }) {
     return (
-        <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-black p-6">
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black p-6">
             <div className="w-full max-w-xl">
                 <Alert>
                     <AlertTitle>{title}</AlertTitle>

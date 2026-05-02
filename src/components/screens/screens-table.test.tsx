@@ -99,6 +99,14 @@ describe('ScreensTable', () => {
         expect(await screen.findByText('Écran attente')).toBeInTheDocument();
     });
 
+    it('forces a refresh when opening the pending tab', () => {
+        render(<ScreensTable data={data} canManage={false} channels={channels} />);
+
+        fireEvent.click(screen.getByRole('tab', {name: /En attente/}));
+
+        expect(refreshMock).toHaveBeenCalledTimes(1);
+    });
+
     it('does not show reset button on initial load and shows pending badge count', () => {
         render(<ScreensTable data={data} canManage={false} channels={channels} />);
 

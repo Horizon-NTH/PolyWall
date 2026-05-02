@@ -112,6 +112,60 @@ function buildSnapshot(): DisplayRuntimeSnapshot {
     };
 }
 
+function buildTwoItemSnapshot(overrides?: Partial<DisplayRuntimeSnapshot>): DisplayRuntimeSnapshot {
+    return {
+        ...buildSnapshot(),
+        ...overrides,
+        playlists: [{
+            playlistId: 'playlist-1',
+            playlistName: 'Playlist',
+            totalDurationSeconds: 60,
+            items: [
+                {
+                    id: 'item-1',
+                    playlistItemId: 'playlist-item-1',
+                    mediaItemId: 'media-1',
+                    mediaTitle: 'Image principale',
+                    mediaKind: 'image',
+                    durationSeconds: 30,
+                    orderIndex: 0,
+                    frameIndex: 0,
+                    asset: {
+                        assetId: 'asset-1',
+                        mediaFileId: 'asset-1',
+                        cacheKey: 'asset-1',
+                        signedUrl: 'https://example.com/media-1.png',
+                        expiresAt: '2026-04-20T09:00:00.000Z',
+                        mimeType: 'image/png',
+                        width: 1280,
+                        height: 720,
+                    },
+                },
+                {
+                    id: 'item-2',
+                    playlistItemId: 'playlist-item-2',
+                    mediaItemId: 'media-2',
+                    mediaTitle: 'Image secondaire',
+                    mediaKind: 'image',
+                    durationSeconds: 30,
+                    orderIndex: 1,
+                    frameIndex: 0,
+                    asset: {
+                        assetId: 'asset-2',
+                        mediaFileId: 'asset-2',
+                        cacheKey: 'asset-2',
+                        signedUrl: 'https://example.com/media-2.png',
+                        expiresAt: '2026-04-20T09:00:00.000Z',
+                        mimeType: 'image/png',
+                        width: 1280,
+                        height: 720,
+                    },
+                },
+            ],
+        }],
+    };
+}
+
 describe('DisplayClient', () => {
     beforeEach(() => {
         vi.restoreAllMocks();
@@ -234,5 +288,46 @@ describe('DisplayClient', () => {
             expect.stringContaining('/api/display/runtime?deviceId='),
             expect.objectContaining({cache: 'no-store'}),
         );
+    });
+
+    it('re-synchronizes playback from display state even when the snapshot revision is unchanged', async () => {
+        vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-04-20T08:00:00.000Z').getTime());
+
+        window.localStorage.setItem(
+            'polywall.display.snapshot.test-device',
+            JSON.stringify(buildTwoItemSnapshot({
+                revision: 'rev-1',
+                serverNow: '2026-04-20T08:00:00.000Z',
+            })),
+        );
+        window.localStorage.setItem('polywall.screen.deviceId', 'test-device');
+
+        const fetchMock = vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+            const url = String(input);
+            if (url.includes('/api/display/state')) {
+                return new Response(JSON.stringify({
+                    status: 'ACTIVE',
+                    screenId: 'screen-1',
+                    channelId: 'channel-1',
+                    interactive: false,
+                    interactiveUrl: null,
+                    inactivityTimeoutSeconds: null,
+                    revision: 'rev-1',
+                    serverNow: '2026-04-20T08:00:45.000Z',
+                }), {status: 200});
+            }
+
+            return new Response(JSON.stringify({error: 'Unexpected runtime call'}), {status: 500});
+        });
+
+        await act(async () => {
+            render(<DisplayClient />);
+        });
+
+        await waitFor(() => {
+            expect(screen.getByAltText('Image secondaire')).toBeInTheDocument();
+        });
+
+        expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/display/runtime'))).toBe(false);
     });
 });

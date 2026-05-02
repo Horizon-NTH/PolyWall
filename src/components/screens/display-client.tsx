@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { DisplayTemplateShell } from '@/components/screens/display-template-shell';
+import { DisplayPlaybackSurface } from '@/components/screens/display-playback-surface';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from '@/components/ui/input-otp';
@@ -11,9 +11,9 @@ import { type DisplayRuntimeSnapshot, type DisplaySyncStatus } from '@/lib/displ
 import {
     loadCachedSnapshot,
     saveCachedSnapshot,
-    getCachedAssetObjectUrl,
     prefetchDisplayAssets,
 } from '@/lib/screens/display-cache';
+import { computeServerOffsetMs } from '@/lib/screens/display-clock';
 import { type DisplayDebugScenario } from '@/lib/screens/display-debug';
 import { createInteractiveInterruptionController } from '@/lib/screens/interactive-interruption-controller';
 
@@ -71,17 +71,6 @@ function getOrCreateDeviceId() {
     return created;
 }
 
-function syncServerClock(
-    serverNow: string,
-    startedAtMs: number,
-    endedAtMs: number,
-    offsetRef: { current: number },
-) {
-    const serverNowMs = Date.parse(serverNow);
-    if (Number.isNaN(serverNowMs)) return;
-    offsetRef.current = serverNowMs - Math.round((startedAtMs + endedAtMs) / 2);
-}
-
 function StatusCard(props: {
     title: string;
     description: string;
@@ -116,10 +105,7 @@ export function DisplayClient(props: DisplayClientProps) {
     const [otpError, setOtpError] = React.useState<string | null>(null);
     const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
     const [isSubmittingOtp, setIsSubmittingOtp] = React.useState(false);
-    const [renderTick, setRenderTick] = React.useState(0);
-    const [assetSrc, setAssetSrc] = React.useState<string | null>(null);
-    const serverOffsetMsRef = React.useRef(0);
-    const activeObjectUrlRef = React.useRef<string | null>(null);
+    const [serverOffsetMs, setServerOffsetMs] = React.useState(0);
     const snapshotRef = React.useRef<DisplayRuntimeSnapshot | null>(null);
     const syncInFlightRef = React.useRef(false);
     const runtimeLoadPromiseRef = React.useRef<Promise<boolean> | null>(null);
@@ -134,12 +120,9 @@ export function DisplayClient(props: DisplayClientProps) {
     const isDebugMode = props.debugScenario !== null && props.debugScenario !== undefined;
 
     const resolvedState = React.useMemo(
-        () => (effectiveSnapshot ? resolveDisplayState(effectiveSnapshot, Date.now() + serverOffsetMsRef.current) : null),
-        [effectiveSnapshot, renderTick],
+        () => (effectiveSnapshot ? resolveDisplayState(effectiveSnapshot, Date.now() + serverOffsetMs) : null),
+        [effectiveSnapshot, serverOffsetMs],
     );
-
-    const currentAssetKey = resolvedState?.status === 'PLAYING' ? resolvedState.currentItem.asset.cacheKey : null;
-    const currentSignedUrl = resolvedState?.status === 'PLAYING' ? resolvedState.currentItem.asset.signedUrl : null;
 
     const loadRuntime = React.useEffectEvent(async (resolvedDeviceId: string) => {
         if (runtimeLoadPromiseRef.current) {
@@ -173,12 +156,18 @@ export function DisplayClient(props: DisplayClientProps) {
             }
 
             const nextSnapshot = await response.json() as DisplayRuntimeSnapshot;
-            syncServerClock(nextSnapshot.serverNow, startedAtMs, endedAtMs, serverOffsetMsRef);
+            const nextOffset = computeServerOffsetMs(nextSnapshot.serverNow, startedAtMs, endedAtMs);
+            if (nextOffset !== null) {
+                setServerOffsetMs(nextOffset);
+            }
             saveCachedSnapshot(resolvedDeviceId, nextSnapshot);
             setSnapshot(nextSnapshot);
             setSyncStatus('PLAYING');
 
-            const nextResolvedState = resolveDisplayState(nextSnapshot, Date.now() + serverOffsetMsRef.current);
+            const nextResolvedState = resolveDisplayState(
+                nextSnapshot,
+                Date.now() + (nextOffset ?? serverOffsetMs),
+            );
             const prioritizedAssets = getPriorityAssetDescriptors(nextSnapshot, nextResolvedState);
             const protectedKeys = prioritizedAssets.slice(0, 12).map((asset) => asset.cacheKey);
             void prefetchDisplayAssets(prioritizedAssets, nextSnapshot.revision, protectedKeys);
@@ -235,7 +224,10 @@ export function DisplayClient(props: DisplayClientProps) {
 
         const data = await response.json() as DisplayStateResponse;
         if ('serverNow' in data) {
-            syncServerClock(data.serverNow, startedAtMs, endedAtMs, serverOffsetMsRef);
+            const nextOffset = computeServerOffsetMs(data.serverNow, startedAtMs, endedAtMs);
+            if (nextOffset !== null) {
+                setServerOffsetMs(nextOffset);
+            }
         }
 
         if (data.status === 'PENDING') {
@@ -335,16 +327,6 @@ export function DisplayClient(props: DisplayClientProps) {
     }, []);
 
     React.useEffect(() => {
-        const clockInterval = window.setInterval(() => {
-            setRenderTick((current) => current + 1);
-        }, 250);
-
-        return () => {
-            window.clearInterval(clockInterval);
-        };
-    }, []);
-
-    React.useEffect(() => {
         if (isDebugMode) return;
         if (!deviceId) return;
 
@@ -400,49 +382,6 @@ export function DisplayClient(props: DisplayClientProps) {
         };
     }, [deviceId, isDebugMode]);
 
-    React.useEffect(() => {
-        if (!resolvedState || resolvedState.status !== 'PLAYING') {
-            if (activeObjectUrlRef.current) {
-                URL.revokeObjectURL(activeObjectUrlRef.current);
-                activeObjectUrlRef.current = null;
-            }
-            setAssetSrc(null);
-            return;
-        }
-
-        let cancelled = false;
-        const currentAsset = resolvedState.currentItem.asset;
-
-        const loadAsset = async () => {
-            const cachedObjectUrl = await getCachedAssetObjectUrl(currentAsset);
-            if (cancelled) {
-                if (cachedObjectUrl) {
-                    URL.revokeObjectURL(cachedObjectUrl);
-                }
-                return;
-            }
-
-            if (activeObjectUrlRef.current) {
-                URL.revokeObjectURL(activeObjectUrlRef.current);
-                activeObjectUrlRef.current = null;
-            }
-
-            if (cachedObjectUrl) {
-                activeObjectUrlRef.current = cachedObjectUrl;
-                setAssetSrc(cachedObjectUrl);
-                return;
-            }
-
-            setAssetSrc(currentAsset.signedUrl);
-        };
-
-        void loadAsset();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [currentAssetKey, currentSignedUrl]);
-
     const interruptionController = React.useMemo(
         () => createInteractiveInterruptionController({
             enabled: effectiveSyncStatus === 'PLAYING' && Boolean(effectiveSnapshot?.screen.interactive),
@@ -462,13 +401,12 @@ export function DisplayClient(props: DisplayClientProps) {
         content = (
             <main
                 className="fixed inset-0 overflow-hidden bg-black"
-                onPointerDown={() => interruptionController.notifyUserInteraction()}
             >
-                <DisplayTemplateShell
+                <DisplayPlaybackSurface
                     snapshot={effectiveSnapshot}
-                    resolvedState={resolvedState}
                     syncStatus={effectiveSyncStatus}
-                    assetSrc={assetSrc}
+                    serverOffsetMs={serverOffsetMs}
+                    onPointerDown={() => interruptionController.notifyUserInteraction()}
                 />
             </main>
         );
