@@ -39,13 +39,30 @@ function getStorage() {
     return storage;
 }
 
+function loadPersistedOtpState(storageKey: string): PersistedOtpState | null {
+    const storage = getStorage();
+    const raw = storage?.getItem(storageKey) ?? null;
+    if (!raw) return null;
+
+    try {
+        const parsed = JSON.parse(raw) as PersistedOtpState;
+        if (/^\d{6}$/.test(parsed.otpCode) && isOtpStillValid(parsed.expiresAt)) {
+            return parsed;
+        }
+    } catch {
+    }
+
+    storage?.removeItem(storageKey);
+    return null;
+}
+
 export function ScreenPairingCard({organizationId}: ScreenPairingCardProps) {
     const router = useRouter();
+    const storageKey = React.useMemo(() => `polywall.screen.pairing-otp.${organizationId}`, [organizationId]);
     const [otpCode, setOtpCode] = React.useState('');
     const [expiresAt, setExpiresAt] = React.useState('');
     const [hasActiveTokenWithoutLocalCode, setHasActiveTokenWithoutLocalCode] = React.useState(false);
     const [isPending, startTransition] = React.useTransition();
-    const storageKey = React.useMemo(() => `polywall.screen.pairing-otp.${organizationId}`, [organizationId]);
 
     const clearLocalOtp = React.useCallback(() => {
         setOtpCode('');
@@ -56,42 +73,42 @@ export function ScreenPairingCard({organizationId}: ScreenPairingCardProps) {
     }, [storageKey]);
 
     React.useEffect(() => {
-        const storage = getStorage();
-        const raw = storage?.getItem(storageKey) ?? null;
-        let persisted: PersistedOtpState | null = null;
+        let cancelled = false;
 
-        if (raw) {
-            try {
-                const parsed = JSON.parse(raw) as PersistedOtpState;
-                if (/^\d{6}$/.test(parsed.otpCode) && isOtpStillValid(parsed.expiresAt)) {
-                    persisted = parsed;
-                    setOtpCode(parsed.otpCode);
-                    setExpiresAt(parsed.expiresAt);
-                } else {
-                    storage?.removeItem(storageKey);
+        void (async () => {
+            await Promise.resolve();
+            if (cancelled) return;
+
+            const persistedOtpState = loadPersistedOtpState(storageKey);
+
+            if (cancelled) return;
+
+            setOtpCode(persistedOtpState?.otpCode ?? '');
+            setExpiresAt(persistedOtpState?.expiresAt ?? '');
+            setHasActiveTokenWithoutLocalCode(false);
+
+            startTransition(async () => {
+                const result = await getActiveScreenPairingTokenState();
+                if (cancelled || !result.ok) return;
+
+                if (!result.hasActiveToken) {
+                    setHasActiveTokenWithoutLocalCode(false);
+                    return;
                 }
-            } catch {
-                storage?.removeItem(storageKey);
-            }
-        }
 
-        startTransition(async () => {
-            const result = await getActiveScreenPairingTokenState();
-            if (!result.ok) return;
+                if (!persistedOtpState) {
+                    setHasActiveTokenWithoutLocalCode(true);
+                    if (result.expiresAt) setExpiresAt(result.expiresAt);
+                } else {
+                    setHasActiveTokenWithoutLocalCode(false);
+                }
+            });
+        })();
 
-            if (!result.hasActiveToken) {
-                setHasActiveTokenWithoutLocalCode(false);
-                return;
-            }
-
-            if (!persisted) {
-                setHasActiveTokenWithoutLocalCode(true);
-                if (result.expiresAt) setExpiresAt(result.expiresAt);
-            } else {
-                setHasActiveTokenWithoutLocalCode(false);
-            }
-        });
-    }, [clearLocalOtp, storageKey]);
+        return () => {
+            cancelled = true;
+        };
+    }, [organizationId, storageKey]);
 
     React.useEffect(() => {
         if (!otpCode || !expiresAt || !isOtpStillValid(expiresAt)) return;

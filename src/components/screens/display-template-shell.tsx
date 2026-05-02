@@ -48,7 +48,13 @@ function DisplayMediaViewport(props: TemplateRendererProps) {
         return () => {
             videoElement.removeEventListener('loadedmetadata', syncVideo);
         };
-    }, [props.assetSrc, activeVideoItemId]);
+    }, [
+        activeVideoItemId,
+        props.assetSrc,
+        props.resolvedState.currentItem?.mediaKind,
+        props.resolvedState.itemOffsetSeconds,
+        props.resolvedState.status,
+    ]);
 
     if (props.resolvedState.status !== 'PLAYING') {
         return null;
@@ -77,6 +83,7 @@ function DisplayMediaViewport(props: TemplateRendererProps) {
 
     return (
         <div className="flex h-full w-full items-center justify-center overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
                 src={props.assetSrc}
                 alt={props.resolvedState.currentItem.mediaTitle}

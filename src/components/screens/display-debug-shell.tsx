@@ -12,11 +12,7 @@ import {
 } from '@/lib/screens/display-debug';
 
 export function DisplayDebugShell() {
-    const [debugPreset, setDebugPreset] = React.useState<DisplayDebugPreset>('live');
-
-    React.useEffect(() => {
-        setDebugPreset(loadDisplayDebugPreset());
-    }, []);
+    const [debugPreset, setDebugPreset] = React.useState<DisplayDebugPreset>(() => loadDisplayDebugPreset());
 
     React.useEffect(() => {
         persistDisplayDebugPreset(debugPreset);

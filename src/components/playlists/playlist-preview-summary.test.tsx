@@ -7,10 +7,14 @@ import { PlaylistPreviewSummary } from '@/components/playlists/playlist-preview-
 vi.mock('next/image', () => ({
     __esModule: true,
     default: ({
-        fill: _fill,
-        unoptimized: _unoptimized,
+        fill: _fill = undefined,
+        unoptimized: _unoptimized = undefined,
         ...props
-    }: React.ComponentProps<'img'> & {fill?: boolean; unoptimized?: boolean}) => <img {...props} alt={props.alt ?? ''} />,
+    }: React.ComponentProps<'img'> & {fill?: boolean; unoptimized?: boolean}) => {
+        void _fill;
+        void _unoptimized;
+        return <img {...props} alt={props.alt ?? ''} />;
+    },
 }));
 
 vi.mock('next/link', () => ({

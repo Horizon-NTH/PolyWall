@@ -23,13 +23,13 @@ export function DisplayPlaybackSurface({
     className,
     onPointerDown,
 }: DisplayPlaybackSurfaceProps) {
-    const [renderTick, setRenderTick] = React.useState(0);
+    const [renderNowMs, setRenderNowMs] = React.useState(() => Date.now());
     const [assetSrc, setAssetSrc] = React.useState<string | null>(null);
     const activeObjectUrlRef = React.useRef<string | null>(null);
 
     React.useEffect(() => {
         const clockInterval = window.setInterval(() => {
-            setRenderTick((current) => current + 1);
+            setRenderNowMs(Date.now());
         }, 250);
 
         return () => {
@@ -38,8 +38,8 @@ export function DisplayPlaybackSurface({
     }, []);
 
     const resolvedState = React.useMemo(
-        () => resolveDisplayState(snapshot, Date.now() + serverOffsetMs),
-        [snapshot, renderTick, serverOffsetMs],
+        () => resolveDisplayState(snapshot, renderNowMs + serverOffsetMs),
+        [renderNowMs, serverOffsetMs, snapshot],
     );
 
     const currentAsset = resolvedState.status === 'PLAYING' ? resolvedState.currentItem.asset : null;
@@ -52,7 +52,6 @@ export function DisplayPlaybackSurface({
                 URL.revokeObjectURL(activeObjectUrlRef.current);
                 activeObjectUrlRef.current = null;
             }
-            setAssetSrc(null);
             return;
         }
 
@@ -94,6 +93,8 @@ export function DisplayPlaybackSurface({
         }
     }, []);
 
+    const visibleAssetSrc = currentAsset ? assetSrc : null;
+
     return (
         <div
             className={cn('relative h-full w-full overflow-hidden bg-black', className)}
@@ -103,7 +104,7 @@ export function DisplayPlaybackSurface({
                 snapshot={snapshot}
                 resolvedState={resolvedState}
                 syncStatus={syncStatus}
-                assetSrc={assetSrc}
+                assetSrc={visibleAssetSrc}
             />
         </div>
     );

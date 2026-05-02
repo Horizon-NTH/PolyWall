@@ -164,4 +164,19 @@ describe('ChannelLivePreviewCard', () => {
         expect(screen.queryByText('Aperçu indisponible')).not.toBeInTheDocument();
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
+
+    it('shows an error state when switching channel before a new snapshot loads', async () => {
+        const fetchMock = vi.spyOn(global, 'fetch')
+            .mockResolvedValueOnce(new Response(JSON.stringify({snapshot: buildSnapshot()}), {status: 200}))
+            .mockResolvedValueOnce(new Response(JSON.stringify({error: 'Channel 2 failed'}), {status: 500}));
+
+        const {rerender} = render(<ChannelLivePreviewCard channelId="channel-1" />);
+        await screen.findByTestId('display-playback-surface');
+
+        rerender(<ChannelLivePreviewCard channelId="channel-2" />);
+
+        expect(await screen.findByText('Aperçu indisponible')).toBeInTheDocument();
+        expect(screen.getByText('Channel 2 failed')).toBeInTheDocument();
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
 });

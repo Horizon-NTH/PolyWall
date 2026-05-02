@@ -106,6 +106,7 @@ export function DisplayClient(props: DisplayClientProps) {
     const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
     const [isSubmittingOtp, setIsSubmittingOtp] = React.useState(false);
     const [serverOffsetMs, setServerOffsetMs] = React.useState(0);
+    const [renderNowMs, setRenderNowMs] = React.useState(() => Date.now());
     const snapshotRef = React.useRef<DisplayRuntimeSnapshot | null>(null);
     const syncInFlightRef = React.useRef(false);
     const runtimeLoadPromiseRef = React.useRef<Promise<boolean> | null>(null);
@@ -119,9 +120,40 @@ export function DisplayClient(props: DisplayClientProps) {
     const effectiveErrorMessage = props.debugScenario?.errorMessage ?? errorMessage;
     const isDebugMode = props.debugScenario !== null && props.debugScenario !== undefined;
 
+    React.useEffect(() => {
+        const interval = window.setInterval(() => {
+            setRenderNowMs(Date.now());
+        }, 250);
+
+        return () => window.clearInterval(interval);
+    }, []);
+
+    React.useEffect(() => {
+        let cancelled = false;
+
+        void (async () => {
+            await Promise.resolve();
+            if (cancelled) return;
+
+            const nextDeviceId = getOrCreateDeviceId();
+            const cachedSnapshot = loadCachedSnapshot(nextDeviceId);
+
+            if (cancelled) return;
+
+            setDeviceId(nextDeviceId);
+            if (cachedSnapshot) {
+                setSnapshot(cachedSnapshot);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const resolvedState = React.useMemo(
-        () => (effectiveSnapshot ? resolveDisplayState(effectiveSnapshot, Date.now() + serverOffsetMs) : null),
-        [effectiveSnapshot, serverOffsetMs],
+        () => (effectiveSnapshot ? resolveDisplayState(effectiveSnapshot, renderNowMs + serverOffsetMs) : null),
+        [effectiveSnapshot, renderNowMs, serverOffsetMs],
     );
 
     const loadRuntime = React.useEffectEvent(async (resolvedDeviceId: string) => {
@@ -316,15 +348,6 @@ export function DisplayClient(props: DisplayClientProps) {
             setIsSubmittingOtp(false);
         }
     });
-
-    React.useEffect(() => {
-        const nextDeviceId = getOrCreateDeviceId();
-        setDeviceId(nextDeviceId);
-        const cachedSnapshot = loadCachedSnapshot(nextDeviceId);
-        if (cachedSnapshot) {
-            setSnapshot(cachedSnapshot);
-        }
-    }, []);
 
     React.useEffect(() => {
         if (isDebugMode) return;

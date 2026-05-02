@@ -33,23 +33,19 @@ function getStatusLabel(syncStatus: DisplaySyncStatus) {
 
 export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps) {
     const [snapshot, setSnapshot] = React.useState<DisplayRuntimeSnapshot | null>(null);
+    const [snapshotChannelId, setSnapshotChannelId] = React.useState<string | null>(null);
+    const [statusChannelId, setStatusChannelId] = React.useState<string | null>(null);
     const [syncStatus, setSyncStatus] = React.useState<DisplaySyncStatus>('SYNCING');
     const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
     const [serverOffsetMs, setServerOffsetMs] = React.useState(0);
     const syncInFlightRef = React.useRef(false);
     const snapshotRef = React.useRef<DisplayRuntimeSnapshot | null>(null);
+    const snapshotChannelIdRef = React.useRef<string | null>(null);
 
     React.useEffect(() => {
         snapshotRef.current = snapshot;
-    }, [snapshot]);
-
-    React.useEffect(() => {
-        setSnapshot(null);
-        setErrorMessage(null);
-        setSyncStatus('SYNCING');
-        setServerOffsetMs(0);
-        snapshotRef.current = null;
-    }, [channelId]);
+        snapshotChannelIdRef.current = snapshotChannelId;
+    }, [snapshot, snapshotChannelId]);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -73,7 +69,8 @@ export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps)
                 }
 
                 if (!response.ok) {
-                    if (snapshotRef.current) {
+                    if (snapshotRef.current && snapshotChannelIdRef.current === channelId) {
+                        setStatusChannelId(channelId);
                         setSyncStatus('DEGRADED');
                         return;
                     }
@@ -83,6 +80,7 @@ export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps)
                         return;
                     }
 
+                    setStatusChannelId(channelId);
                     setErrorMessage(data.error ?? 'Impossible de charger l’aperçu de diffusion.');
                     setSyncStatus('ERROR');
                     return;
@@ -97,17 +95,21 @@ export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps)
                 if (nextOffset !== null) {
                     setServerOffsetMs(nextOffset);
                 }
+                setSnapshotChannelId(channelId);
+                setStatusChannelId(channelId);
                 setSnapshot(data.snapshot);
                 setErrorMessage(null);
                 setSyncStatus('PLAYING');
             } catch {
                 if (cancelled) return;
 
-                if (snapshotRef.current) {
+                if (snapshotRef.current && snapshotChannelIdRef.current === channelId) {
+                    setStatusChannelId(channelId);
                     setSyncStatus('DEGRADED');
                     return;
                 }
 
+                setStatusChannelId(channelId);
                 setErrorMessage('Erreur réseau pendant le chargement de l’aperçu de diffusion.');
                 setSyncStatus('ERROR');
             } finally {
@@ -144,7 +146,10 @@ export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps)
         };
     }, [channelId]);
 
-    const template = snapshot?.channel.template ?? null;
+    const visibleSnapshot = snapshotChannelId === channelId ? snapshot : null;
+    const visibleSyncStatus = statusChannelId === channelId ? syncStatus : 'SYNCING';
+    const visibleErrorMessage = statusChannelId === channelId ? errorMessage : null;
+    const template = visibleSnapshot?.channel.template ?? null;
 
     return (
         <Card>
@@ -155,28 +160,28 @@ export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps)
                         Rendu en temps réel du player utilisé par les écrans rattachés à ce canal.
                     </CardDescription>
                 </div>
-                <Badge variant={syncStatus === 'DEGRADED' || syncStatus === 'ERROR' ? 'destructive' : 'outline'}>
-                    {getStatusLabel(syncStatus)}
+                <Badge variant={visibleSyncStatus === 'DEGRADED' || visibleSyncStatus === 'ERROR' ? 'destructive' : 'outline'}>
+                    {getStatusLabel(visibleSyncStatus)}
                 </Badge>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-                {snapshot ? (
+                {visibleSnapshot ? (
                     <div className="rounded-md border bg-black p-2">
                         <div
                             className="mx-auto w-full max-w-full overflow-hidden rounded-sm bg-black"
                             style={{aspectRatio: `${template?.resolutionX ?? 16} / ${template?.resolutionY ?? 9}`}}
                         >
                             <DisplayPlaybackSurface
-                                snapshot={snapshot}
-                                syncStatus={syncStatus}
+                                snapshot={visibleSnapshot}
+                                syncStatus={visibleSyncStatus}
                                 serverOffsetMs={serverOffsetMs}
                             />
                         </div>
                     </div>
-                ) : syncStatus === 'ERROR' ? (
+                ) : visibleSyncStatus === 'ERROR' ? (
                     <Alert variant="destructive">
                         <AlertTitle>Aperçu indisponible</AlertTitle>
-                        <AlertDescription>{errorMessage ?? 'Impossible de charger la diffusion.'}</AlertDescription>
+                        <AlertDescription>{visibleErrorMessage ?? 'Impossible de charger la diffusion.'}</AlertDescription>
                     </Alert>
                 ) : (
                     <Skeleton className="aspect-video w-full rounded-md" />
