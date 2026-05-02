@@ -41,7 +41,18 @@ async function findScheduleLink(page: Page, scheduleName?: string) {
 
 async function ensureChannelWithSchedules(page: Page) {
     await ensureSchedulesList(page);
-    await page.waitForLoadState('networkidle');
+
+    const existingScheduleLink = await findScheduleLink(page);
+    if (existingScheduleLink) {
+        const currentUrl = new URL(page.url());
+        const initialUrlWithTab = new URL(`${currentUrl.pathname}${currentUrl.search}`, 'http://localhost');
+        initialUrlWithTab.searchParams.set('tab', 'schedules');
+        return {
+            channelId: currentUrl.searchParams.get('channelId') ?? '',
+            initialSchedulesUrl: `${initialUrlWithTab.pathname}${initialUrlWithTab.search}`,
+            scheduleLink: existingScheduleLink,
+        };
+    }
 
     const selector = page.getByRole('combobox').first();
     await selector.click();
@@ -357,6 +368,25 @@ test.describe('schedules', () => {
         await page.getByRole('tab', {name: 'Canal'}).click();
         await expect(page.getByText('Playlist par défaut', {exact: true})).toBeVisible();
         await expect(page.getByText('Aperçu de diffusion', {exact: true})).toBeVisible();
+    });
+
+    test('channel tab shows the live display preview without the legacy metadata banner', async ({page}) => {
+        await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
+
+        const scheduleContext = await ensureChannelWithSchedules(page);
+        expect(scheduleContext).toBeTruthy();
+
+        const currentUrl = new URL(page.url());
+        currentUrl.searchParams.set('tab', 'channel');
+        await safeGoto(page, `${currentUrl.pathname}${currentUrl.search}`);
+
+        await expect(page.getByRole('tab', {name: 'Canal'})).toHaveAttribute('aria-selected', 'true');
+        const previewCard = page.locator('[data-slot="card"]').filter({
+            has: page.getByText('Aperçu de diffusion', {exact: true}),
+        });
+        await expect(previewCard).toBeVisible();
+        await expect(previewCard.getByText('Live', {exact: true})).toBeVisible();
+        await expect(previewCard.getByText(/écran\(s\) rattaché\(s\)|1920 × 1080|Template Player/i)).toHaveCount(0);
     });
 
     test('schedule detail page exposes summary and edit entrypoint', async ({page}) => {

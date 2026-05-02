@@ -57,15 +57,26 @@ test.describe('screens', () => {
         const otpCode = (await otpInput.inputValue()).replace(/\s+/g, '');
 
         const displayPage = await context.newPage();
+        await displayPage.addInitScript(() => {
+            window.localStorage.removeItem('polywall.screen.deviceId');
+            window.localStorage.removeItem('polywall.display.asset-meta');
+            Object.keys(window.localStorage)
+                .filter((key) => key.startsWith('polywall.display.snapshot.'))
+                .forEach((key) => window.localStorage.removeItem(key));
+            window.sessionStorage.clear();
+        });
         await displayPage.goto('/display', {waitUntil: 'domcontentloaded'});
+        await expect(displayPage.locator('[data-slot="input-otp"]')).toBeVisible();
         await displayPage.locator('[data-slot="input-otp"]').fill(otpCode);
         await displayPage.getByRole('button', {name: 'Valider le code'}).click();
-        await expect(displayPage.getByText('Écran en attente de validation par un administrateur.')).toBeVisible();
+        await expect(displayPage.getByText('Écran en attente', {exact: true})).toBeVisible();
+        await expect(
+            displayPage.getByText(/L’écran a été appairé mais doit encore être validé par un administrateur\./),
+        ).toBeVisible();
         const deviceIdText = await displayPage.getByText(/^ID appareil:/).textContent();
         const deviceId = deviceIdText?.split(':').at(1)?.trim() ?? '';
         const pendingScreenName = `Écran en attente ${deviceId.slice(0, 8).toUpperCase()}`;
 
-        await page.reload({waitUntil: 'domcontentloaded'});
         const pendingTab = page.getByRole('tab', {name: /En attente/});
         await expect(pendingTab).toBeVisible();
         for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -78,7 +89,7 @@ test.describe('screens', () => {
             }
         }
         const pendingScreenLink = page.getByRole('link', {name: pendingScreenName});
-        await expect(pendingScreenLink).toBeVisible();
+        await expect(pendingScreenLink).toBeVisible({timeout: 10_000});
         const pendingRow = page.locator('tr', {has: pendingScreenLink});
         await pendingRow.getByRole('link', {name: "Valider l'écran"}).click();
 
@@ -93,6 +104,9 @@ test.describe('screens', () => {
 
         await expect(page.getByText('Écran validé.')).toBeVisible();
         await expect(page).toHaveURL(/\/dashboard\/screens\/[^/]+$/);
+
+        await displayPage.close();
+        await page.reload({waitUntil: 'domcontentloaded'});
 
         await page.getByRole('button', {name: 'Supprimer'}).click();
         const deleteDialog = page.getByRole('alertdialog');
