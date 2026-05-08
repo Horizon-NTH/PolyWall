@@ -29,7 +29,6 @@ function buildSnapshot(overrides?: Partial<DisplayRuntimeSnapshot>): DisplayRunt
                 zones: [{
                     id: 'zone-1',
                     name: 'Main',
-                    slotName: 'main',
                     zoneType: ZoneType.PLAYLIST,
                     orderIndex: 0,
                     positionX: 0,

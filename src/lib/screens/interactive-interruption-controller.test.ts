@@ -17,7 +17,7 @@ describe('interactive-interruption-controller', () => {
         }).isEnabled).toBe(false);
     });
 
-    it('exposes no-op interaction hooks for V1', () => {
+    it('exposes no-op interaction hooks when disabled', () => {
         const controller = createInteractiveInterruptionController({
             enabled: false,
             interactiveUrl: null,

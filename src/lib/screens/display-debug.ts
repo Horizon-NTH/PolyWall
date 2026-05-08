@@ -13,7 +13,6 @@ export type DisplayDebugPreset =
     | 'degraded'
     | 'revoked'
     | 'error'
-    | 'template-incompatible'
     | 'no-active-schedule'
     | 'no-diffusable-playlist';
 
@@ -66,7 +65,6 @@ function buildBaseSnapshot(): DisplayRuntimeSnapshot {
                 zones: [{
                     id: 'debug-zone-main',
                     name: 'Main',
-                    slotName: 'main',
                     zoneType: ZoneType.PLAYLIST,
                     orderIndex: 0,
                     positionX: 0,
@@ -163,11 +161,6 @@ export const DISPLAY_DEBUG_PRESET_OPTIONS: Array<{
         value: 'error',
         label: 'Error',
         description: 'Erreur bloquante au démarrage du player.',
-    },
-    {
-        value: 'template-incompatible',
-        label: 'Template incompatible',
-        description: 'Le modèle d’affichage n’est pas pris en charge par la V1.',
     },
     {
         value: 'no-active-schedule',
@@ -284,39 +277,6 @@ export function getDisplayDebugScenario(preset: DisplayDebugPreset): DisplayDebu
             description: 'Affiche la diffusion hors ligne avec cache local.',
             syncStatus: 'DEGRADED',
             snapshot,
-            errorMessage: null,
-        };
-    }
-
-    if (preset === 'template-incompatible') {
-        return {
-            preset,
-            label: 'Template incompatible',
-            description: 'Affiche le diagnostic de template V1 non pris en charge.',
-            syncStatus: 'PLAYING',
-            snapshot: {
-                ...snapshot,
-                channel: {
-                    ...snapshot.channel,
-                    template: {
-                        ...snapshot.channel.template,
-                        zones: [
-                            ...snapshot.channel.template.zones,
-                            {
-                                id: 'debug-zone-widget',
-                                name: 'Widget',
-                                slotName: 'sidebar',
-                                zoneType: ZoneType.WIDGET,
-                                orderIndex: 1,
-                                positionX: 1500,
-                                positionY: 0,
-                                width: 420,
-                                height: 1080,
-                            },
-                        ],
-                    },
-                },
-            },
             errorMessage: null,
         };
     }

@@ -36,15 +36,14 @@ function buildChannelSource() {
         updatedAt: new Date('2026-05-02T10:00:00.000Z'),
         displayTemplate: {
             id: 'template-1',
-            name: 'Template V1',
-            templateKey: 'template-v1',
+            name: 'Template',
+            templateKey: 'template',
             resolutionX: 1920,
             resolutionY: 1080,
             updatedAt: new Date('2026-05-02T10:00:00.000Z'),
             zones: [{
                 id: 'zone-1',
                 name: 'Main',
-                slotName: 'main',
                 zoneType: ZoneType.PLAYLIST,
                 orderIndex: 0,
                 positionX: 0,
@@ -52,7 +51,7 @@ function buildChannelSource() {
                 width: 1920,
                 height: 1080,
                 updatedAt: new Date('2026-05-02T10:00:00.000Z'),
-                widgetInstances: [],
+                widgetInstance: null,
             }],
         },
         schedules: [{

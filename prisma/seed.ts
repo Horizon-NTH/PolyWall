@@ -24,9 +24,11 @@ import {
     UserRole,
     ZoneType,
 } from '@/generated/prisma/client';
+import { createDisplayTemplateKey } from '@/lib/display-templates/template-key';
 import { processMediaFile } from '@/lib/media/process-media-file';
 import { ADMIN_CREDENTIALS } from '@/test/fixtures/auth-test-credentials';
 import { prisma } from '@/lib/prisma';
+import { SUPPORTED_WIDGET_TYPE_DEFINITIONS } from '@/lib/widgets/widget-catalog';
 
 const logger = pino({
     level: process.env.LOG_LEVEL ?? 'info',
@@ -87,45 +89,63 @@ function guessDurationSeconds(fileName: string) {
 }
 
 async function ensureTemplateWithZones(params: {
-    organizationId: string;
-    templateKey: string;
+    organizationId: string | null;
     name: string;
     description: string;
     resolutionX: number;
     resolutionY: number;
     zones: Array<{
         name: string;
-        slotName: string;
         zoneType: ZoneType;
         orderIndex: number;
         positionX: number;
         positionY: number;
         width: number;
         height: number;
+        widgetInstance?: {
+            organizationId: string;
+            widgetTypeId: string;
+            refreshPeriodSeconds: number;
+            configurationJson: Prisma.InputJsonValue;
+        };
     }>;
 }) {
+    const templateKey = createDisplayTemplateKey(params.organizationId, params.name);
     const template =
         (await prisma.displayTemplate.findUnique({
-            where: {templateKey: params.templateKey},
+            where: {templateKey},
+        })) ??
+        (await prisma.displayTemplate.findFirst({
+            where: {
+                organizationId: params.organizationId,
+                name: params.name,
+            },
         })) ??
         (await prisma.displayTemplate.create({
             data: {
                 name: params.name,
                 description: params.description,
-                templateKey: params.templateKey,
+                templateKey,
                 resolutionX: params.resolutionX,
                 resolutionY: params.resolutionY,
                 organizationId: params.organizationId,
             },
         }));
 
-    const zones: { id: string; slotName: string }[] = [];
+    if (template.templateKey !== templateKey) {
+        await prisma.displayTemplate.update({
+            where: {id: template.id},
+            data: {templateKey},
+        });
+    }
+
+    const zones: { id: string; name: string; zoneType: ZoneType; orderIndex: number }[] = [];
     for (const zone of params.zones) {
         const existing = await prisma.displayZone.findUnique({
             where: {
-                templateId_slotName: {
+                templateId_orderIndex: {
                     templateId: template.id,
-                    slotName: zone.slotName,
+                    orderIndex: zone.orderIndex,
                 },
             },
         });
@@ -138,6 +158,17 @@ async function ensureTemplateWithZones(params: {
         const created = await prisma.displayZone.create({
             data: {
                 ...zone,
+                widgetInstance: zone.widgetInstance
+                    ? {
+                        create: {
+                            organizationId: zone.widgetInstance.organizationId,
+                            widgetTypeId: zone.widgetInstance.widgetTypeId,
+                            active: true,
+                            refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
+                            configurationJson: zone.widgetInstance.configurationJson,
+                        },
+                    }
+                    : undefined,
                 templateId: template.id,
             },
         });
@@ -223,14 +254,8 @@ async function uploadSeedFileToS3(params: {
 async function seedCore() {
     logger.info('Seeding CORE (WidgetType)...');
 
-    const widgetTypes = [
-        {technicalKey: 'clock', name: 'Horloge', description: 'Affiche l\'heure'},
-        {technicalKey: 'weather', name: 'Météo', description: 'Affiche la météo (dev/mock)'},
-        {technicalKey: 'rss', name: 'Flux RSS', description: 'Affiche un flux RSS (dev/mock)'},
-    ];
-
     const created = [];
-    for (const wt of widgetTypes) {
+    for (const wt of SUPPORTED_WIDGET_TYPE_DEFINITIONS) {
         const existing = await prisma.widgetType.findUnique({
             where: {technicalKey: wt.technicalKey},
         });
@@ -362,10 +387,10 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
     );
 
     // Templates + Zones + Channels + Screens
-    async function seedOrgDisplay(orgId: string, templateKeyPrefix: string) {
+    async function seedOrgDisplay(orgId: string) {
+        const clock = widgetTypes.find((w) => w.technicalKey === 'clock');
         const {template, zones} = await ensureTemplateWithZones({
             organizationId: orgId,
-            templateKey: `${templateKeyPrefix}-dashboard-16x9`,
             name: 'Template Dashboard 16:9',
             description: 'Zone principale + zone widgets',
             resolutionX: 1920,
@@ -373,7 +398,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
             zones: [
                 {
                     name: 'Main',
-                    slotName: 'main',
                     zoneType: ZoneType.PLAYLIST,
                     orderIndex: 0,
                     positionX: 0,
@@ -383,20 +407,26 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
                 },
                 {
                     name: 'Sidebar',
-                    slotName: 'sidebar',
                     zoneType: ZoneType.WIDGET,
                     orderIndex: 1,
                     positionX: 1520,
                     positionY: 0,
                     width: 400,
                     height: 1080,
+                    widgetInstance: clock
+                        ? {
+                            organizationId: orgId,
+                            widgetTypeId: clock.id,
+                            refreshPeriodSeconds: 30,
+                            configurationJson: {timezone: 'Europe/Paris', format: 'HH:mm'},
+                        }
+                        : undefined,
                 },
             ],
         });
 
         await ensureTemplateWithZones({
             organizationId: orgId,
-            templateKey: `${templateKeyPrefix}-fullscreen-v1`,
             name: 'Template Player V1 plein écran',
             description: 'Template minimal compatible avec le player V1',
             resolutionX: 1920,
@@ -404,7 +434,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
             zones: [
                 {
                     name: 'Fullscreen Playlist',
-                    slotName: 'main',
                     zoneType: ZoneType.PLAYLIST,
                     orderIndex: 0,
                     positionX: 0,
@@ -503,17 +532,17 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         return {template, zones, channelHall, channelCafet};
     }
 
-    const a = await seedOrgDisplay(orgA.id, 'orgA');
-    const b = await seedOrgDisplay(orgB.id, 'orgB');
+    const a = await seedOrgDisplay(orgA.id);
+    const b = await seedOrgDisplay(orgB.id);
 
-    async function seedWidgetsForOrg(orgId: string, zones: { id: string; slotName: string }[]) {
-        const sidebar = zones.find((z) => z.slotName === 'sidebar');
+    async function seedWidgetsForOrg(
+        orgId: string,
+        zones: { id: string; name: string; zoneType: ZoneType; orderIndex: number }[],
+    ) {
+        const sidebar = zones.find((z) => z.zoneType === ZoneType.WIDGET);
         if (!sidebar) return;
 
         const clock = widgetTypes.find((w) => w.technicalKey === 'clock');
-        const weather = widgetTypes.find((w) => w.technicalKey === 'weather');
-        const rss = widgetTypes.find((w) => w.technicalKey === 'rss');
-
         const sidebarId = sidebar.id;
 
         async function ensureWidget(params: {
@@ -548,22 +577,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
                 widgetTypeId: clock.id,
                 refreshPeriodSeconds: 30,
                 configurationJson: {format: 'HH:mm', timezone: 'Europe/Paris'},
-            });
-        }
-
-        if (weather) {
-            await ensureWidget({
-                widgetTypeId: weather.id,
-                refreshPeriodSeconds: 600,
-                configurationJson: {city: 'Dijon', units: 'metric', provider: 'mock'},
-            });
-        }
-
-        if (rss) {
-            await ensureWidget({
-                widgetTypeId: rss.id,
-                refreshPeriodSeconds: 300,
-                configurationJson: {url: 'https://example.com/rss', maxItems: 5, provider: 'mock'},
             });
         }
     }

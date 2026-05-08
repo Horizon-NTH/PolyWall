@@ -46,11 +46,9 @@ describe('display-debug helpers', () => {
         vi.unstubAllEnvs();
     });
 
-    it('returns tailored scenarios for template incompatibility and empty playlists', () => {
-        const incompatible = getDisplayDebugScenario('template-incompatible');
+    it('returns tailored scenarios for empty playlists', () => {
         const emptyPlaylist = getDisplayDebugScenario('no-diffusable-playlist');
 
-        expect(incompatible?.snapshot?.channel.template.zones).toHaveLength(2);
         expect(emptyPlaylist?.snapshot?.playlists[0]?.items).toEqual([]);
         expect(getDisplayDebugScenario('live')).toBeNull();
     });

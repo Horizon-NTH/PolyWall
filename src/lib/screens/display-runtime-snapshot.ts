@@ -9,6 +9,7 @@ import {
     type DisplayRuntimeSnapshot,
 } from '@/lib/display-runtime/types';
 import { env } from '@/env';
+import { asConfigurationRecord } from '@/lib/config/json-config';
 import { formatDateOnlyUTC } from '@/lib/date';
 import { prisma } from '@/lib/prisma';
 import { presignStorageObjectGetUrl } from '@/lib/storage/presigned-url';
@@ -26,28 +27,35 @@ const displayRuntimeChannelSelect = {
             templateKey: true,
             resolutionX: true,
             resolutionY: true,
+            configurationJson: true,
             updatedAt: true,
             zones: {
                 orderBy: {orderIndex: 'asc'},
                 select: {
                     id: true,
                     name: true,
-                    slotName: true,
                     zoneType: true,
                     orderIndex: true,
                     positionX: true,
                     positionY: true,
                     width: true,
                     height: true,
+                    configurationJson: true,
                     updatedAt: true,
-                    widgetInstances: {
+                    widgetInstance: {
                         select: {
                             id: true,
                             active: true,
+                            refreshPeriodSeconds: true,
+                            configurationJson: true,
                             updatedAt: true,
                             widgetTypeId: true,
+                            widgetType: {
+                                select: {
+                                    technicalKey: true,
+                                },
+                            },
                         },
-                        orderBy: {updatedAt: 'desc'},
                     },
                 },
             },
@@ -168,19 +176,25 @@ function buildChannelRevisionPayload(channel: RuntimeChannel) {
         updatedAt: channel.updatedAt.toISOString(),
         template: {
             id: channel.displayTemplate.id,
+            configurationJson: channel.displayTemplate.configurationJson,
             updatedAt: channel.displayTemplate.updatedAt.toISOString(),
             zones: channel.displayTemplate.zones.map((zone) => ({
                 id: zone.id,
-                slotName: zone.slotName,
                 zoneType: zone.zoneType,
                 orderIndex: zone.orderIndex,
+                configurationJson: zone.configurationJson,
                 updatedAt: zone.updatedAt.toISOString(),
-                widgetInstances: zone.widgetInstances.map((widget) => ({
-                    id: widget.id,
-                    active: widget.active,
-                    widgetTypeId: widget.widgetTypeId,
-                    updatedAt: widget.updatedAt.toISOString(),
-                })),
+                widgetInstance: zone.widgetInstance?.active
+                    ? {
+                        id: zone.widgetInstance.id,
+                        active: zone.widgetInstance.active,
+                        widgetTypeId: zone.widgetInstance.widgetTypeId,
+                        technicalKey: zone.widgetInstance.widgetType.technicalKey,
+                        refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
+                        configurationJson: zone.widgetInstance.configurationJson,
+                        updatedAt: zone.widgetInstance.updatedAt.toISOString(),
+                    }
+                    : null,
             })),
         },
         schedules: channel.schedules.map((schedule) => ({
@@ -335,16 +349,26 @@ async function buildRuntimeSnapshot(params: {
                 templateKey: params.channel.displayTemplate.templateKey,
                 resolutionX: params.channel.displayTemplate.resolutionX,
                 resolutionY: params.channel.displayTemplate.resolutionY,
+                configurationJson: asConfigurationRecord(params.channel.displayTemplate.configurationJson),
                 zones: params.channel.displayTemplate.zones.map((zone) => ({
                     id: zone.id,
                     name: zone.name,
-                    slotName: zone.slotName,
                     zoneType: zone.zoneType,
                     orderIndex: zone.orderIndex,
                     positionX: zone.positionX,
                     positionY: zone.positionY,
                     width: zone.width,
                     height: zone.height,
+                    configurationJson: asConfigurationRecord(zone.configurationJson),
+                    widgetInstance: zone.widgetInstance?.active
+                        ? {
+                            id: zone.widgetInstance.id,
+                            technicalKey: zone.widgetInstance.widgetType.technicalKey,
+                            active: zone.widgetInstance.active,
+                            refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
+                            configurationJson: asConfigurationRecord(zone.widgetInstance.configurationJson),
+                        }
+                        : null,
                 })),
             },
         },

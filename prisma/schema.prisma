@@ -33,7 +33,6 @@ enum ZoneType {
   PLAYLIST
   WIDGET
   STATIC
-  OVERLAY
 }
 
 enum MediaFileStatus {
@@ -61,14 +60,14 @@ model Organization {
   name        String
   description String
 
-  users            User[]
-  mediaItems       MediaItem[]
-  playlists        Playlist[]
-  channels         Channel[]
-  screens          Screen[]
+  users               User[]
+  mediaItems          MediaItem[]
+  playlists           Playlist[]
+  channels            Channel[]
+  screens             Screen[]
   screenPairingTokens ScreenPairingToken[]
-  displayTemplates DisplayTemplate[]
-  widgetInstances  WidgetInstance[]
+  displayTemplates    DisplayTemplate[]
+  widgetInstances     WidgetInstance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -151,21 +150,21 @@ model MediaItem {
 }
 
 model MediaFile {
-  id               String  @id @default(cuid())
-  storageBucket    String
-  objectKey        String
-  originalFileName String
-  status           MediaFileStatus      @default(AWAITING_UPLOAD)
-  variant          MediaFileVariant     @default(ORIGINAL)
-  variantIndex     Int                  @default(0)
+  id                String           @id @default(cuid())
+  storageBucket     String
+  objectKey         String
+  originalFileName  String
+  status            MediaFileStatus  @default(AWAITING_UPLOAD)
+  variant           MediaFileVariant @default(ORIGINAL)
+  variantIndex      Int              @default(0)
   sourceMediaFileId String?
-  mimeType         String
-  fileSizeBytes    BigInt
-  metaJson         Json?
+  mimeType          String
+  fileSizeBytes     BigInt
+  metaJson          Json?
 
-  mediaItem   MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
-  mediaItemId String
-  sourceFile  MediaFile? @relation("MediaFileDerivatives", fields: [sourceMediaFileId], references: [id], onDelete: Cascade)
+  mediaItem    MediaItem   @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  mediaItemId  String
+  sourceFile   MediaFile?  @relation("MediaFileDerivatives", fields: [sourceMediaFileId], references: [id], onDelete: Cascade)
   derivedFiles MediaFile[] @relation("MediaFileDerivatives")
 
   createdAt DateTime @default(now())
@@ -178,12 +177,13 @@ model MediaFile {
 }
 
 model DisplayTemplate {
-  id          String @id @default(cuid())
-  name        String
-  description String
-  templateKey String
-  resolutionX Int
-  resolutionY Int
+  id                String @id @default(cuid())
+  name              String
+  description       String
+  templateKey       String
+  resolutionX       Int
+  resolutionY       Int
+  configurationJson Json?
 
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   organizationId String?
@@ -199,25 +199,24 @@ model DisplayTemplate {
 }
 
 model DisplayZone {
-  id         String   @id @default(cuid())
-  name       String
-  slotName   String
-  zoneType   ZoneType
-  orderIndex Int
-  positionX  Int
-  positionY  Int
-  width      Int
-  height     Int
+  id                String   @id @default(cuid())
+  name              String
+  zoneType          ZoneType
+  orderIndex        Int
+  positionX         Int
+  positionY         Int
+  width             Int
+  height            Int
+  configurationJson Json?
 
   template   DisplayTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   templateId String
 
-  widgetInstances WidgetInstance[]
+  widgetInstance WidgetInstance?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([templateId, slotName])
   @@unique([templateId, orderIndex])
   @@index([templateId])
 }
@@ -246,12 +245,12 @@ model Channel {
 }
 
 model Screen {
-  id                       String  @id @default(cuid())
+  id                       String       @id @default(cuid())
   deviceId                 String
   name                     String
   location                 String
   status                   ScreenStatus @default(PENDING)
-  interactive              Boolean @default(false)
+  interactive              Boolean      @default(false)
   interactiveUrl           String?
   inactivityTimeoutSeconds Int?
   approvedAt               DateTime?
@@ -277,13 +276,13 @@ model Screen {
 }
 
 model ScreenPairingToken {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   organizationId  String
-  tokenHash       String   @unique
+  tokenHash       String    @unique
   expiresAt       DateTime
   invalidatedAt   DateTime?
   createdByUserId String
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -320,9 +319,9 @@ model WidgetInstance {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([displayZoneId])
   @@index([organizationId])
   @@index([widgetTypeId])
-  @@index([displayZoneId])
 }
 
 model PlaylistSchedule {

@@ -59,7 +59,6 @@ function buildSnapshot(): DisplayRuntimeSnapshot {
                 zones: [{
                     id: 'zone-1',
                     name: 'Main',
-                    slotName: 'main',
                     zoneType: ZoneType.PLAYLIST,
                     orderIndex: 0,
                     positionX: 0,

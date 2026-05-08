@@ -29,7 +29,6 @@ function buildSnapshot(zoneType: ZoneType = ZoneType.PLAYLIST): DisplayRuntimeSn
                 zones: [{
                     id: 'zone-1',
                     name: 'Main',
-                    slotName: 'main',
                     zoneType,
                     orderIndex: 0,
                     positionX: 0,
@@ -99,7 +98,7 @@ function buildPlayingResolvedState(): DisplayResolvedState {
 }
 
 describe('DisplayTemplateShell', () => {
-    it('shows a diagnostic when the template is incompatible', () => {
+    it('renders the layout even when there is no playlist zone', () => {
         render(
             <DisplayTemplateShell
                 snapshot={buildSnapshot(ZoneType.WIDGET)}
@@ -109,7 +108,7 @@ describe('DisplayTemplateShell', () => {
             />,
         );
 
-        expect(screen.getByText('Modèle d’affichage incompatible')).toBeInTheDocument();
+        expect(screen.getByText('Aucun widget')).toBeInTheDocument();
     });
 
     it('shows the resolved-state diagnostic when playback is unavailable', () => {
@@ -150,5 +149,39 @@ describe('DisplayTemplateShell', () => {
 
         expect(screen.getByAltText('Affiche principale')).toHaveAttribute('src', 'https://example.com/image.png');
         expect(screen.getByText('Synchronisation')).toBeInTheDocument();
+    });
+
+    it('renders playlist and static zones in a multi-zone template', () => {
+        const snapshot = buildSnapshot();
+        snapshot.channel.template.zones = [
+            {
+                ...snapshot.channel.template.zones[0]!,
+                width: 1400,
+            },
+            {
+                id: 'zone-static',
+                name: 'Message',
+                zoneType: ZoneType.STATIC,
+                orderIndex: 1,
+                positionX: 1400,
+                positionY: 0,
+                width: 520,
+                height: 1080,
+                configurationJson: {text: 'Bienvenue'},
+                widgetInstance: null,
+            },
+        ];
+
+        render(
+            <DisplayTemplateShell
+                snapshot={snapshot}
+                resolvedState={buildPlayingResolvedState()}
+                syncStatus="PLAYING"
+                assetSrc="https://example.com/image.png"
+            />,
+        );
+
+        expect(screen.getByAltText('Affiche principale')).toBeInTheDocument();
+        expect(screen.getByText('Bienvenue')).toBeInTheDocument();
     });
 });

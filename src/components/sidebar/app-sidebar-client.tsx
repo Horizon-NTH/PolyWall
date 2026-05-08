@@ -9,7 +9,7 @@ import {
     LayoutDashboard,
     ListMusic,
     Monitor,
-    MoreHorizontal,
+    PanelsTopLeft,
     Radio, Shield, Users,
 } from 'lucide-react';
 
@@ -32,7 +32,7 @@ const sidebarItems = {
     contenus: [
         {title: 'Médias', url: '/dashboard/media', icon: ImageIcon},
         {title: 'Playlists', url: '/dashboard/playlists', icon: ListMusic},
-        {title: 'Plus', url: '#', icon: MoreHorizontal},
+        {title: 'Modèles d’affichage', url: '/dashboard/display-templates', icon: PanelsTopLeft},
     ],
     diffusion: [
         {title: 'Planification', url: '/dashboard/schedules', icon: CalendarClock},

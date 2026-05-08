@@ -1,13 +1,12 @@
 import { Temporal } from 'temporal-polyfill';
 
-import { DayOfWeek, ScheduleType, ZoneType } from '@/generated/prisma/enums';
+import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
 import { formatDateOnlyParts } from '@/lib/date';
 import {
     type DisplayPlaylistSequence,
     type DisplayResolvedState,
     type DisplayRuntimeSchedule,
     type DisplayRuntimeSnapshot,
-    type DisplayTemplateZone,
 } from '@/lib/display-runtime/types';
 
 const SCHEDULE_PRIORITY: Record<ScheduleType, number> = {
@@ -132,10 +131,6 @@ function findDefaultSchedule(schedules: DisplayRuntimeSchedule[]) {
     return schedules.find((schedule) => schedule.type === ScheduleType.DEFAULT && schedule.active) ?? null;
 }
 
-export function isTemplateSupportedForV1(zones: DisplayTemplateZone[]) {
-    return zones.length === 1 && zones[0]?.zoneType === ZoneType.PLAYLIST;
-}
-
 export function getCurrentSequenceItem(sequence: DisplayPlaylistSequence, offsetSeconds: number) {
     if (sequence.totalDurationSeconds <= 0 || sequence.items.length === 0) {
         return null;
@@ -166,22 +161,6 @@ export function getCurrentSequenceItem(sequence: DisplayPlaylistSequence, offset
 }
 
 export function resolveDisplayState(snapshot: DisplayRuntimeSnapshot, nowMs: number): DisplayResolvedState {
-    if (!isTemplateSupportedForV1(snapshot.channel.template.zones)) {
-        return {
-            status: 'UNSUPPORTED_TEMPLATE',
-            schedule: null,
-            playlist: null,
-            currentItem: null,
-            nextTransitionAt: null,
-            slotStartedAt: null,
-            slotEndsAt: null,
-            loopOffsetSeconds: 0,
-            itemOffsetSeconds: 0,
-            isFallbackToDefault: false,
-            reason: 'Le modèle d’affichage doit contenir une unique zone PLAYLIST pour la V1.',
-        };
-    }
-
     const activeCandidate = resolveActiveScheduleCandidate(snapshot.schedules, nowMs, snapshot.channel.timezone);
     if (!activeCandidate) {
         return {
