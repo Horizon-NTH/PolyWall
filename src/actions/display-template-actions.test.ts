@@ -3,13 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildSession, getAuthMocks, mockAuthModule } from '@/test/mocks/auth';
 import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
 import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
-import { ZoneType } from '@/generated/prisma/enums';
+import { UserRole, ZoneType } from '@/generated/prisma/enums';
 
 mockAuthModule();
 mockCaslModule();
 mockPrismaModule();
 
 const templatePayload = {
+    scope: 'organization' as const,
     name: 'Hall',
     description: 'Template hall',
     resolutionX: 1920,
@@ -65,6 +66,46 @@ describe('display-template-actions', () => {
             }),
             select: {id: true},
         }));
+    });
+
+    it('creates a global template for a platform super admin', async () => {
+        const {auth} = await getAuthMocks();
+        const prisma = await getPrismaMock();
+        auth.mockResolvedValueOnce(buildSession({
+            user: {
+                role: UserRole.PLATFORM_SUPER_ADMIN,
+                organizationId: null,
+            },
+        }));
+        prisma.displayTemplate.create.mockResolvedValueOnce({id: 'template-global'});
+
+        const {createDisplayTemplate} = await import('@/actions/display-template-actions');
+        const result = await createDisplayTemplate({...templatePayload, scope: 'global'});
+
+        expect(result).toEqual({ok: true, templateId: 'template-global'});
+        expect(prisma.displayTemplate.create).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({
+                organizationId: null,
+                templateKey: 'global:hall',
+            }),
+            select: {id: true},
+        }));
+    });
+
+    it('rejects global template creation for organization admins', async () => {
+        const {auth} = await getAuthMocks();
+        const prisma = await getPrismaMock();
+        auth.mockResolvedValueOnce(buildSession({user: {organizationId: 'org-1'}}));
+
+        const {createDisplayTemplate} = await import('@/actions/display-template-actions');
+        const result = await createDisplayTemplate({...templatePayload, scope: 'global'});
+
+        expect(result).toEqual({
+            ok: false,
+            field: 'scope',
+            message: 'Seul un super-admin peut créer un modèle global.',
+        });
+        expect(prisma.displayTemplate.create).not.toHaveBeenCalled();
     });
 
     it('rejects deleting a template used by channels', async () => {

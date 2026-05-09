@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { DisplayTemplateForm } from '@/components/display-templates/display-template-form';
-import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
+import { UserRole } from '@/generated/prisma/enums';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { asConfigurationRecord } from '@/lib/config/json-config';
 import { prisma } from '@/lib/prisma';
@@ -27,38 +27,25 @@ export default async function Page({params, searchParams}: DisplayTemplateEditPa
     if (!templateId) notFound();
 
     const organizationId = session.user.organizationId;
-    if (!organizationId) {
-        const organizations = await prisma.organization.findMany({
-            select: {id: true, name: true},
-            orderBy: {name: 'asc'},
-        });
-
-        return (
-            <>
-                <DashboardHeader
-                    items={[
-                        {label: 'Tableau de bord', href: '/dashboard'},
-                        {label: 'Modèles d’affichage', href: '/dashboard/display-templates'},
-                        {label: 'Modifier'},
-                    ]}
-                />
-                <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-                    <OrganizationEmptyState organizations={organizations} />
-                </div>
-            </>
-        );
+    const isPlatformSuperAdmin = session.user.role === UserRole.PLATFORM_SUPER_ADMIN;
+    if (!organizationId && !isPlatformSuperAdmin) {
+        throw new Error('Session invalide: un utilisateur non super-admin doit être rattaché à une organisation.');
     }
 
     const [template, widgetTypes] = await Promise.all([
         prisma.displayTemplate.findFirst({
             where: {
                 id: templateId,
-                organizationId,
+                OR: [
+                    {organizationId: null},
+                    ...(organizationId ? [{organizationId}] : []),
+                ],
             },
             select: {
                 id: true,
                 name: true,
                 description: true,
+                organizationId: true,
                 resolutionX: true,
                 resolutionY: true,
                 configurationJson: true,
@@ -91,9 +78,11 @@ export default async function Page({params, searchParams}: DisplayTemplateEditPa
     ]);
 
     if (!template) notFound();
+    if (template.organizationId === null && !isPlatformSuperAdmin) redirect('/dashboard');
 
     const detailHref = appendReturnTo(`/dashboard/display-templates/${template.id}`, query.returnTo);
     const defaultValues: DisplayTemplateCreateValues = {
+        scope: template.organizationId === null ? 'global' : 'organization',
         name: template.name,
         description: template.description,
         resolutionX: template.resolutionX,
@@ -138,6 +127,7 @@ export default async function Page({params, searchParams}: DisplayTemplateEditPa
                     defaultValues={defaultValues}
                     widgetTypes={widgetTypes}
                     cancelHref={detailHref}
+                    canCreateGlobalTemplates={isPlatformSuperAdmin}
                 />
             </div>
         </>

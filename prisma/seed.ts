@@ -103,7 +103,6 @@ async function ensureTemplateWithZones(params: {
         width: number;
         height: number;
         widgetInstance?: {
-            organizationId: string;
             widgetTypeId: string;
             refreshPeriodSeconds: number;
             configurationJson: Prisma.InputJsonValue;
@@ -161,7 +160,6 @@ async function ensureTemplateWithZones(params: {
                 widgetInstance: zone.widgetInstance
                     ? {
                         create: {
-                            organizationId: zone.widgetInstance.organizationId,
                             widgetTypeId: zone.widgetInstance.widgetTypeId,
                             active: true,
                             refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
@@ -415,7 +413,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
                     height: 1080,
                     widgetInstance: clock
                         ? {
-                            organizationId: orgId,
                             widgetTypeId: clock.id,
                             refreshPeriodSeconds: 30,
                             configurationJson: {timezone: 'Europe/Paris', format: 'HH:mm'},
@@ -536,7 +533,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
     const b = await seedOrgDisplay(orgB.id);
 
     async function seedWidgetsForOrg(
-        orgId: string,
         zones: { id: string; name: string; zoneType: ZoneType; orderIndex: number }[],
     ) {
         const sidebar = zones.find((z) => z.zoneType === ZoneType.WIDGET);
@@ -552,7 +548,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         }) {
             const existing = await prisma.widgetInstance.findFirst({
                 where: {
-                    organizationId: orgId,
                     widgetTypeId: params.widgetTypeId,
                     displayZoneId: sidebarId,
                 },
@@ -562,7 +557,6 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
 
             return prisma.widgetInstance.create({
                 data: {
-                    organizationId: orgId,
                     widgetTypeId: params.widgetTypeId,
                     displayZoneId: sidebarId,
                     refreshPeriodSeconds: params.refreshPeriodSeconds,
@@ -581,8 +575,8 @@ async function seedDev(widgetTypes: Awaited<ReturnType<typeof seedCore>>) {
         }
     }
 
-    await seedWidgetsForOrg(orgA.id, a.zones);
-    await seedWidgetsForOrg(orgB.id, b.zones);
+    await seedWidgetsForOrg(a.zones);
+    await seedWidgetsForOrg(b.zones);
 
     async function seedMediaLibrary(orgId: string) {
         logger.info({dir: SEED_MEDIA_DIR, organizationId: orgId}, 'Seeding media library...');

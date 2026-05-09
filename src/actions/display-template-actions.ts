@@ -6,7 +6,7 @@ import { auth } from '@/auth';
 import { getFirstZodIssue } from '@/actions/action-utils';
 import { createActionLogger } from '@/actions/action-logging';
 import { Prisma } from '@/generated/prisma/client';
-import { ZoneType } from '@/generated/prisma/enums';
+import { UserRole, ZoneType } from '@/generated/prisma/enums';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { createDisplayTemplateKey } from '@/lib/display-templates/template-key';
 import { prisma } from '@/lib/prisma';
@@ -37,7 +37,8 @@ async function ensureDisplayTemplateAccess(requiredAction: 'read' | 'create' | '
         return {ok: false as const, message: 'Accès refusé.'};
     }
 
-    if (!session.user.organizationId) {
+    const canManageGlobalTemplates = session.user.role === UserRole.PLATFORM_SUPER_ADMIN;
+    if (!session.user.organizationId && !canManageGlobalTemplates) {
         return {ok: false as const, message: 'Aucune organisation sélectionnée.'};
     }
 
@@ -45,6 +46,7 @@ async function ensureDisplayTemplateAccess(requiredAction: 'read' | 'create' | '
         ok: true as const,
         session,
         organizationId: session.user.organizationId,
+        canManageGlobalTemplates,
     };
 }
 
@@ -52,11 +54,18 @@ function isUniqueConstraintError(error: unknown) {
     return (error as { code?: string }).code === 'P2002';
 }
 
-async function findTemplateForMutation(templateId: string, organizationId: string) {
+async function findTemplateForMutation(
+    templateId: string,
+    organizationId: string | null,
+    canManageGlobalTemplates: boolean,
+) {
     return prisma.displayTemplate.findFirst({
         where: {
             id: templateId,
-            organizationId,
+            OR: [
+                ...(organizationId ? [{organizationId}] : []),
+                ...(canManageGlobalTemplates ? [{organizationId: null}] : []),
+            ],
         },
         select: {
             id: true,
@@ -76,7 +85,6 @@ function toJsonInput(value: Record<string, unknown>): Prisma.InputJsonValue {
 
 function buildZoneCreateData(
     zone: z.infer<typeof displayTemplateCreateSchema>['zones'][number],
-    organizationId: string,
 ) {
     return {
         name: zone.name,
@@ -93,7 +101,6 @@ function buildZoneCreateData(
                     active: true,
                     refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
                     configurationJson: toJsonInput(zone.widgetInstance.configurationJson),
-                    organizationId,
                     widgetTypeId: zone.widgetInstance.widgetTypeId,
                 },
             }
@@ -126,18 +133,26 @@ export async function createDisplayTemplate(
         return {ok: false, field: 'zones', message: 'Un type de widget est introuvable.'};
     }
 
+    const organizationId = parsed.data.scope === 'global' ? null : access.organizationId;
+    if (!organizationId && !access.canManageGlobalTemplates) {
+        return {ok: false, field: 'scope', message: 'Seul un super-admin peut créer un modèle global.'};
+    }
+    if (!organizationId && parsed.data.scope !== 'global') {
+        return {ok: false, field: 'root', message: 'Aucune organisation sélectionnée.'};
+    }
+
     try {
         const created = await prisma.displayTemplate.create({
             data: {
                 name: parsed.data.name,
                 description: parsed.data.description,
-                templateKey: createDisplayTemplateKey(access.organizationId, parsed.data.name),
+                templateKey: createDisplayTemplateKey(organizationId, parsed.data.name),
                 resolutionX: parsed.data.resolutionX,
                 resolutionY: parsed.data.resolutionY,
                 configurationJson: toJsonInput(parsed.data.configurationJson),
-                organizationId: access.organizationId,
+                organizationId,
                 zones: {
-                    create: parsed.data.zones.map((zone) => buildZoneCreateData(zone, access.organizationId)),
+                    create: parsed.data.zones.map((zone) => buildZoneCreateData(zone)),
                 },
             },
             select: {id: true},
@@ -145,7 +160,7 @@ export async function createDisplayTemplate(
 
         log.success({
             actorUserId: access.session.user.id,
-            organizationId: access.organizationId,
+            organizationId,
             targetId: created.id,
         });
         return {ok: true, templateId: created.id};
@@ -170,7 +185,9 @@ export async function updateDisplayTemplate(
         return {ok: false, field: 'root', message: access.message};
     }
 
-    const template = templateId ? await findTemplateForMutation(templateId, access.organizationId) : null;
+    const template = templateId
+        ? await findTemplateForMutation(templateId, access.organizationId, access.canManageGlobalTemplates)
+        : null;
     if (!template) {
         log.invalid({actorUserId: access.session.user.id, organizationId: access.organizationId, targetId: templateId});
         return {ok: false, field: 'templateId', message: 'Modèle d’affichage introuvable.'};
@@ -206,12 +223,12 @@ export async function updateDisplayTemplate(
                 data: {
                     name: parsed.data.name,
                     description: parsed.data.description,
-                    templateKey: createDisplayTemplateKey(access.organizationId, parsed.data.name),
+                    templateKey: createDisplayTemplateKey(template.organizationId, parsed.data.name),
                     resolutionX: parsed.data.resolutionX,
                     resolutionY: parsed.data.resolutionY,
                     configurationJson: toJsonInput(parsed.data.configurationJson),
                     zones: {
-                        create: parsed.data.zones.map((zone) => buildZoneCreateData(zone, access.organizationId)),
+                        create: parsed.data.zones.map((zone) => buildZoneCreateData(zone)),
                     },
                 },
                 select: {id: true},
@@ -258,7 +275,10 @@ export async function duplicateDisplayTemplate(
     const source = await prisma.displayTemplate.findFirst({
         where: {
             id: templateId,
-            OR: [{organizationId: null}, {organizationId: access.organizationId}],
+            OR: [
+                {organizationId: null},
+                ...(access.organizationId ? [{organizationId: access.organizationId}] : []),
+            ],
         },
         select: {
             description: true,
@@ -318,14 +338,13 @@ export async function duplicateDisplayTemplate(
                         width: zone.width,
                         height: zone.height,
                         configurationJson: zone.configurationJson ?? Prisma.JsonNull,
-                        widgetInstance: zone.zoneType === ZoneType.WIDGET
+                        widgetInstance: zone.zoneType === ZoneType.WIDGET && zone.widgetInstance
                             ? {
                                 create: {
                                     active: true,
-                                    refreshPeriodSeconds: zone.widgetInstance!.refreshPeriodSeconds,
-                                    configurationJson: zone.widgetInstance!.configurationJson ?? Prisma.JsonNull,
-                                    organizationId: access.organizationId,
-                                    widgetTypeId: zone.widgetInstance!.widgetTypeId,
+                                    refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
+                                    configurationJson: zone.widgetInstance.configurationJson ?? Prisma.JsonNull,
+                                    widgetTypeId: zone.widgetInstance.widgetTypeId,
                                 },
                             }
                             : undefined,
@@ -359,7 +378,9 @@ export async function deleteDisplayTemplate(templateId: string): Promise<Display
         return {ok: false, field: 'root', message: access.message};
     }
 
-    const template = templateId ? await findTemplateForMutation(templateId, access.organizationId) : null;
+    const template = templateId
+        ? await findTemplateForMutation(templateId, access.organizationId, access.canManageGlobalTemplates)
+        : null;
     if (!template) {
         log.invalid({actorUserId: access.session.user.id, organizationId: access.organizationId, targetId: templateId});
         return {

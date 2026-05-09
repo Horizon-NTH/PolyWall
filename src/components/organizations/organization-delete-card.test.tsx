@@ -44,7 +44,6 @@ describe('OrganizationDeleteCard', () => {
                     channels: 0,
                     playlists: 0,
                     displayTemplates: 0,
-                    widgetInstances: 0,
                 }}
             />,
         );
@@ -71,7 +70,6 @@ describe('OrganizationDeleteCard', () => {
                     channels: 0,
                     playlists: 0,
                     displayTemplates: 0,
-                    widgetInstances: 0,
                 }}
             />,
         );
@@ -99,7 +97,6 @@ describe('OrganizationDeleteCard', () => {
                     channels: 0,
                     playlists: 0,
                     displayTemplates: 0,
-                    widgetInstances: 0,
                 }}
             />,
         );

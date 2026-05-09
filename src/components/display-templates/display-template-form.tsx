@@ -55,6 +55,9 @@ type DisplayTemplateFormProps = {
     defaultValues?: DisplayTemplateCreateValues;
     widgetTypes: WidgetTypeOption[];
     cancelHref: string;
+    canCreateGlobalTemplates?: boolean;
+    canCreateOrganizationTemplates?: boolean;
+    defaultScope?: DisplayTemplateCreateValues['scope'];
 };
 
 type FormValue = DisplayTemplateCreateValues;
@@ -91,9 +94,13 @@ function createDefaultWidget(widgetType: WidgetTypeOption): WidgetValue {
     };
 }
 
-function normalizeDefaultValues(defaultValues?: DisplayTemplateCreateValues): FormValue {
+function normalizeDefaultValues(
+    defaultValues?: DisplayTemplateCreateValues,
+    defaultScope: DisplayTemplateCreateValues['scope'] = 'organization',
+): FormValue {
     if (!defaultValues) {
         return {
+            scope: defaultScope,
             name: '',
             description: '',
             resolutionX: 1920,
@@ -140,6 +147,7 @@ function getActionErrorField(field: string | undefined): keyof FormValue | 'root
         field === 'resolutionX' ||
         field === 'resolutionY' ||
         field === 'configurationJson' ||
+        field === 'scope' ||
         field === 'zones'
     ) {
         return field;
@@ -184,7 +192,7 @@ function HelpLabel({
                 <TooltipTrigger asChild>
                     <button
                         type="button"
-                        className="text-muted-foreground hover:text-foreground inline-flex rounded-sm"
+                        className="text-muted-foreground hover:text-foreground inline-flex rounded-sm size-4 items-center justify-center translate-y-px"
                         aria-label={`Aide: ${String(children)}`}
                     >
                         <Info />
@@ -204,6 +212,9 @@ export function DisplayTemplateForm({
                                         defaultValues,
                                         widgetTypes,
                                         cancelHref,
+                                        canCreateGlobalTemplates = false,
+                                        canCreateOrganizationTemplates = true,
+                                        defaultScope = 'organization',
                                     }: DisplayTemplateFormProps) {
     const router = useRouter();
     const isEdit = mode === 'edit';
@@ -215,7 +226,7 @@ export function DisplayTemplateForm({
     ) as unknown as Resolver<FormValue>;
     const form = useForm<FormValue>({
         resolver,
-        defaultValues: normalizeDefaultValues(defaultValues),
+        defaultValues: normalizeDefaultValues(defaultValues, defaultScope),
     });
     const zonesFieldArray = useFieldArray({
         control: form.control,
@@ -292,6 +303,35 @@ export function DisplayTemplateForm({
                                     </Field>
                                 )}
                             />
+
+                            {!isEdit && canCreateGlobalTemplates ? (
+                                <Controller
+                                    name="scope"
+                                    control={form.control}
+                                    render={({field, fieldState}) => (
+                                        <Field data-invalid={fieldState.invalid}>
+                                            <FieldLabel>Portée</FieldLabel>
+                                            <Select value={field.value} onValueChange={field.onChange}>
+                                                <SelectTrigger className="w-full" aria-invalid={fieldState.invalid}>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent align="start">
+                                                    <SelectGroup>
+                                                        <SelectItem
+                                                            value="organization"
+                                                            disabled={!canCreateOrganizationTemplates}
+                                                        >
+                                                            Organisation
+                                                        </SelectItem>
+                                                        <SelectItem value="global">Global</SelectItem>
+                                                    </SelectGroup>
+                                                </SelectContent>
+                                            </Select>
+                                            {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
+                                        </Field>
+                                    )}
+                                />
+                            ) : null}
 
                             <Controller
                                 name="configurationJson"

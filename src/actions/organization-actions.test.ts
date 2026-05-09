@@ -405,7 +405,6 @@ describe('deleteOrganization', () => {
                 channels: 0,
                 playlists: 0,
                 displayTemplates: 0,
-                widgetInstances: 0,
             },
         });
         const { deleteOrganization } = await import('@/actions/organization-actions');
@@ -434,7 +433,6 @@ describe('deleteOrganization', () => {
                 channels: 0,
                 playlists: 0,
                 displayTemplates: 0,
-                widgetInstances: 0,
             },
         });
         const { deleteOrganization } = await import('@/actions/organization-actions');

@@ -6,7 +6,7 @@ import {
     type DisplayTemplateRow,
 } from '@/components/display-templates/display-templates-table';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
-import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
+import { UserRole } from '@/generated/prisma/enums';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
 
@@ -18,30 +18,17 @@ export default async function Page() {
     if (!ability.can('read', 'DisplayTemplate')) redirect('/dashboard');
 
     const organizationId = session.user.organizationId;
-    if (!organizationId) {
-        const organizations = await prisma.organization.findMany({
-            select: {id: true, name: true},
-            orderBy: {name: 'asc'},
-        });
-
-        return (
-            <>
-                <DashboardHeader
-                    items={[
-                        {label: 'Tableau de bord', href: '/dashboard'},
-                        {label: 'Modèles d’affichage'},
-                    ]}
-                />
-                <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-                    <OrganizationEmptyState organizations={organizations} />
-                </div>
-            </>
-        );
+    const isPlatformSuperAdmin = session.user.role === UserRole.PLATFORM_SUPER_ADMIN;
+    if (!organizationId && !isPlatformSuperAdmin) {
+        throw new Error('Session invalide: un utilisateur non super-admin doit être rattaché à une organisation.');
     }
 
     const templates = await prisma.displayTemplate.findMany({
         where: {
-            OR: [{organizationId: null}, {organizationId}],
+            OR: [
+                {organizationId: null},
+                ...(organizationId ? [{organizationId}] : []),
+            ],
         },
         select: {
             id: true,
@@ -94,6 +81,7 @@ export default async function Page() {
                     canCreate={ability.can('create', 'DisplayTemplate')}
                     canUpdate={ability.can('update', 'DisplayTemplate')}
                     canDelete={ability.can('delete', 'DisplayTemplate')}
+                    canManageGlobalTemplates={isPlatformSuperAdmin}
                 />
             </div>
         </>

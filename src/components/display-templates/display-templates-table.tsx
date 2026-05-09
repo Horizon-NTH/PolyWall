@@ -69,9 +69,16 @@ type DisplayTemplatesTableProps = {
     canCreate: boolean;
     canUpdate: boolean;
     canDelete: boolean;
+    canManageGlobalTemplates?: boolean;
 };
 
-export function DisplayTemplatesTable({data, canCreate, canUpdate, canDelete}: DisplayTemplatesTableProps) {
+export function DisplayTemplatesTable({
+                                          data,
+                                          canCreate,
+                                          canUpdate,
+                                          canDelete,
+                                          canManageGlobalTemplates = false,
+                                      }: DisplayTemplatesTableProps) {
     const router = useRouter();
     const currentReturnTo = useCurrentReturnTo();
     const defaults = displayTemplateListFilterSchema.parse({});
@@ -166,7 +173,7 @@ export function DisplayTemplatesTable({data, canCreate, canUpdate, canDelete}: D
             enableHiding: false,
             cell: ({row}) => {
                 const template = row.original;
-                const canMutateRow = template.scope === 'organization';
+                const canMutateRow = template.scope === 'organization' || canManageGlobalTemplates;
 
                 return (
                     <DataTableRowActions>
@@ -195,7 +202,7 @@ export function DisplayTemplatesTable({data, canCreate, canUpdate, canDelete}: D
                 );
             },
         },
-    ], [canDelete, canUpdate, currentReturnTo, openDeleteDialog]);
+    ], [canDelete, canManageGlobalTemplates, canUpdate, currentReturnTo, openDeleteDialog]);
 
     const table = useDataTable({
         data,

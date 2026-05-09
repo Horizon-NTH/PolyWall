@@ -110,11 +110,16 @@ function validateTemplateGeometry(
 
 export const displayTemplateCreateSchema = displayTemplateBaseSchema
     .extend({
+        scope: z.enum(['organization', 'global']).default('organization'),
         zones: z.array(displayZoneSchema).min(1, 'Ajoutez au moins une zone.'),
     })
     .superRefine(validateTemplateGeometry);
 
-export const displayTemplateUpdateSchema = displayTemplateCreateSchema;
+export const displayTemplateUpdateSchema = displayTemplateBaseSchema
+    .extend({
+        zones: z.array(displayZoneSchema).min(1, 'Ajoutez au moins une zone.'),
+    })
+    .superRefine(validateTemplateGeometry);
 
 export const displayTemplateDuplicateSchema = z.object({
     name: z

@@ -57,7 +57,8 @@ export function defineAbilityFor(user: AbilityUser): AppAbility {
         allowRead('DisplayZone', {displayTemplate: {organizationId}});
 
         allowRead('WidgetType');
-        allowRead('WidgetInstance', {organizationId});
+        allowRead('WidgetInstance', {displayZone: {template: {organizationId: null}}});
+        allowRead('WidgetInstance', {displayZone: {template: {organizationId}}});
     };
 
     if (user.role === UserRole.PLATFORM_SUPER_ADMIN) {
@@ -92,7 +93,8 @@ export function defineAbilityFor(user: AbilityUser): AppAbility {
         allowRead('DisplayZone', {displayTemplate: {organizationId: null}});
         allowCrud('DisplayZone', {displayTemplate: {organizationId}});
 
-        allowCrud('WidgetInstance', {organizationId});
+        allowRead('WidgetInstance', {displayZone: {template: {organizationId: null}}});
+        allowCrud('WidgetInstance', {displayZone: {template: {organizationId}}});
 
         return build();
     }

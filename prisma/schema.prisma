@@ -67,7 +67,6 @@ model Organization {
   screens             Screen[]
   screenPairingTokens ScreenPairingToken[]
   displayTemplates    DisplayTemplate[]
-  widgetInstances     WidgetInstance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -307,9 +306,6 @@ model WidgetInstance {
   active               Boolean @default(true)
   refreshPeriodSeconds Int
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-
   widgetType   WidgetType @relation(fields: [widgetTypeId], references: [id], onDelete: Restrict)
   widgetTypeId String
 
@@ -320,7 +316,6 @@ model WidgetInstance {
   updatedAt DateTime @updatedAt
 
   @@unique([displayZoneId])
-  @@index([organizationId])
   @@index([widgetTypeId])
 }
 

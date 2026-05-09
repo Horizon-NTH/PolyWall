@@ -6,9 +6,9 @@ import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { DisplayTemplateActionsCard } from '@/components/display-templates/display-template-actions-card';
 import { DisplayTemplatePreview } from '@/components/display-templates/display-template-preview';
 import { DisplayTemplateSummaryCard } from '@/components/display-templates/display-template-summary-card';
-import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { UserRole } from '@/generated/prisma/enums';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
 import { appendReturnTo, resolveReturnTo } from '@/lib/return-to';
@@ -30,31 +30,18 @@ export default async function Page({params, searchParams}: DisplayTemplateDetail
     if (!templateId) notFound();
 
     const organizationId = session.user.organizationId;
-    if (!organizationId) {
-        const organizations = await prisma.organization.findMany({
-            select: {id: true, name: true},
-            orderBy: {name: 'asc'},
-        });
-
-        return (
-            <>
-                <DashboardHeader
-                    items={[
-                        {label: 'Tableau de bord', href: '/dashboard'},
-                        {label: 'Modèles d’affichage'},
-                    ]}
-                />
-                <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-                    <OrganizationEmptyState organizations={organizations} />
-                </div>
-            </>
-        );
+    const isPlatformSuperAdmin = session.user.role === UserRole.PLATFORM_SUPER_ADMIN;
+    if (!organizationId && !isPlatformSuperAdmin) {
+        throw new Error('Session invalide: un utilisateur non super-admin doit être rattaché à une organisation.');
     }
 
     const template = await prisma.displayTemplate.findFirst({
         where: {
             id: templateId,
-            OR: [{organizationId: null}, {organizationId}],
+            OR: [
+                {organizationId: null},
+                ...(organizationId ? [{organizationId}] : []),
+            ],
         },
         select: {
             id: true,
@@ -102,9 +89,12 @@ export default async function Page({params, searchParams}: DisplayTemplateDetail
 
     const returnHref = resolveReturnTo(query.returnTo, '/dashboard/display-templates');
     const editHref = appendReturnTo(`/dashboard/display-templates/${template.id}/edit`, query.returnTo);
-    const isOrganizationTemplate = template.organizationId === organizationId;
+    const isGlobalTemplate = template.organizationId === null;
+    const isOrganizationTemplate = !!organizationId && template.organizationId === organizationId;
     const canUpdate = isOrganizationTemplate && ability.can('update', 'DisplayTemplate');
-    const canDelete = isOrganizationTemplate && ability.can('delete', 'DisplayTemplate');
+    const canUpdateGlobal = isGlobalTemplate && isPlatformSuperAdmin && ability.can('update', 'DisplayTemplate');
+    const canDelete = (isOrganizationTemplate || (isGlobalTemplate && isPlatformSuperAdmin)) &&
+        ability.can('delete', 'DisplayTemplate');
     const canDuplicate = ability.can('create', 'DisplayTemplate');
     const widgetsCount = template.zones.reduce((total, zone) => total + (zone.widgetInstance ? 1 : 0), 0);
 
@@ -129,7 +119,7 @@ export default async function Page({params, searchParams}: DisplayTemplateDetail
                         <Button asChild variant="outline">
                             <Link href={returnHref}>Retour</Link>
                         </Button>
-                        {canUpdate ? (
+                        {canUpdate || canUpdateGlobal ? (
                             <Button asChild>
                                 <Link href={editHref}>Modifier</Link>
                             </Button>
