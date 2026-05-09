@@ -13,10 +13,14 @@ import {
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Info, Plus, Trash2 } from 'lucide-react';
+import { CopyPlus, Info, Plus, Trash2 } from 'lucide-react';
 
 import { createDisplayTemplate, updateDisplayTemplate } from '@/actions/display-template-actions';
 import { DisplayTemplatePreview, getZoneLabel } from '@/components/display-templates/display-template-preview';
+import {
+    ZoneConfigurationEditor,
+    type ZoneConfigurationEditorErrors,
+} from '@/components/display-templates/display-template-zone-configuration-editor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -32,6 +36,7 @@ import {
 } from '@/components/ui/tooltip';
 import { ZoneType } from '@/generated/prisma/enums';
 import { getNumberConfig, getStringConfig } from '@/lib/config/json-config';
+import { removeZoneAppearanceStyleConfig } from '@/lib/display-runtime/template-style';
 import {
     getDefaultWidgetConfiguration,
     getDefaultWidgetRefreshPeriodSeconds,
@@ -80,9 +85,13 @@ function defaultZone(zoneType: ZoneType, orderIndex: number): ZoneValue {
         positionY: 0,
         width: zoneType === ZoneType.WIDGET ? 400 : 1920,
         height: 1080,
-        configurationJson: zoneType === ZoneType.STATIC ? {text: 'Texte', color: '#ffffff'} : {},
+        configurationJson: getDefaultZoneConfiguration(zoneType),
         widgetInstance: null,
     };
+}
+
+function getDefaultZoneConfiguration(zoneType: ZoneType): Record<string, unknown> {
+    return zoneType === ZoneType.STATIC ? {text: 'Texte', color: '#ffffff'} : {};
 }
 
 function createDefaultWidget(widgetType: WidgetTypeOption): WidgetValue {
@@ -91,6 +100,34 @@ function createDefaultWidget(widgetType: WidgetTypeOption): WidgetValue {
         active: true,
         refreshPeriodSeconds: getDefaultWidgetRefreshPeriodSeconds(widgetType.technicalKey),
         configurationJson: getDefaultWidgetConfiguration(widgetType.technicalKey),
+    };
+}
+
+function duplicateZoneValue(
+    zone: ZoneValue,
+    orderIndex: number,
+    resolutionX: number,
+    resolutionY: number,
+): ZoneValue {
+    const maxX = Math.max(0, resolutionX - zone.width);
+    const maxY = Math.max(0, resolutionY - zone.height);
+
+    return {
+        ...zone,
+        id: undefined,
+        name: `${zone.name} copie`,
+        orderIndex,
+        positionX: Math.min(zone.positionX + 40, maxX),
+        positionY: Math.min(zone.positionY + 40, maxY),
+        configurationJson: {...zone.configurationJson},
+        widgetInstance: zone.widgetInstance
+            ? {
+                ...zone.widgetInstance,
+                id: undefined,
+                active: true,
+                configurationJson: {...zone.widgetInstance.configurationJson},
+            }
+            : null,
     };
 }
 
@@ -206,6 +243,25 @@ function HelpLabel({
     );
 }
 
+function IconButtonTooltip({
+                               label,
+                               children,
+                           }: {
+    label: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                {children}
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>
+                {label}
+            </TooltipContent>
+        </Tooltip>
+    );
+}
+
 export function DisplayTemplateForm({
                                         mode,
                                         templateId,
@@ -258,6 +314,32 @@ export function DisplayTemplateForm({
         zonesFieldArray.replace(nextZones);
     };
 
+    const duplicateZone = (zoneIndex: number) => {
+        const zones = form.getValues('zones');
+        const zone = zones[zoneIndex];
+        if (!zone || zone.zoneType === ZoneType.PLAYLIST) return;
+
+        zonesFieldArray.append(duplicateZoneValue(
+            zone,
+            zones.length,
+            form.getValues('resolutionX'),
+            form.getValues('resolutionY'),
+        ));
+    };
+
+    const resetZoneStyle = (zoneIndex: number) => {
+        const configurationJson = form.getValues(`zones.${zoneIndex}.configurationJson`);
+
+        form.setValue(
+            `zones.${zoneIndex}.configurationJson`,
+            removeZoneAppearanceStyleConfig(configurationJson),
+            {
+                shouldDirty: true,
+                shouldValidate: form.formState.isSubmitted,
+            },
+        );
+    };
+
     const submit = (values: FormValue) => {
         startTransition(async () => {
             form.clearErrors('root');
@@ -276,12 +358,36 @@ export function DisplayTemplateForm({
         });
     };
 
+    const handleInvalidSubmit = () => {
+        toast.error('Certains champs du modèle sont invalides.');
+
+        const scrollToFirstInvalidField = () => {
+            const firstInvalidField = document.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
+            if (!firstInvalidField) return;
+
+            if (typeof firstInvalidField.scrollIntoView === 'function') {
+                firstInvalidField.scrollIntoView({behavior: 'smooth', block: 'center'});
+            }
+            firstInvalidField.focus?.({preventScroll: true});
+        };
+
+        if (typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(scrollToFirstInvalidField);
+            return;
+        }
+
+        scrollToFirstInvalidField();
+    };
+
     const zoneListError = form.formState.errors.zones && !Array.isArray(form.formState.errors.zones)
         ? form.formState.errors.zones
         : undefined;
 
     return (
-        <form onSubmit={form.handleSubmit(submit)} className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <form
+            onSubmit={form.handleSubmit(submit, handleInvalidSubmit)}
+            className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]"
+        >
             <Card>
                 <CardHeader>
                     <CardTitle>{isEdit ? 'Modifier le modèle' : 'Nouveau modèle d’affichage'}</CardTitle>
@@ -442,6 +548,7 @@ export function DisplayTemplateForm({
                                     ? form.formState.errors.zones[zoneIndex]
                                     : undefined;
                                 const canRemoveZone = formValue.zones.length > 1 && zone.zoneType !== ZoneType.PLAYLIST;
+                                const canDuplicateZone = zone.zoneType !== ZoneType.PLAYLIST;
 
                                 return (
                                     <Card key={zoneField.fieldArrayId}>
@@ -450,16 +557,34 @@ export function DisplayTemplateForm({
                                                 <CardTitle className="text-base">{zone.name || 'Zone'}</CardTitle>
                                                 <CardDescription>{zone.zoneType}</CardDescription>
                                             </div>
-                                            {canRemoveZone ? (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => removeZone(zoneIndex)}
-                                                >
-                                                    <Trash2 />
-                                                </Button>
-                                            ) : null}
+                                            <div className="flex items-center gap-1">
+                                                {canDuplicateZone ? (
+                                                    <IconButtonTooltip label={`Dupliquer la zone ${zone.name || 'Zone'}`}>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => duplicateZone(zoneIndex)}
+                                                            aria-label={`Dupliquer ${zone.name || 'Zone'}`}
+                                                        >
+                                                            <CopyPlus data-icon="inline-start" />
+                                                        </Button>
+                                                    </IconButtonTooltip>
+                                                ) : null}
+                                                {canRemoveZone ? (
+                                                    <IconButtonTooltip label={`Supprimer la zone ${zone.name || 'Zone'}`}>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => removeZone(zoneIndex)}
+                                                            aria-label={`Supprimer ${zone.name || 'Zone'}`}
+                                                        >
+                                                            <Trash2 data-icon="inline-start" />
+                                                        </Button>
+                                                    </IconButtonTooltip>
+                                                ) : null}
+                                            </div>
                                         </CardHeader>
                                         <CardContent>
                                             <FieldGroup className="gap-4">
@@ -581,6 +706,8 @@ export function DisplayTemplateForm({
                                                                 zoneType={zone.zoneType}
                                                                 configurationJson={field.value}
                                                                 onChange={field.onChange}
+                                                                onResetStyle={() => resetZoneStyle(zoneIndex)}
+                                                                errors={zoneErrors?.configurationJson as ZoneConfigurationEditorErrors | undefined}
                                                             />
                                                             {fieldState.invalid ? (
                                                                 <FieldError errors={[fieldState.error]} />
@@ -658,160 +785,13 @@ export function DisplayTemplateForm({
                                 positionY: zone.positionY,
                                 width: zone.width,
                                 height: zone.height,
+                                configurationJson: zone.configurationJson,
                             }))}
                         />
                     </CardContent>
                 </Card>
             </div>
         </form>
-    );
-}
-
-function ZoneConfigurationEditor({
-                                     zoneType,
-                                     configurationJson,
-                                     onChange,
-                                 }: {
-    zoneType: ZoneType;
-    configurationJson: Record<string, unknown>;
-    onChange: (configurationJson: Record<string, unknown>) => void;
-}) {
-    if (zoneType === ZoneType.PLAYLIST) {
-        return (
-            <Field>
-                <FieldLabel>Fond de zone</FieldLabel>
-                <Input
-                    value={getStringConfig(configurationJson, 'backgroundColor', 'transparent')}
-                    onChange={(event) => onChange({...configurationJson, backgroundColor: event.target.value})}
-                />
-            </Field>
-        );
-    }
-
-    if (zoneType === ZoneType.STATIC) {
-        const mode = getStringConfig(
-            configurationJson,
-            'contentType',
-            getStringConfig(configurationJson, 'imageUrl') ? 'image' : 'text',
-        );
-
-        const setMode = (nextMode: string) => {
-            const base = {
-                backgroundColor: getStringConfig(configurationJson, 'backgroundColor', 'transparent'),
-                contentType: nextMode,
-            };
-
-            onChange(nextMode === 'image'
-                ? {
-                    ...base,
-                    imageUrl: getStringConfig(configurationJson, 'imageUrl'),
-                    fit: getStringConfig(configurationJson, 'fit', 'contain'),
-                }
-                : {
-                    ...base,
-                    text: getStringConfig(configurationJson, 'text'),
-                    color: getStringConfig(configurationJson, 'color', '#ffffff'),
-                });
-        };
-
-        return (
-            <Tabs value={mode === 'image' ? 'image' : 'text'} onValueChange={setMode} className="gap-3">
-                <TabsList>
-                    <TabsTrigger value="text">Texte</TabsTrigger>
-                    <TabsTrigger value="image">Image</TabsTrigger>
-                </TabsList>
-                {mode !== 'image' ? (
-                    <TabsContent>
-                        <FieldGroup className="grid gap-3 md:grid-cols-2">
-                            <Field>
-                                <FieldLabel>Texte</FieldLabel>
-                                <Input
-                                    value={getStringConfig(configurationJson, 'text')}
-                                    onChange={(event) => onChange({
-                                        ...configurationJson,
-                                        contentType: 'text',
-                                        text: event.target.value,
-                                        imageUrl: undefined,
-                                        fit: undefined,
-                                    })}
-                                />
-                            </Field>
-                            <Field>
-                                <FieldLabel>Couleur texte</FieldLabel>
-                                <Input
-                                    value={getStringConfig(configurationJson, 'color', '#ffffff')}
-                                    onChange={(event) => onChange({
-                                        ...configurationJson,
-                                        contentType: 'text',
-                                        color: event.target.value,
-                                    })}
-                                />
-                            </Field>
-                            <StaticBackgroundInput configurationJson={configurationJson} onChange={onChange} />
-                        </FieldGroup>
-                    </TabsContent>
-                ) : null}
-                {mode === 'image' ? (
-                    <TabsContent>
-                        <FieldGroup className="grid gap-3 md:grid-cols-2">
-                            <Field>
-                                <FieldLabel>URL image</FieldLabel>
-                                <Input
-                                    value={getStringConfig(configurationJson, 'imageUrl')}
-                                    onChange={(event) => onChange({
-                                        ...configurationJson,
-                                        contentType: 'image',
-                                        imageUrl: event.target.value,
-                                        text: undefined,
-                                        color: undefined,
-                                    })}
-                                />
-                            </Field>
-                            <Field>
-                                <FieldLabel>Ajustement</FieldLabel>
-                                <Input
-                                    value={getStringConfig(configurationJson, 'fit', 'contain')}
-                                    onChange={(event) => onChange({
-                                        ...configurationJson,
-                                        contentType: 'image',
-                                        fit: event.target.value,
-                                    })}
-                                />
-                            </Field>
-                            <StaticBackgroundInput configurationJson={configurationJson} onChange={onChange} />
-                        </FieldGroup>
-                    </TabsContent>
-                ) : null}
-            </Tabs>
-        );
-    }
-
-    return (
-        <Field>
-            <FieldLabel>Fond de zone</FieldLabel>
-            <Input
-                value={getStringConfig(configurationJson, 'backgroundColor', 'transparent')}
-                onChange={(event) => onChange({...configurationJson, backgroundColor: event.target.value})}
-            />
-        </Field>
-    );
-}
-
-function StaticBackgroundInput({
-                                   configurationJson,
-                                   onChange,
-                               }: {
-    configurationJson: Record<string, unknown>;
-    onChange: (configurationJson: Record<string, unknown>) => void;
-}) {
-    return (
-        <Field>
-            <FieldLabel>Fond</FieldLabel>
-            <Input
-                value={getStringConfig(configurationJson, 'backgroundColor', 'transparent')}
-                onChange={(event) => onChange({...configurationJson, backgroundColor: event.target.value})}
-            />
-        </Field>
     );
 }
 

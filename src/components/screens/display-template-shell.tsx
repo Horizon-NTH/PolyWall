@@ -13,6 +13,7 @@ import {
     type DisplayTemplateZone,
 } from '@/lib/display-runtime/types';
 import { getRequiredStringConfig } from '@/lib/config/json-config';
+import { getZoneAppearanceStyle } from '@/lib/display-runtime/template-style';
 
 export type TemplateRendererProps = {
     snapshot: DisplayRuntimeSnapshot;
@@ -106,14 +107,16 @@ function getZoneStyle(zone: DisplayTemplateZone, snapshot: DisplayRuntimeSnapsho
 
 function StaticZone({zone}: { zone: DisplayTemplateZone }) {
     const configurationJson = zone.configurationJson ?? {};
-    const backgroundColor = getRequiredStringConfig(configurationJson, 'backgroundColor', 'transparent');
     const text = getRequiredStringConfig(configurationJson, 'text', '');
     const color = getRequiredStringConfig(configurationJson, 'color', '#ffffff');
     const imageUrl = getRequiredStringConfig(configurationJson, 'imageUrl', '');
     const fit = getRequiredStringConfig(configurationJson, 'fit', 'contain');
 
     return (
-        <div className="flex h-full w-full items-center justify-center overflow-hidden p-4" style={{backgroundColor}}>
+        <div
+            className="flex h-full w-full items-center justify-center overflow-hidden"
+            style={getZoneAppearanceStyle(configurationJson, zone.zoneType)}
+        >
             {imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -135,11 +138,13 @@ function StaticZone({zone}: { zone: DisplayTemplateZone }) {
 function WidgetZone({zone}: { zone: DisplayTemplateZone }) {
     const configurationJson = zone.configurationJson ?? {};
     const widget = zone.widgetInstance ?? null;
-    const backgroundColor = getRequiredStringConfig(configurationJson, 'backgroundColor', 'transparent');
     const gap = typeof configurationJson.gap === 'number' ? configurationJson.gap : 12;
 
     return (
-        <div className="flex h-full w-full flex-col overflow-hidden p-3" style={{backgroundColor, gap}}>
+        <div
+            className="flex h-full w-full flex-col overflow-hidden"
+            style={{...getZoneAppearanceStyle(configurationJson, zone.zoneType), gap}}
+        >
             {widget ? (
                 <div className="min-h-0 flex-1 overflow-hidden">
                     <DisplayWidget widget={widget} />
@@ -164,9 +169,18 @@ function DisplayLayoutRenderer(props: TemplateRendererProps) {
     return (
         <div className="relative h-full w-full overflow-hidden" style={{backgroundColor}}>
             {props.snapshot.channel.template.zones.map((zone) => (
-                <div key={zone.id} className="absolute overflow-hidden" style={getZoneStyle(zone, props.snapshot)}>
+                <div
+                    key={zone.id}
+                    className="absolute overflow-hidden"
+                    style={getZoneStyle(zone, props.snapshot)}
+                >
                     {zone.zoneType === ZoneType.PLAYLIST ? (
-                        <DisplayMediaViewport {...props} />
+                        <div
+                            className="h-full w-full overflow-hidden"
+                            style={getZoneAppearanceStyle(zone.configurationJson ?? {}, zone.zoneType)}
+                        >
+                            <DisplayMediaViewport {...props} />
+                        </div>
                     ) : zone.zoneType === ZoneType.WIDGET ? (
                         <WidgetZone zone={zone} />
                     ) : zone.zoneType === ZoneType.STATIC ? (

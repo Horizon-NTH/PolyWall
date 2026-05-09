@@ -14,19 +14,23 @@ function ClockWidget({widget}: DisplayWidgetProps) {
     const [now, setNow] = React.useState(() => new Date());
     const timezone = getRequiredStringConfig(widget.configurationJson, 'timezone', 'Europe/Paris');
     const format = getRequiredStringConfig(widget.configurationJson, 'format', 'HH:mm');
+    const includesSeconds = format.includes('ss');
 
     React.useEffect(() => {
         const interval = window.setInterval(() => setNow(new Date()), 1000);
         return () => window.clearInterval(interval);
     }, []);
 
-    const options: Intl.DateTimeFormatOptions = format.includes('ss')
+    const options: Intl.DateTimeFormatOptions = includesSeconds
         ? {hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: timezone}
         : {hour: '2-digit', minute: '2-digit', timeZone: timezone};
+    const fontSize = includesSeconds
+        ? 'min(80cqh, calc(90cqw / 5.2))'
+        : 'min(80cqh, calc(90cqw / 3.3))';
 
     return (
-        <div className="flex h-full w-full items-center justify-center text-white">
-            <span className="text-[clamp(2rem,8vw,8rem)] leading-none font-semibold tabular-nums">
+        <div className="flex h-full w-full items-center justify-center overflow-hidden text-white [container-type:size]">
+            <span className="max-w-full whitespace-nowrap leading-none font-semibold tabular-nums" style={{fontSize}}>
                 {new Intl.DateTimeFormat('fr-FR', options).format(now)}
             </span>
         </div>

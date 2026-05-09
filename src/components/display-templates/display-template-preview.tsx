@@ -1,6 +1,7 @@
 'use client';
 
 import { ZoneType } from '@/generated/prisma/enums';
+import { getZonePreviewAppearanceStyle } from '@/lib/display-runtime/template-style';
 import { cn } from '@/lib/utils';
 
 export type DisplayTemplatePreviewZone = {
@@ -12,6 +13,7 @@ export type DisplayTemplatePreviewZone = {
     positionY: number;
     width: number;
     height: number;
+    configurationJson?: Record<string, unknown> | null;
 };
 
 type DisplayTemplatePreviewProps = {
@@ -71,6 +73,7 @@ export function DisplayTemplatePreview({
                         width: `${(zone.width / resolutionX) * 100}%`,
                         height: `${(zone.height / resolutionY) * 100}%`,
                         zIndex: zone.orderIndex,
+                        ...getZonePreviewAppearanceStyle(zone.configurationJson ?? {}, zone.zoneType),
                     }}
                 >
                     <div className="truncate font-medium">{zone.name}</div>

@@ -10,6 +10,7 @@ const pushMock = vi.fn();
 const createDisplayTemplateMock = vi.fn();
 const updateDisplayTemplateMock = vi.fn();
 const toastSuccessMock = vi.fn();
+const toastErrorMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
     useRouter: () => ({
@@ -25,7 +26,7 @@ vi.mock('@/actions/display-template-actions', () => ({
 vi.mock('sonner', () => ({
     toast: {
         success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: vi.fn(),
+        error: (...args: unknown[]) => toastErrorMock(...args),
     },
 }));
 
@@ -85,6 +86,7 @@ describe('DisplayTemplateForm', () => {
         createDisplayTemplateMock.mockReset();
         updateDisplayTemplateMock.mockReset();
         toastSuccessMock.mockReset();
+        toastErrorMock.mockReset();
     });
 
     it('creates a global template and redirects on success', async () => {
@@ -145,6 +147,101 @@ describe('DisplayTemplateForm', () => {
                     active: true,
                     refreshPeriodSeconds: 30,
                 }));
+        });
+    });
+
+    it('shows field-level errors for invalid zone style settings', async () => {
+        render(
+            <DisplayTemplateForm
+                mode="create"
+                widgetTypes={widgetTypes}
+                cancelHref="/dashboard/display-templates"
+            />,
+        );
+
+        fireEvent.change(screen.getByLabelText('Nom'), {target: {value: 'Template style invalide'}});
+        fireEvent.change(screen.getByLabelText('Description'), {target: {value: 'Modèle avec erreur style'}});
+        fireEvent.click(screen.getByRole('button', {name: 'Style de zone'}));
+        fireEvent.change(screen.getByLabelText('Fond'), {target: {value: 'url(javascript:alert(1))'}});
+        fireEvent.change(screen.getByLabelText('Marge intérieure'), {target: {value: '999'}});
+        fireEvent.click(screen.getByRole('button', {name: 'Close'}));
+        fireEvent.click(screen.getByRole('button', {name: 'Créer'}));
+
+        await waitFor(() => {
+            expect(toastErrorMock).toHaveBeenCalledWith('Certains champs du modèle sont invalides.');
+            expect(createDisplayTemplateMock).not.toHaveBeenCalled();
+            expect(screen.getByRole('button', {name: 'Style de zone'})).toHaveAttribute('aria-invalid', 'true');
+        });
+
+        fireEvent.click(screen.getByRole('button', {name: 'Style de zone'}));
+
+        expect(await screen.findByText('La couleur doit être une valeur hexadécimale ou transparent.'))
+            .toBeInTheDocument();
+        expect(screen.getByText('La marge intérieure doit être comprise entre 0 et 256.')).toBeInTheDocument();
+    });
+
+    it('duplicates a non-playlist zone with a fresh order and widget copy', async () => {
+        createDisplayTemplateMock.mockResolvedValueOnce({ok: true, templateId: 'template-duplicate'});
+
+        render(
+            <DisplayTemplateForm
+                mode="create"
+                widgetTypes={widgetTypes}
+                cancelHref="/dashboard/display-templates"
+            />,
+        );
+
+        fireEvent.change(screen.getByLabelText('Nom'), {target: {value: 'Template duplication'}});
+        fireEvent.change(screen.getByLabelText('Description'), {target: {value: 'Modèle avec duplication'}});
+        fireEvent.click(screen.getByRole('button', {name: /Zone widget/}));
+        await screen.findByRole('button', {name: 'Dupliquer Widget'});
+        fireEvent.click(screen.getByRole('button', {name: 'Dupliquer Widget'}));
+        fireEvent.click(screen.getByRole('button', {name: 'Créer'}));
+
+        await waitFor(() => {
+            const payload = createDisplayTemplateMock.mock.calls[0]?.[0] as DisplayTemplateCreateValues;
+            const widgetZones = payload.zones.filter((zone) => zone.zoneType === ZoneType.WIDGET);
+
+            expect(widgetZones).toHaveLength(2);
+            expect(widgetZones[1]).toEqual(expect.objectContaining({
+                name: 'Widget copie',
+                orderIndex: 2,
+                positionX: 1520,
+                positionY: 0,
+            }));
+            expect(widgetZones[1]?.id).toBeUndefined();
+            expect(widgetZones[1]?.widgetInstance).toEqual(expect.objectContaining({
+                widgetTypeId: 'widget-clock',
+                active: true,
+                refreshPeriodSeconds: 30,
+            }));
+            expect(widgetZones[1]?.widgetInstance?.id).toBeUndefined();
+        });
+    });
+
+    it('resets zone configuration to the default for its type', async () => {
+        createDisplayTemplateMock.mockResolvedValueOnce({ok: true, templateId: 'template-reset'});
+
+        render(
+            <DisplayTemplateForm
+                mode="create"
+                widgetTypes={widgetTypes}
+                cancelHref="/dashboard/display-templates"
+            />,
+        );
+
+        fireEvent.change(screen.getByLabelText('Nom'), {target: {value: 'Template reset'}});
+        fireEvent.change(screen.getByLabelText('Description'), {target: {value: 'Modèle reset style'}});
+        fireEvent.click(screen.getByRole('button', {name: 'Style de zone'}));
+        fireEvent.change(screen.getByLabelText('Coins arrondis'), {target: {value: '32'}});
+        fireEvent.change(screen.getByLabelText('Fond'), {target: {value: '#ffffff'}});
+        fireEvent.click(screen.getByRole('button', {name: 'Réinitialiser les styles'}));
+        fireEvent.click(screen.getByRole('button', {name: 'Close'}));
+        fireEvent.click(screen.getByRole('button', {name: 'Créer'}));
+
+        await waitFor(() => {
+            const payload = createDisplayTemplateMock.mock.calls[0]?.[0] as DisplayTemplateCreateValues;
+            expect(payload.zones[0]?.configurationJson).toEqual({});
         });
     });
 

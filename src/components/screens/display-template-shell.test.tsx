@@ -167,7 +167,15 @@ describe('DisplayTemplateShell', () => {
                 positionY: 0,
                 width: 520,
                 height: 1080,
-                configurationJson: {text: 'Bienvenue'},
+                configurationJson: {
+                    text: 'Bienvenue',
+                    backgroundColor: '#111827',
+                    borderRadius: 32,
+                    padding: 24,
+                    borderWidth: 2,
+                    borderColor: '#ffffff55',
+                    opacity: 0.9,
+                },
                 widgetInstance: null,
             },
         ];
@@ -182,6 +190,13 @@ describe('DisplayTemplateShell', () => {
         );
 
         expect(screen.getByAltText('Affiche principale')).toBeInTheDocument();
-        expect(screen.getByText('Bienvenue')).toBeInTheDocument();
+        expect(screen.getByText('Bienvenue').parentElement).toHaveStyle({
+            backgroundColor: '#111827',
+            borderRadius: '32px',
+            padding: '24px',
+            borderWidth: '2px',
+            borderColor: '#ffffff55',
+            opacity: '0.9',
+        });
     });
 });

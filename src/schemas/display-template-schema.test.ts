@@ -119,4 +119,91 @@ describe('display-template-schema', () => {
             issue.message === 'Seules les zones widget peuvent contenir un widget.',
         )).toBe(true);
     });
+
+    it('sanitizes allowed zone style fields and strips unknown configuration keys', () => {
+        const parsed = displayTemplateCreateSchema.safeParse({
+            ...baseTemplate,
+            configurationJson: {
+                backgroundColor: '#000000',
+                unknownTemplateKey: true,
+            },
+            zones: [{
+                ...baseTemplate.zones[0],
+                configurationJson: {
+                    backgroundColor: '#ffffff33',
+                    borderRadius: 24,
+                    padding: 16,
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                    shadow: 'md',
+                    opacity: 0.9,
+                    unknownZoneKey: true,
+                },
+            }],
+        });
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.data?.configurationJson).toEqual({backgroundColor: '#000000'});
+        expect(parsed.data?.zones[0]?.configurationJson).toEqual({
+            backgroundColor: '#ffffff33',
+            borderRadius: 24,
+            padding: 16,
+            borderWidth: 2,
+            borderColor: '#fff',
+            shadow: 'md',
+            opacity: 0.9,
+        });
+    });
+
+    it('rejects invalid style values', () => {
+        const parsed = displayTemplateCreateSchema.safeParse({
+            ...baseTemplate,
+            zones: [{
+                ...baseTemplate.zones[0],
+                configurationJson: {
+                    backgroundColor: 'url(javascript:alert(1))',
+                    padding: 999,
+                    opacity: 2,
+                },
+            }],
+        });
+
+        expect(parsed.success).toBe(false);
+        expect(parsed.error?.issues.some((issue) =>
+            issue.message === 'La couleur doit être une valeur hexadécimale ou transparent.',
+        )).toBe(true);
+        expect(parsed.error?.issues.some((issue) =>
+            issue.message === 'La marge intérieure doit être comprise entre 0 et 256.',
+        )).toBe(true);
+        expect(parsed.error?.issues.some((issue) =>
+            issue.message === 'L’opacité doit être comprise entre 0 et 1.',
+        )).toBe(true);
+    });
+
+    it('rejects invalid static image configuration', () => {
+        const parsed = displayTemplateCreateSchema.safeParse({
+            ...baseTemplate,
+            zones: [
+                baseTemplate.zones[0],
+                {
+                    name: 'Image statique',
+                    zoneType: ZoneType.STATIC,
+                    orderIndex: 1,
+                    positionX: 0,
+                    positionY: 0,
+                    width: 400,
+                    height: 300,
+                    configurationJson: {
+                        contentType: 'image',
+                        imageUrl: 'not-an-url',
+                        fit: 'stretch',
+                    },
+                    widgetInstance: null,
+                },
+            ],
+        });
+
+        expect(parsed.success).toBe(false);
+        expect(parsed.error?.issues.some((issue) => issue.message === 'URL image invalide.')).toBe(true);
+    });
 });

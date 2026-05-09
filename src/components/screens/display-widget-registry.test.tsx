@@ -28,7 +28,10 @@ describe('DisplayWidget', () => {
     it('renders a clock widget using its timezone and format', () => {
         render(<DisplayWidget widget={buildWidget()} />);
 
-        expect(screen.getByText('10:15')).toBeInTheDocument();
+        const clock = screen.getByText('10:15');
+        expect(clock).toBeInTheDocument();
+        expect(clock).toHaveStyle({fontSize: 'min(80cqh, calc(90cqw / 3.3))'});
+        expect(clock).toHaveClass('whitespace-nowrap');
     });
 
     it('updates the clock every second', () => {
@@ -41,6 +44,7 @@ describe('DisplayWidget', () => {
         );
 
         expect(screen.getByText('10:15:30')).toBeInTheDocument();
+        expect(screen.getByText('10:15:30')).toHaveStyle({fontSize: 'min(80cqh, calc(90cqw / 5.2))'});
 
         act(() => {
             vi.advanceTimersByTime(1000);

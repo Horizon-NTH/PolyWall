@@ -1,8 +1,70 @@
 import { z } from 'zod';
 
 import { ZoneType } from '@/generated/prisma/enums';
+import { ZONE_SHADOW_OPTIONS } from '@/lib/display-runtime/template-style';
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
+const cssColorSchema = z
+    .string()
+    .trim()
+    .min(1, 'La couleur est requise.')
+    .max(80, 'La couleur est trop longue.')
+    .regex(
+        /^(transparent|#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}))$/,
+        'La couleur doit être une valeur hexadécimale ou transparent.',
+    );
+const boundedNumber = (min: number, max: number, message: string) => z
+    .coerce
+    .number({error: message})
+    .min(min, message)
+    .max(max, message);
+
+function stripUndefinedValues(value: Record<string, unknown>): Record<string, unknown> {
+    return Object.fromEntries(Object.entries(value).filter(([, entryValue]) => entryValue !== undefined));
+}
+
+const templateConfigurationSchema = z
+    .object({
+        backgroundColor: cssColorSchema.optional(),
+    })
+    .strip()
+    .transform((value) => stripUndefinedValues(value))
+    .default({});
+
+const zoneStyleSchema = z
+    .object({
+        backgroundColor: cssColorSchema.optional(),
+        borderColor: cssColorSchema.optional(),
+        borderRadius: boundedNumber(0, 256, 'Les coins arrondis doivent être compris entre 0 et 256.').optional(),
+        padding: boundedNumber(0, 256, 'La marge intérieure doit être comprise entre 0 et 256.').optional(),
+        borderWidth: boundedNumber(0, 32, 'La bordure doit être comprise entre 0 et 32.').optional(),
+        shadow: z.enum(ZONE_SHADOW_OPTIONS).optional(),
+        opacity: boundedNumber(0, 1, 'L’opacité doit être comprise entre 0 et 1.').optional(),
+    })
+    .strip();
+
+const staticZoneConfigurationSchema = zoneStyleSchema
+    .extend({
+        contentType: z.enum(['text', 'image']).optional(),
+        text: z.string().max(2000, 'Le texte statique doit contenir au maximum 2000 caractères.').optional(),
+        color: cssColorSchema.optional(),
+        imageUrl: z
+            .union([
+                z.literal(''),
+                z.url('URL image invalide.'),
+            ])
+            .optional(),
+        fit: z.enum(['contain', 'cover']).optional(),
+    })
+    .strip();
+
+function getZoneConfigurationSchema(zoneType: ZoneType) {
+    return zoneType === ZoneType.STATIC ? staticZoneConfigurationSchema : zoneStyleSchema;
+}
+
+function sanitizeZoneConfiguration(zoneType: ZoneType, configurationJson: Record<string, unknown>) {
+    return stripUndefinedValues(getZoneConfigurationSchema(zoneType).parse(configurationJson));
+}
 
 const displayTemplateBaseSchema = z.object({
     name: z
@@ -25,7 +87,7 @@ const displayTemplateBaseSchema = z.object({
         .int('La hauteur doit être un entier.')
         .min(240, 'La hauteur doit être supérieure ou égale à 240.')
         .max(4320, 'La hauteur doit être inférieure ou égale à 4320.'),
-    configurationJson: jsonObjectSchema.default({}),
+    configurationJson: templateConfigurationSchema,
 });
 
 export const widgetInstanceSchema = z.object({
@@ -40,22 +102,39 @@ export const widgetInstanceSchema = z.object({
     configurationJson: jsonObjectSchema.default({}),
 });
 
-export const displayZoneSchema = z.object({
-    id: z.string().trim().optional(),
-    name: z
-        .string()
-        .trim()
-        .min(1, 'Le nom de la zone est requis.')
-        .max(120, 'Le nom de la zone doit contenir au maximum 120 caractères.'),
-    zoneType: z.enum(ZoneType),
-    orderIndex: z.number().int().min(0),
-    positionX: z.number().int().min(0),
-    positionY: z.number().int().min(0),
-    width: z.number().int().min(1),
-    height: z.number().int().min(1),
-    configurationJson: jsonObjectSchema.default({}),
-    widgetInstance: widgetInstanceSchema.nullable().default(null),
-});
+export const displayZoneSchema = z
+    .object({
+        id: z.string().trim().optional(),
+        name: z
+            .string()
+            .trim()
+            .min(1, 'Le nom de la zone est requis.')
+            .max(120, 'Le nom de la zone doit contenir au maximum 120 caractères.'),
+        zoneType: z.enum(ZoneType),
+        orderIndex: z.number().int().min(0),
+        positionX: z.number().int().min(0),
+        positionY: z.number().int().min(0),
+        width: z.number().int().min(1),
+        height: z.number().int().min(1),
+        configurationJson: jsonObjectSchema.default({}),
+        widgetInstance: widgetInstanceSchema.nullable().default(null),
+    })
+    .superRefine((zone, context) => {
+        const parsedConfiguration = getZoneConfigurationSchema(zone.zoneType).safeParse(zone.configurationJson);
+        if (!parsedConfiguration.success) {
+            parsedConfiguration.error.issues.forEach((issue) => {
+                context.addIssue({
+                    code: 'custom',
+                    path: ['configurationJson', ...issue.path],
+                    message: issue.message,
+                });
+            });
+        }
+    })
+    .transform((zone) => ({
+        ...zone,
+        configurationJson: sanitizeZoneConfiguration(zone.zoneType, zone.configurationJson),
+    }));
 
 function validateTemplateGeometry(
     value: z.infer<typeof displayTemplateBaseSchema> & { zones: z.infer<typeof displayZoneSchema>[] },
