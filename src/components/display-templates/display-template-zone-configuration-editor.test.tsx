@@ -28,6 +28,22 @@ vi.mock('@/components/ui/select', () => ({
     ),
 }));
 
+vi.mock('radix-ui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('radix-ui')>();
+
+    return {
+        ...actual,
+        Select: {
+            ...actual.Select,
+            Item: ({value, textValue}: { value: string; textValue?: string }) => (
+                <option value={value}>{textValue ?? value}</option>
+            ),
+            ItemText: ({children}: { children: ReactNode }) => <>{children}</>,
+            ItemIndicator: ({children}: { children: ReactNode }) => <>{children}</>,
+        },
+    };
+});
+
 vi.mock('@/components/ui/sheet', () => ({
     Sheet: ({children}: { children: ReactNode }) => <div>{children}</div>,
     SheetTrigger: ({children}: { children: ReactNode }) => <>{children}</>,
@@ -40,8 +56,8 @@ vi.mock('@/components/ui/sheet', () => ({
 vi.mock('@/components/ui/tabs', () => ({
     Tabs: ({children}: { children: ReactNode }) => <div>{children}</div>,
     TabsList: ({children}: { children: ReactNode }) => <div>{children}</div>,
-    TabsTrigger: ({children, value}: { children: ReactNode; value: string }) => (
-        <button type="button" role="tab" data-value={value}>{children}</button>
+    TabsTrigger: ({children, value, disabled}: { children: ReactNode; value: string; disabled?: boolean }) => (
+        <button type="button" role="tab" data-value={value} disabled={disabled}>{children}</button>
     ),
     TabsContent: ({children}: { children: ReactNode }) => <div>{children}</div>,
 }));
@@ -57,6 +73,10 @@ function renderControlledEditor(
     initialConfiguration: Record<string, unknown>,
     errors?: React.ComponentProps<typeof ZoneConfigurationEditor>['errors'],
     onResetStyle = vi.fn(),
+    staticImageMediaOptions = [
+        {id: 'media-logo', title: 'Logo BDE', thumbUrl: 'https://example.com/logo.png'},
+        {id: 'media-banner', title: 'Bannière BDE', thumbUrl: null},
+    ],
 ) {
     const onChange = vi.fn();
 
@@ -67,6 +87,7 @@ function renderControlledEditor(
             <ZoneConfigurationEditor
                 zoneType={zoneType}
                 configurationJson={configurationJson}
+                staticImageMediaOptions={staticImageMediaOptions}
                 errors={errors}
                 onResetStyle={onResetStyle}
                 onChange={(nextConfiguration) => {
@@ -122,7 +143,7 @@ describe('ZoneConfigurationEditor', () => {
             contentType: 'text',
             text: 'Nouveau texte',
             color: '#ffffff',
-            imageUrl: undefined,
+            mediaItemId: undefined,
             fit: undefined,
         }));
 
@@ -139,24 +160,68 @@ describe('ZoneConfigurationEditor', () => {
         const {onChange} = renderControlledEditor(ZoneType.STATIC, {
             backgroundColor: '#000000',
             contentType: 'image',
-            imageUrl: 'https://example.com/image-a.png',
+            mediaItemId: 'media-logo',
             fit: 'contain',
             text: 'Ancien texte',
             color: '#ffffff',
         });
 
-        fireEvent.change(screen.getByLabelText('URL image'), {
-            target: {value: 'https://example.com/image-b.png'},
-        });
+        const mediaSelect = screen.getAllByTestId('mock-select').find((select) =>
+            (select as HTMLSelectElement).value === 'media-logo',
+        );
+        expect(mediaSelect).toBeDefined();
+
+        fireEvent.change(mediaSelect!, {target: {value: 'media-banner'}});
 
         expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
             backgroundColor: '#000000',
             contentType: 'image',
-            imageUrl: 'https://example.com/image-b.png',
+            mediaItemId: 'media-banner',
             fit: 'contain',
             text: undefined,
             color: undefined,
         }));
+    });
+
+    it('disables static image configuration when media images are not allowed', () => {
+        render(
+            <ZoneConfigurationEditor
+                zoneType={ZoneType.STATIC}
+                configurationJson={{contentType: 'text', text: 'Logo'}}
+                staticImagesAllowed={false}
+                onChange={vi.fn()}
+            />,
+        );
+
+        expect(screen.getByRole('tab', {name: 'Image'})).toBeDisabled();
+        expect(screen.getByText(
+            'Les images statiques liées à la médiathèque sont disponibles uniquement sur les modèles d\'organisation.',
+        )).toBeInTheDocument();
+    });
+
+    it('shows an explicit empty media message when no static images are available', () => {
+        renderControlledEditor(
+            ZoneType.STATIC,
+            {contentType: 'image', mediaItemId: '', fit: 'contain'},
+            undefined,
+            vi.fn(),
+            [],
+        );
+
+        expect(screen.getAllByText('Aucune image disponible dans la médiathèque.')).toHaveLength(1);
+    });
+
+    it('does not mark zone style as invalid for static image media errors', () => {
+        renderControlledEditor(
+            ZoneType.STATIC,
+            {contentType: 'image', mediaItemId: '', fit: 'contain'},
+            {
+                mediaItemId: {message: 'Sélectionnez une image de la médiathèque.'},
+            },
+        );
+
+        expect(screen.getByRole('button', {name: 'Style de zone'})).toHaveAttribute('aria-invalid', 'false');
+        expect(screen.getByText('Sélectionnez une image de la médiathèque.')).toBeInTheDocument();
     });
 
     it('renders field-level errors on the style sheet trigger and fields', () => {

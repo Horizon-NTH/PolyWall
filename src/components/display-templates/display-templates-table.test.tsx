@@ -39,7 +39,7 @@ describe('DisplayTemplatesTable', () => {
         {
             id: 'template-org',
             name: 'Template org',
-            description: 'Template de l’organisation',
+            description: 'Template de l\'organisation',
             scope: 'organization',
             resolution: '1920x1080',
             zonesCount: 2,

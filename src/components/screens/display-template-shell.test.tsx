@@ -199,4 +199,46 @@ describe('DisplayTemplateShell', () => {
             opacity: '0.9',
         });
     });
+
+    it('renders a static image from the resolved media asset', () => {
+        const snapshot = buildSnapshot();
+        snapshot.channel.template.zones = [{
+            id: 'zone-logo',
+            name: 'Logo',
+            zoneType: ZoneType.STATIC,
+            orderIndex: 1,
+            positionX: 0,
+            positionY: 0,
+            width: 320,
+            height: 180,
+            configurationJson: {
+                contentType: 'image',
+                mediaItemId: 'media-logo',
+                fit: 'contain',
+            },
+            staticMediaAsset: {
+                assetId: 'asset-logo',
+                mediaFileId: 'asset-logo',
+                cacheKey: 'asset-logo',
+                signedUrl: 'https://example.com/logo.png',
+                expiresAt: '2026-05-02T11:00:00.000Z',
+                mimeType: 'image/png',
+                width: 320,
+                height: 180,
+            },
+            widgetInstance: null,
+        }];
+
+        render(
+            <DisplayTemplateShell
+                snapshot={snapshot}
+                resolvedState={buildPlayingResolvedState()}
+                syncStatus="PLAYING"
+                assetSrc="https://example.com/image.png"
+                staticAssetSrcByCacheKey={{'asset-logo': 'blob:http://localhost/logo'}}
+            />,
+        );
+
+        expect(screen.getByAltText('Logo')).toHaveAttribute('src', 'blob:http://localhost/logo');
+    });
 });

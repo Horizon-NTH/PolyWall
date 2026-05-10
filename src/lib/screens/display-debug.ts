@@ -217,7 +217,7 @@ export function getDisplayDebugScenario(preset: DisplayDebugPreset): DisplayDebu
         return {
             preset,
             label: 'Mode appairage',
-            description: 'Affiche l’état initial avant association de l’écran.',
+            description: 'Affiche l\'état initial avant association de l\'écran.',
             syncStatus: 'PAIRING',
             snapshot: null,
             errorMessage: null,
@@ -285,7 +285,7 @@ export function getDisplayDebugScenario(preset: DisplayDebugPreset): DisplayDebu
         return {
             preset,
             label: 'Aucune programmation active',
-            description: 'Affiche le fallback d’absence de créneau actif.',
+            description: 'Affiche le fallback d\'absence de créneau actif.',
             syncStatus: 'PLAYING',
             snapshot: {
                 ...snapshot,

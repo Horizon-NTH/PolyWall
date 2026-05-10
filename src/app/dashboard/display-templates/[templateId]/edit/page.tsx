@@ -6,6 +6,7 @@ import { DisplayTemplateForm } from '@/components/display-templates/display-temp
 import { UserRole } from '@/generated/prisma/enums';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { asConfigurationRecord } from '@/lib/config/json-config';
+import { findStaticImageMediaOptions } from '@/lib/display-templates/static-media-options';
 import { prisma } from '@/lib/prisma';
 import { appendReturnTo } from '@/lib/return-to';
 import { findSupportedWidgetTypeOptions } from '@/lib/widgets/widget-type-queries';
@@ -32,7 +33,7 @@ export default async function Page({params, searchParams}: DisplayTemplateEditPa
         throw new Error('Session invalide: un utilisateur non super-admin doit être rattaché à une organisation.');
     }
 
-    const [template, widgetTypes] = await Promise.all([
+    const [template, widgetTypes, staticImageMediaOptions] = await Promise.all([
         prisma.displayTemplate.findFirst({
             where: {
                 id: templateId,
@@ -75,6 +76,7 @@ export default async function Page({params, searchParams}: DisplayTemplateEditPa
             },
         }),
         findSupportedWidgetTypeOptions(),
+        findStaticImageMediaOptions(organizationId),
     ]);
 
     if (!template) notFound();
@@ -115,7 +117,7 @@ export default async function Page({params, searchParams}: DisplayTemplateEditPa
             <DashboardHeader
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
-                    {label: 'Modèles d’affichage', href: '/dashboard/display-templates'},
+                    {label: 'Modèles d\'affichage', href: '/dashboard/display-templates'},
                     {label: template.name, href: detailHref},
                     {label: 'Modifier'},
                 ]}
@@ -126,6 +128,7 @@ export default async function Page({params, searchParams}: DisplayTemplateEditPa
                     templateId={template.id}
                     defaultValues={defaultValues}
                     widgetTypes={widgetTypes}
+                    staticImageMediaOptions={staticImageMediaOptions}
                     cancelHref={detailHref}
                     canCreateGlobalTemplates={isPlatformSuperAdmin}
                 />

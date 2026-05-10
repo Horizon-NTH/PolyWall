@@ -71,11 +71,11 @@ export function DisplayTemplateActionsCard({
                     <FieldGroup>
                         <Field>
                             <FieldLabel htmlFor="duplicateName">Nom de la copie</FieldLabel>
-                        <Input
-                            id="duplicateName"
-                            value={duplicateName}
-                            onChange={(event) => setDuplicateName(event.target.value)}
-                        />
+                            <Input
+                                id="duplicateName"
+                                value={duplicateName}
+                                onChange={(event) => setDuplicateName(event.target.value)}
+                            />
                         </Field>
                         <Button type="button" onClick={duplicate}
                                 disabled={isPending || duplicateName.trim().length === 0}>
@@ -88,7 +88,7 @@ export function DisplayTemplateActionsCard({
                         <p className="text-muted-foreground text-sm">
                             {channelsCount > 0
                                 ? 'Ce modèle est utilisé par au moins un canal.'
-                                : 'Supprimez ce modèle s’il n’est plus utilisé.'}
+                                : 'Supprimez ce modèle s\'il n\'est plus utilisé.'}
                         </p>
                         <DisplayTemplateDeleteDialog
                             open={isDeleteOpen}

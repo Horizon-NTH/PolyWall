@@ -71,7 +71,7 @@ test.describe('screens', () => {
         await displayPage.getByRole('button', {name: 'Valider le code'}).click();
         await expect(displayPage.getByText('Écran en attente', {exact: true})).toBeVisible();
         await expect(
-            displayPage.getByText(/L’écran a été appairé mais doit encore être validé par un administrateur\./),
+            displayPage.getByText(/L'écran a été appairé mais doit encore être validé par un administrateur\./),
         ).toBeVisible();
         const deviceIdText = await displayPage.getByText(/^ID appareil:/).textContent();
         const deviceId = deviceIdText?.split(':').at(1)?.trim() ?? '';
@@ -91,7 +91,7 @@ test.describe('screens', () => {
         const pendingScreenLink = page.getByRole('link', {name: pendingScreenName});
         await expect(pendingScreenLink).toBeVisible({timeout: 10_000});
         const pendingRow = page.locator('tr', {has: pendingScreenLink});
-        await pendingRow.getByRole('link', {name: "Valider l'écran"}).click();
+        await pendingRow.getByRole('link', {name: 'Valider l\'écran'}).click();
 
         await page.getByLabel('Nom').fill(`E2E écran ${Date.now()}`);
         await page.getByLabel('Localisation').fill('E2E - Hall');

@@ -18,6 +18,10 @@ const boundedNumber = (min: number, max: number, message: string) => z
     .number({error: message})
     .min(min, message)
     .max(max, message);
+const optionalStaticImageFitSchema = z.preprocess(
+    (value) => value === '' ? undefined : value,
+    z.enum(['contain', 'cover']).optional(),
+);
 
 function stripUndefinedValues(value: Record<string, unknown>): Record<string, unknown> {
     return Object.fromEntries(Object.entries(value).filter(([, entryValue]) => entryValue !== undefined));
@@ -39,7 +43,7 @@ const zoneStyleSchema = z
         padding: boundedNumber(0, 256, 'La marge intérieure doit être comprise entre 0 et 256.').optional(),
         borderWidth: boundedNumber(0, 32, 'La bordure doit être comprise entre 0 et 32.').optional(),
         shadow: z.enum(ZONE_SHADOW_OPTIONS).optional(),
-        opacity: boundedNumber(0, 1, 'L’opacité doit être comprise entre 0 et 1.').optional(),
+        opacity: boundedNumber(0, 1, 'L\'opacité doit être comprise entre 0 et 1.').optional(),
     })
     .strip();
 
@@ -48,15 +52,21 @@ const staticZoneConfigurationSchema = zoneStyleSchema
         contentType: z.enum(['text', 'image']).optional(),
         text: z.string().max(2000, 'Le texte statique doit contenir au maximum 2000 caractères.').optional(),
         color: cssColorSchema.optional(),
-        imageUrl: z
-            .union([
-                z.literal(''),
-                z.url('URL image invalide.'),
-            ])
-            .optional(),
-        fit: z.enum(['contain', 'cover']).optional(),
+        mediaItemId: z.string().trim().optional(),
+        fit: optionalStaticImageFitSchema,
     })
-    .strip();
+    .strip()
+    .superRefine((configuration, context) => {
+        if (configuration.contentType !== 'image') return;
+
+        if (!configuration.mediaItemId) {
+            context.addIssue({
+                code: 'custom',
+                path: ['mediaItemId'],
+                message: 'Sélectionnez une image de la médiathèque.',
+            });
+        }
+    });
 
 function getZoneConfigurationSchema(zoneType: ZoneType) {
     return zoneType === ZoneType.STATIC ? staticZoneConfigurationSchema : zoneStyleSchema;

@@ -84,7 +84,7 @@ async function createDisplayTemplate(
     },
 ) {
     await safeGoto(page, '/dashboard/display-templates/new');
-    await expect(page.getByText('Nouveau modèle d’affichage')).toBeVisible();
+    await expect(page.getByText('Nouveau modèle d\'affichage')).toBeVisible();
 
     if (params.scope) {
         await selectFieldOption(page, 'Portée', params.scope === 'global' ? 'Global' : 'Organisation');
@@ -294,7 +294,7 @@ test.describe('display templates', () => {
         await login(page, CONTENT_MANAGER_CREDENTIALS.email, CONTENT_MANAGER_CREDENTIALS.password);
         await ensureTemplatesList(page);
 
-        await expect(page.getByText('Modèles d’affichage').first()).toBeVisible();
+        await expect(page.getByText('Modèles d\'affichage').first()).toBeVisible();
         await expect(page.getByRole('link', {name: 'Créer'})).toHaveCount(0);
 
         await page.getByRole('link', {name: /Template Dashboard 16:9/}).first().click();

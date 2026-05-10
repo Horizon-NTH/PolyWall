@@ -176,7 +176,7 @@ describe('display-template-schema', () => {
             issue.message === 'La marge intérieure doit être comprise entre 0 et 256.',
         )).toBe(true);
         expect(parsed.error?.issues.some((issue) =>
-            issue.message === 'L’opacité doit être comprise entre 0 et 1.',
+            issue.message === 'L\'opacité doit être comprise entre 0 et 1.',
         )).toBe(true);
     });
 
@@ -195,8 +195,7 @@ describe('display-template-schema', () => {
                     height: 300,
                     configurationJson: {
                         contentType: 'image',
-                        imageUrl: 'not-an-url',
-                        fit: 'stretch',
+                        fit: '',
                     },
                     widgetInstance: null,
                 },
@@ -204,6 +203,38 @@ describe('display-template-schema', () => {
         });
 
         expect(parsed.success).toBe(false);
-        expect(parsed.error?.issues.some((issue) => issue.message === 'URL image invalide.')).toBe(true);
+        expect(parsed.error?.issues.some((issue) => issue.message === 'Sélectionnez une image de la médiathèque.')).toBe(true);
+        expect(parsed.error?.issues.some((issue) => issue.path.join('.') === 'zones.1.configurationJson.fit')).toBe(false);
+    });
+
+    it('accepts static image configuration with a media item id', () => {
+        const parsed = displayTemplateCreateSchema.safeParse({
+            ...baseTemplate,
+            zones: [
+                baseTemplate.zones[0],
+                {
+                    name: 'Logo',
+                    zoneType: ZoneType.STATIC,
+                    orderIndex: 1,
+                    positionX: 0,
+                    positionY: 0,
+                    width: 320,
+                    height: 180,
+                    configurationJson: {
+                        contentType: 'image',
+                        mediaItemId: 'media-logo',
+                        fit: 'contain',
+                    },
+                    widgetInstance: null,
+                },
+            ],
+        });
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.data?.zones[1]?.configurationJson).toEqual({
+            contentType: 'image',
+            mediaItemId: 'media-logo',
+            fit: 'contain',
+        });
     });
 });

@@ -20,6 +20,7 @@ export type TemplateRendererProps = {
     resolvedState: DisplayResolvedState;
     syncStatus: DisplaySyncStatus;
     assetSrc: string | null;
+    staticAssetSrcByCacheKey?: Record<string, string>;
 };
 
 function DisplayMediaViewport(props: TemplateRendererProps) {
@@ -105,12 +106,20 @@ function getZoneStyle(zone: DisplayTemplateZone, snapshot: DisplayRuntimeSnapsho
     };
 }
 
-function StaticZone({zone}: { zone: DisplayTemplateZone }) {
+function StaticZone({
+                        zone,
+                        staticAssetSrcByCacheKey,
+                    }: {
+    zone: DisplayTemplateZone;
+    staticAssetSrcByCacheKey?: Record<string, string>;
+}) {
     const configurationJson = zone.configurationJson ?? {};
     const text = getRequiredStringConfig(configurationJson, 'text', '');
     const color = getRequiredStringConfig(configurationJson, 'color', '#ffffff');
-    const imageUrl = getRequiredStringConfig(configurationJson, 'imageUrl', '');
     const fit = getRequiredStringConfig(configurationJson, 'fit', 'contain');
+    const imageUrl = zone.staticMediaAsset
+        ? staticAssetSrcByCacheKey?.[zone.staticMediaAsset.cacheKey] ?? zone.staticMediaAsset.signedUrl
+        : '';
 
     return (
         <div
@@ -184,7 +193,7 @@ function DisplayLayoutRenderer(props: TemplateRendererProps) {
                     ) : zone.zoneType === ZoneType.WIDGET ? (
                         <WidgetZone zone={zone} />
                     ) : zone.zoneType === ZoneType.STATIC ? (
-                        <StaticZone zone={zone} />
+                        <StaticZone zone={zone} staticAssetSrcByCacheKey={props.staticAssetSrcByCacheKey} />
                     ) : null}
                 </div>
             ))}

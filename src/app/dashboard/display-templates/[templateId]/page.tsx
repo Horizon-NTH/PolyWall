@@ -103,7 +103,7 @@ export default async function Page({params, searchParams}: DisplayTemplateDetail
             <DashboardHeader
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
-                    {label: 'Modèles d’affichage', href: '/dashboard/display-templates'},
+                    {label: 'Modèles d\'affichage', href: '/dashboard/display-templates'},
                     {label: template.name},
                 ]}
             />

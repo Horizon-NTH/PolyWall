@@ -194,8 +194,7 @@ async function createEventScheduleWithRetry(params: {
                 const pathname = new URL(page.url()).pathname;
                 return /^\/dashboard\/schedules\/[^/]+$/.test(pathname) && pathname !== '/dashboard/schedules/new';
             }, {timeout: 3500}).toBe(true);
-            const scheduleId = new URL(page.url()).pathname.match(/^\/dashboard\/schedules\/([^/]+)$/)?.[1];
-            if (!scheduleId) throw new Error('Impossible de récupérer l’identifiant de la programmation créée.');
+            const scheduleId = new URL(page.url()).pathname.match(/^\/dashboard\/schedules\/([^/]+)$/)![1];
             return {dateIndex, scheduleId};
         } catch {
             // Keep trying with another date when submission does not land on schedule detail.

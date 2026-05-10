@@ -5,6 +5,7 @@ import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { DisplayTemplateForm } from '@/components/display-templates/display-template-form';
 import { UserRole } from '@/generated/prisma/enums';
 import { defineAbilityFor } from '@/lib/casl/ability';
+import { findStaticImageMediaOptions } from '@/lib/display-templates/static-media-options';
 import { findSupportedWidgetTypeOptions } from '@/lib/widgets/widget-type-queries';
 
 export default async function Page() {
@@ -20,14 +21,17 @@ export default async function Page() {
         throw new Error('Session invalide: un utilisateur non super-admin doit être rattaché à une organisation.');
     }
 
-    const widgetTypes = await findSupportedWidgetTypeOptions();
+    const [widgetTypes, staticImageMediaOptions] = await Promise.all([
+        findSupportedWidgetTypeOptions(),
+        findStaticImageMediaOptions(organizationId),
+    ]);
 
     return (
         <>
             <DashboardHeader
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
-                    {label: 'Modèles d’affichage', href: '/dashboard/display-templates'},
+                    {label: 'Modèles d\'affichage', href: '/dashboard/display-templates'},
                     {label: 'Créer'},
                 ]}
             />
@@ -35,6 +39,7 @@ export default async function Page() {
                 <DisplayTemplateForm
                     mode="create"
                     widgetTypes={widgetTypes}
+                    staticImageMediaOptions={staticImageMediaOptions}
                     cancelHref="/dashboard/display-templates"
                     canCreateGlobalTemplates={canCreateGlobalTemplates}
                     canCreateOrganizationTemplates={Boolean(organizationId)}

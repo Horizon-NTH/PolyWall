@@ -72,7 +72,7 @@ export default async function Page() {
             <DashboardHeader
                 items={[
                     {label: 'Tableau de bord', href: '/dashboard'},
-                    {label: 'Modèles d’affichage'},
+                    {label: 'Modèles d\'affichage'},
                 ]}
             />
             <div className="flex flex-1 flex-col gap-4 p-4 pt-0">

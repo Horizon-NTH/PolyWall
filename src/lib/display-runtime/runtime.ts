@@ -214,7 +214,7 @@ export function resolveDisplayState(snapshot: DisplayRuntimeSnapshot, nowMs: num
             loopOffsetSeconds: 0,
             itemOffsetSeconds: 0,
             isFallbackToDefault,
-            reason: reason ?? 'Aucune playlist diffusable n’est disponible pour la programmation active.',
+            reason: reason ?? 'Aucune playlist diffusable n\'est disponible pour la programmation active.',
         };
     }
 
@@ -291,6 +291,15 @@ export function getPriorityAssetDescriptors(
             seen.add(item.asset.cacheKey);
             orderedAssets.push(item.asset);
         }
+    }
+
+    for (const zone of snapshot.channel.template.zones) {
+        const asset = zone.staticMediaAsset;
+        if (!asset || seen.has(asset.cacheKey)) {
+            continue;
+        }
+        seen.add(asset.cacheKey);
+        orderedAssets.push(asset);
     }
 
     return orderedAssets;

@@ -13,7 +13,7 @@ import {
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { CopyPlus, Info, Plus, Trash2 } from 'lucide-react';
+import { CopyPlus, Plus, Trash2 } from 'lucide-react';
 
 import { createDisplayTemplate, updateDisplayTemplate } from '@/actions/display-template-actions';
 import { DisplayTemplatePreview, getZoneLabel } from '@/components/display-templates/display-template-preview';
@@ -24,8 +24,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { HelpLabel } from '@/components/ui/help-label';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/tooltip';
 import { ZoneType } from '@/generated/prisma/enums';
 import { getNumberConfig, getStringConfig } from '@/lib/config/json-config';
+import { type StaticImageMediaOption } from '@/lib/display-templates/static-media-options';
 import { removeZoneAppearanceStyleConfig } from '@/lib/display-runtime/template-style';
 import {
     getDefaultWidgetConfiguration,
@@ -59,6 +60,7 @@ type DisplayTemplateFormProps = {
     templateId?: string;
     defaultValues?: DisplayTemplateCreateValues;
     widgetTypes: WidgetTypeOption[];
+    staticImageMediaOptions?: StaticImageMediaOption[];
     cancelHref: string;
     canCreateGlobalTemplates?: boolean;
     canCreateOrganizationTemplates?: boolean;
@@ -162,17 +164,41 @@ function normalizeDefaultValues(
 }
 
 function toSubmissionValue(value: FormValue): DisplayTemplateCreateValues {
+    const staticImagesAllowed = value.scope === 'organization';
+
     return {
         ...value,
-        zones: value.zones.map((zone) => ({
-            ...zone,
-            widgetInstance: zone.zoneType === ZoneType.WIDGET && zone.widgetInstance
-                ? {
-                    ...zone.widgetInstance,
-                    active: true,
-                }
-                : null,
-        })),
+        zones: value.zones.map((zone) => normalizeZoneForScope(zone, staticImagesAllowed)),
+    };
+}
+
+function normalizeZoneForScope(zone: ZoneValue, staticImagesAllowed: boolean): ZoneValue {
+    const configurationJson = zone.zoneType === ZoneType.STATIC && !staticImagesAllowed
+        ? removeStaticImageConfiguration(zone.configurationJson)
+        : zone.configurationJson;
+
+    return {
+        ...zone,
+        configurationJson,
+        widgetInstance: zone.zoneType === ZoneType.WIDGET && zone.widgetInstance
+            ? {
+                ...zone.widgetInstance,
+                active: true,
+            }
+            : null,
+    };
+}
+
+function removeStaticImageConfiguration(configurationJson: Record<string, unknown>) {
+    if (configurationJson.contentType !== 'image') return configurationJson;
+
+    return {
+        ...configurationJson,
+        contentType: 'text',
+        text: getStringConfig(configurationJson, 'text'),
+        color: getStringConfig(configurationJson, 'color', '#ffffff'),
+        mediaItemId: undefined,
+        fit: undefined,
     };
 }
 
@@ -204,43 +230,13 @@ function getZoneFieldLabel(field: 'positionX' | 'positionY' | 'width' | 'height'
         case 'height':
             return 'Hauteur';
         case 'orderIndex':
-            return 'Ordre d’affichage';
+            return 'Ordre d\'affichage';
     }
 }
 
 function getZoneFieldTooltip(field: 'positionX' | 'positionY' | 'width' | 'height' | 'orderIndex') {
     if (field !== 'orderIndex') return null;
     return 'En cas de superposition, la zone avec la valeur la plus élevée passe au-dessus.';
-}
-
-function HelpLabel({
-                       htmlFor,
-                       children,
-                       help,
-                   }: {
-    htmlFor?: string;
-    children: React.ReactNode;
-    help: string;
-}) {
-    return (
-        <div className="flex items-center gap-1.5">
-            <Label htmlFor={htmlFor}>{children}</Label>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-                        type="button"
-                        className="text-muted-foreground hover:text-foreground inline-flex rounded-sm size-4 items-center justify-center translate-y-px"
-                        aria-label={`Aide: ${String(children)}`}
-                    >
-                        <Info />
-                    </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={6} className="max-w-72">
-                    {help}
-                </TooltipContent>
-            </Tooltip>
-        </div>
-    );
 }
 
 function IconButtonTooltip({
@@ -267,6 +263,7 @@ export function DisplayTemplateForm({
                                         templateId,
                                         defaultValues,
                                         widgetTypes,
+                                        staticImageMediaOptions = [],
                                         cancelHref,
                                         canCreateGlobalTemplates = false,
                                         canCreateOrganizationTemplates = true,
@@ -293,6 +290,25 @@ export function DisplayTemplateForm({
     const formValue = (watchedValue ?? form.getValues()) as FormValue;
     const availableWidgetTypes = widgetTypes.filter((widgetType) => isSupportedWidgetKey(widgetType.technicalKey));
     const firstWidgetType = availableWidgetTypes[0] ?? null;
+    const staticImagesAllowed = formValue.scope === 'organization';
+
+    const setScope = (scope: FormValue['scope']) => {
+        form.setValue('scope', scope, {
+            shouldDirty: true,
+            shouldValidate: form.formState.isSubmitted,
+        });
+
+        if (scope !== 'global') return;
+
+        form.setValue(
+            'zones',
+            form.getValues('zones').map((zone) => normalizeZoneForScope(zone, false)),
+            {
+                shouldDirty: true,
+                shouldValidate: form.formState.isSubmitted,
+            },
+        );
+    };
 
     const addZone = (zoneType: Exclude<ZoneType, typeof ZoneType.PLAYLIST>) => {
         if (zoneType === ZoneType.WIDGET && !firstWidgetType) return;
@@ -390,7 +406,7 @@ export function DisplayTemplateForm({
         >
             <Card>
                 <CardHeader>
-                    <CardTitle>{isEdit ? 'Modifier le modèle' : 'Nouveau modèle d’affichage'}</CardTitle>
+                    <CardTitle>{isEdit ? 'Modifier le modèle' : 'Nouveau modèle d\'affichage'}</CardTitle>
                     <CardDescription>
                         Configurez une résolution de référence, la zone playlist et les zones complémentaires.
                     </CardDescription>
@@ -417,7 +433,7 @@ export function DisplayTemplateForm({
                                     render={({field, fieldState}) => (
                                         <Field data-invalid={fieldState.invalid}>
                                             <FieldLabel>Portée</FieldLabel>
-                                            <Select value={field.value} onValueChange={field.onChange}>
+                                            <Select value={field.value} onValueChange={setScope}>
                                                 <SelectTrigger className="w-full" aria-invalid={fieldState.invalid}>
                                                     <SelectValue />
                                                 </SelectTrigger>
@@ -559,7 +575,8 @@ export function DisplayTemplateForm({
                                             </div>
                                             <div className="flex items-center gap-1">
                                                 {canDuplicateZone ? (
-                                                    <IconButtonTooltip label={`Dupliquer la zone ${zone.name || 'Zone'}`}>
+                                                    <IconButtonTooltip
+                                                        label={`Dupliquer la zone ${zone.name || 'Zone'}`}>
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
@@ -572,7 +589,8 @@ export function DisplayTemplateForm({
                                                     </IconButtonTooltip>
                                                 ) : null}
                                                 {canRemoveZone ? (
-                                                    <IconButtonTooltip label={`Supprimer la zone ${zone.name || 'Zone'}`}>
+                                                    <IconButtonTooltip
+                                                        label={`Supprimer la zone ${zone.name || 'Zone'}`}>
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
@@ -701,10 +719,12 @@ export function DisplayTemplateForm({
                                                     name={`zones.${zoneIndex}.configurationJson`}
                                                     control={form.control}
                                                     render={({field, fieldState}) => (
-                                                        <Field data-invalid={fieldState.invalid}>
+                                                        <div>
                                                             <ZoneConfigurationEditor
                                                                 zoneType={zone.zoneType}
                                                                 configurationJson={field.value}
+                                                                staticImageMediaOptions={staticImageMediaOptions}
+                                                                staticImagesAllowed={staticImagesAllowed}
                                                                 onChange={field.onChange}
                                                                 onResetStyle={() => resetZoneStyle(zoneIndex)}
                                                                 errors={zoneErrors?.configurationJson as ZoneConfigurationEditorErrors | undefined}
@@ -712,7 +732,7 @@ export function DisplayTemplateForm({
                                                             {fieldState.invalid ? (
                                                                 <FieldError errors={[fieldState.error]} />
                                                             ) : null}
-                                                        </Field>
+                                                        </div>
                                                     )}
                                                 />
 
@@ -769,7 +789,7 @@ export function DisplayTemplateForm({
                     <CardHeader>
                         <CardTitle>Aperçu</CardTitle>
                         <CardDescription>
-                            L’aperçu montre les proportions finales, pas la taille réelle de l’écran.
+                            L&apos;aperçu montre les proportions finales, pas la taille réelle de l&apos;écran.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -839,9 +859,9 @@ function WidgetEditor({
                 >
                     <Field data-invalid={fieldState.invalid || Boolean(errors?.widgetTypeId)}>
                         <FieldLabel>Widget</FieldLabel>
-                        <TabsList className="h-auto max-w-full flex-wrap justify-start">
+                        <TabsList className="h-auto w-full flex-wrap">
                             {widgetTypes.map((option) => (
-                                <TabsTrigger key={option.id} value={option.id} className="min-w-24 flex-none">
+                                <TabsTrigger key={option.id} value={option.id} className="min-w-24 flex-1">
                                     {option.name}
                                 </TabsTrigger>
                             ))}

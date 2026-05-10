@@ -59,6 +59,7 @@ export type DisplayTemplateZone = {
     width: number;
     height: number;
     configurationJson?: Record<string, unknown>;
+    staticMediaAsset?: DisplayAssetDescriptor | null;
     widgetInstance?: DisplayWidgetInstance | null;
 };
 

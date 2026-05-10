@@ -81,7 +81,7 @@ export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps)
                     }
 
                     setStatusChannelId(channelId);
-                    setErrorMessage(data.error ?? 'Impossible de charger l’aperçu de diffusion.');
+                    setErrorMessage(data.error ?? 'Impossible de charger l\'aperçu de diffusion.');
                     setSyncStatus('ERROR');
                     return;
                 }
@@ -110,7 +110,7 @@ export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps)
                 }
 
                 setStatusChannelId(channelId);
-                setErrorMessage('Erreur réseau pendant le chargement de l’aperçu de diffusion.');
+                setErrorMessage('Erreur réseau pendant le chargement de l\'aperçu de diffusion.');
                 setSyncStatus('ERROR');
             } finally {
                 syncInFlightRef.current = false;
@@ -160,7 +160,8 @@ export function ChannelLivePreviewCard({channelId}: ChannelLivePreviewCardProps)
                         Rendu en temps réel du player utilisé par les écrans rattachés à ce canal.
                     </CardDescription>
                 </div>
-                <Badge variant={visibleSyncStatus === 'DEGRADED' || visibleSyncStatus === 'ERROR' ? 'destructive' : 'outline'}>
+                <Badge
+                    variant={visibleSyncStatus === 'DEGRADED' || visibleSyncStatus === 'ERROR' ? 'destructive' : 'outline'}>
                     {getStatusLabel(visibleSyncStatus)}
                 </Badge>
             </CardHeader>

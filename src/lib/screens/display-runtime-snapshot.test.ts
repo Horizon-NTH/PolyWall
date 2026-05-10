@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
         screen: {
             findFirst: vi.fn(),
         },
+        mediaItem: {
+            findMany: vi.fn(),
+        },
     },
     presignStorageObjectGetUrl: vi.fn(),
 }));
@@ -32,6 +35,7 @@ function buildChannelSource() {
     return {
         id: 'channel-1',
         name: 'Hall principal',
+        organizationId: 'org-1',
         timezone: 'Europe/Paris',
         updatedAt: new Date('2026-05-02T10:00:00.000Z'),
         displayTemplate: {
@@ -40,6 +44,7 @@ function buildChannelSource() {
             templateKey: 'template',
             resolutionX: 1920,
             resolutionY: 1080,
+            configurationJson: {},
             updatedAt: new Date('2026-05-02T10:00:00.000Z'),
             zones: [{
                 id: 'zone-1',
@@ -50,6 +55,7 @@ function buildChannelSource() {
                 positionY: 0,
                 width: 1920,
                 height: 1080,
+                configurationJson: {},
                 updatedAt: new Date('2026-05-02T10:00:00.000Z'),
                 widgetInstance: null,
             }],
@@ -146,6 +152,58 @@ describe('display-runtime-snapshot', () => {
         expect(snapshot?.playlists[0]?.items.map((item) => item.frameIndex)).toEqual([1, 2]);
         expect(snapshot?.playlists[0]?.totalDurationSeconds).toBe(10);
         expect(snapshot?.playlists[0]?.items[0]?.asset.signedUrl).toBe('https://signed.example.com/media');
+    });
+
+    it('resolves static image media assets from template zones', async () => {
+        const channel = buildChannelSource();
+        (channel.displayTemplate.zones as unknown[]).push({
+            id: 'zone-logo',
+            name: 'Logo',
+            zoneType: ZoneType.STATIC,
+            orderIndex: 1,
+            positionX: 0,
+            positionY: 0,
+            width: 320,
+            height: 180,
+            configurationJson: {
+                contentType: 'image',
+                mediaItemId: 'media-logo',
+                fit: 'contain',
+            },
+            updatedAt: new Date('2026-05-02T10:00:00.000Z'),
+            widgetInstance: null,
+        });
+        mocks.prisma.channel.findFirst.mockResolvedValue(channel);
+        mocks.prisma.mediaItem.findMany.mockResolvedValue([{
+            id: 'media-logo',
+            files: [{
+                id: 'file-logo',
+                status: MediaFileStatus.READY,
+                variant: MediaFileVariant.ORIGINAL,
+                variantIndex: 0,
+                sourceMediaFileId: null,
+                mimeType: 'image/png',
+                storageBucket: 'bucket',
+                objectKey: 'logo.png',
+                metaJson: {},
+                updatedAt: new Date('2026-05-02T08:30:00.000Z'),
+            }],
+        }]);
+
+        const {getDisplayRuntimeSnapshotByChannelId} = await import('@/lib/screens/display-runtime-snapshot');
+        const snapshot = await getDisplayRuntimeSnapshotByChannelId('channel-1', 'org-1');
+
+        expect(mocks.prisma.mediaItem.findMany).toHaveBeenCalledWith(expect.objectContaining({
+            where: expect.objectContaining({
+                id: {in: ['media-logo']},
+                organizationId: 'org-1',
+            }),
+        }));
+        expect(snapshot?.channel.template.zones[1]?.staticMediaAsset).toEqual(expect.objectContaining({
+            assetId: 'file-logo',
+            signedUrl: 'https://signed.example.com/media',
+            mimeType: 'image/png',
+        }));
     });
 
     it('returns no snapshot for non-active screens', async () => {

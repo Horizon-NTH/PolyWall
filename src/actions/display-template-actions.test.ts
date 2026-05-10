@@ -43,6 +43,7 @@ describe('display-template-actions', () => {
         prisma.displayTemplate.create.mockReset();
         prisma.displayTemplate.delete.mockReset();
         prisma.widgetType.findMany.mockReset();
+        prisma.mediaItem.count.mockReset();
     });
 
     it('creates an organization template', async () => {
@@ -104,6 +105,43 @@ describe('display-template-actions', () => {
             ok: false,
             field: 'scope',
             message: 'Seul un super-admin peut créer un modèle global.',
+        });
+        expect(prisma.displayTemplate.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects inaccessible static image media', async () => {
+        const {auth} = await getAuthMocks();
+        const prisma = await getPrismaMock();
+        auth.mockResolvedValueOnce(buildSession({user: {organizationId: 'org-1'}}));
+        prisma.mediaItem.count.mockResolvedValueOnce(0);
+
+        const {createDisplayTemplate} = await import('@/actions/display-template-actions');
+        const result = await createDisplayTemplate({
+            ...templatePayload,
+            zones: [
+                templatePayload.zones[0],
+                {
+                    name: 'Logo',
+                    zoneType: ZoneType.STATIC,
+                    orderIndex: 1,
+                    positionX: 0,
+                    positionY: 0,
+                    width: 320,
+                    height: 180,
+                    configurationJson: {
+                        contentType: 'image',
+                        mediaItemId: 'media-other-org',
+                        fit: 'contain',
+                    },
+                    widgetInstance: null,
+                },
+            ],
+        });
+
+        expect(result).toEqual({
+            ok: false,
+            field: 'zones',
+            message: 'Une image statique est introuvable ou inaccessible.',
         });
         expect(prisma.displayTemplate.create).not.toHaveBeenCalled();
     });

@@ -32,7 +32,7 @@ const sidebarItems = {
     contenus: [
         {title: 'Médias', url: '/dashboard/media', icon: ImageIcon},
         {title: 'Playlists', url: '/dashboard/playlists', icon: ListMusic},
-        {title: 'Modèles d’affichage', url: '/dashboard/display-templates', icon: PanelsTopLeft},
+        {title: 'Modèles d\'affichage', url: '/dashboard/display-templates', icon: PanelsTopLeft},
     ],
     diffusion: [
         {title: 'Planification', url: '/dashboard/schedules', icon: CalendarClock},

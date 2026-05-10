@@ -6,7 +6,7 @@ import { auth } from '@/auth';
 import { getFirstZodIssue } from '@/actions/action-utils';
 import { createActionLogger } from '@/actions/action-logging';
 import { Prisma } from '@/generated/prisma/client';
-import { UserRole, ZoneType } from '@/generated/prisma/enums';
+import { MediaFileStatus, MediaFileVariant, UserRole, ZoneType } from '@/generated/prisma/enums';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { createDisplayTemplateKey } from '@/lib/display-templates/template-key';
 import { prisma } from '@/lib/prisma';
@@ -83,6 +83,42 @@ function toJsonInput(value: Record<string, unknown>): Prisma.InputJsonValue {
     return value as Prisma.InputJsonValue;
 }
 
+function getStaticImageMediaIds(zones: z.infer<typeof displayTemplateCreateSchema>['zones']) {
+    return Array.from(new Set(zones.flatMap((zone) => {
+        const mediaItemId = zone.zoneType === ZoneType.STATIC &&
+        zone.configurationJson.contentType === 'image' &&
+        typeof zone.configurationJson.mediaItemId === 'string'
+            ? zone.configurationJson.mediaItemId
+            : null;
+
+        return mediaItemId ? [mediaItemId] : [];
+    })));
+}
+
+async function areStaticImageMediaIdsAccessible(mediaItemIds: string[], organizationId: string | null) {
+    if (mediaItemIds.length === 0) return true;
+    if (!organizationId) return false;
+
+    const mediaCount = await prisma.mediaItem.count({
+        where: {
+            id: {in: mediaItemIds},
+            organizationId,
+            active: true,
+            files: {
+                some: {
+                    status: MediaFileStatus.READY,
+                    variant: MediaFileVariant.ORIGINAL,
+                    mimeType: {
+                        startsWith: 'image/',
+                    },
+                },
+            },
+        },
+    });
+
+    return mediaCount === mediaItemIds.length;
+}
+
 function buildZoneCreateData(
     zone: z.infer<typeof displayTemplateCreateSchema>['zones'][number],
 ) {
@@ -135,10 +171,34 @@ export async function createDisplayTemplate(
 
     const organizationId = parsed.data.scope === 'global' ? null : access.organizationId;
     if (!organizationId && !access.canManageGlobalTemplates) {
+        log.denied({
+            reason: 'global_template_requires_super_admin',
+            actorUserId: access.session.user.id,
+            organizationId: access.organizationId,
+        });
         return {ok: false, field: 'scope', message: 'Seul un super-admin peut créer un modèle global.'};
     }
     if (!organizationId && parsed.data.scope !== 'global') {
+        log.denied({
+            reason: 'organization_required',
+            actorUserId: access.session.user.id,
+            organizationId: access.organizationId,
+        });
         return {ok: false, field: 'root', message: 'Aucune organisation sélectionnée.'};
+    }
+
+    const staticImageMediaValid = await areStaticImageMediaIdsAccessible(
+        getStaticImageMediaIds(parsed.data.zones),
+        organizationId,
+    );
+    if (!staticImageMediaValid) {
+        log.denied({
+            reason: 'static_image_media_not_accessible',
+            field: 'zones',
+            actorUserId: access.session.user.id,
+            organizationId,
+        });
+        return {ok: false, field: 'zones', message: 'Une image statique est introuvable ou inaccessible.'};
     }
 
     try {
@@ -166,6 +226,11 @@ export async function createDisplayTemplate(
         return {ok: true, templateId: created.id};
     } catch (error) {
         if (isUniqueConstraintError(error)) {
+            log.invalid({
+                field: 'name',
+                actorUserId: access.session.user.id,
+                organizationId,
+            });
             return {ok: false, field: 'name', message: 'Un modèle avec ce nom existe déjà.'};
         }
 
@@ -190,7 +255,7 @@ export async function updateDisplayTemplate(
         : null;
     if (!template) {
         log.invalid({actorUserId: access.session.user.id, organizationId: access.organizationId, targetId: templateId});
-        return {ok: false, field: 'templateId', message: 'Modèle d’affichage introuvable.'};
+        return {ok: false, field: 'templateId', message: 'Modèle d\'affichage introuvable.'};
     }
 
     const parsed = displayTemplateUpdateSchema.safeParse(data);
@@ -209,7 +274,28 @@ export async function updateDisplayTemplate(
         parsed.data.zones.flatMap((zone) => zone.widgetInstance ? [zone.widgetInstance.widgetTypeId] : []),
     );
     if (!widgetTypesValid) {
+        log.invalid({
+            field: 'zones',
+            actorUserId: access.session.user.id,
+            organizationId: access.organizationId,
+            targetId: template.id,
+        });
         return {ok: false, field: 'zones', message: 'Un type de widget est introuvable.'};
+    }
+
+    const staticImageMediaValid = await areStaticImageMediaIdsAccessible(
+        getStaticImageMediaIds(parsed.data.zones),
+        template.organizationId,
+    );
+    if (!staticImageMediaValid) {
+        log.denied({
+            reason: 'static_image_media_not_accessible',
+            field: 'zones',
+            actorUserId: access.session.user.id,
+            organizationId: access.organizationId,
+            targetId: template.id,
+        });
+        return {ok: false, field: 'zones', message: 'Une image statique est introuvable ou inaccessible.'};
     }
 
     try {
@@ -243,6 +329,12 @@ export async function updateDisplayTemplate(
         return {ok: true, templateId: updated.id};
     } catch (error) {
         if (isUniqueConstraintError(error)) {
+            log.invalid({
+                field: 'name',
+                actorUserId: access.session.user.id,
+                organizationId: access.organizationId,
+                targetId: template.id,
+            });
             return {ok: false, field: 'name', message: 'Un modèle avec ce nom existe déjà.'};
         }
 
@@ -269,6 +361,12 @@ export async function duplicateDisplayTemplate(
     const parsed = displayTemplateDuplicateSchema.safeParse(data);
     if (!parsed.success) {
         const issue = getFirstZodIssue(parsed.error);
+        log.invalid({
+            field: issue.field,
+            actorUserId: access.session.user.id,
+            organizationId: access.organizationId,
+            targetId: templateId,
+        });
         return {ok: false, field: issue.field as DisplayTemplateField, message: issue.message};
     }
 
@@ -315,7 +413,13 @@ export async function duplicateDisplayTemplate(
     });
 
     if (!source) {
-        return {ok: false, field: 'templateId', message: 'Modèle d’affichage introuvable.'};
+        log.denied({
+            reason: 'source_template_not_in_scope',
+            actorUserId: access.session.user.id,
+            organizationId: access.organizationId,
+            targetId: templateId,
+        });
+        return {ok: false, field: 'templateId', message: 'Modèle d\'affichage introuvable.'};
     }
 
     try {
@@ -362,6 +466,12 @@ export async function duplicateDisplayTemplate(
         return {ok: true, templateId: created.id};
     } catch (error) {
         if (isUniqueConstraintError(error)) {
+            log.invalid({
+                field: 'name',
+                actorUserId: access.session.user.id,
+                organizationId: access.organizationId,
+                targetId: templateId,
+            });
             return {ok: false, field: 'name', message: 'Un modèle avec ce nom existe déjà.'};
         }
 
@@ -389,6 +499,13 @@ export async function deleteDisplayTemplate(templateId: string): Promise<Display
     }
 
     if (template._count.channels > 0) {
+        log.denied({
+            reason: 'template_used_by_channels',
+            channelCount: template._count.channels,
+            actorUserId: access.session.user.id,
+            organizationId: access.organizationId,
+            targetId: template.id,
+        });
         return {
             ok: false,
             field: 'root',

@@ -1,10 +1,11 @@
 'use client';
 
 import { useId } from 'react';
-import { Paintbrush, RotateCcw } from 'lucide-react';
+import { FileImage, Paintbrush, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { HelpLabel } from '@/components/ui/help-label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -16,8 +17,10 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SelectPreviewItem } from '@/components/ui/select-preview-item';
 import { ZoneType } from '@/generated/prisma/enums';
 import { getNumberConfig, getStringConfig } from '@/lib/config/json-config';
+import { type StaticImageMediaOption } from '@/lib/display-templates/static-media-options';
 import { getDefaultZonePadding, getZoneShadow, ZONE_SHADOW_OPTIONS } from '@/lib/display-runtime/template-style';
 
 type FieldErrorLike = { message?: string };
@@ -32,7 +35,7 @@ export type ZoneConfigurationEditorErrors = Partial<Record<
     | 'contentType'
     | 'text'
     | 'color'
-    | 'imageUrl'
+    | 'mediaItemId'
     | 'fit',
     FieldErrorLike
 >> & FieldErrorLike;
@@ -40,14 +43,63 @@ export type ZoneConfigurationEditorErrors = Partial<Record<
 type ZoneConfigurationEditorProps = {
     zoneType: ZoneType;
     configurationJson: Record<string, unknown>;
+    staticImageMediaOptions?: StaticImageMediaOption[];
+    staticImagesAllowed?: boolean;
     onChange: (configurationJson: Record<string, unknown>) => void;
     onResetStyle?: () => void;
     errors?: ZoneConfigurationEditorErrors;
 };
 
+const ZONE_STYLE_ERROR_KEYS = [
+    'backgroundColor',
+    'borderColor',
+    'borderRadius',
+    'padding',
+    'borderWidth',
+    'shadow',
+    'opacity',
+] as const;
+
+function hasZoneStyleErrors(errors?: ZoneConfigurationEditorErrors) {
+    return Boolean(errors && ZONE_STYLE_ERROR_KEYS.some((key) => errors[key]));
+}
+
+function StaticImageMediaOptionPreview({
+                                           media,
+                                           className,
+                                       }: {
+    media: StaticImageMediaOption;
+    className?: string;
+}) {
+    return (
+        <span className={`flex min-w-0 items-center gap-2 ${className ?? ''}`}>
+            <span
+                className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-sm">
+                {media.thumbUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={media.thumbUrl} alt="" className="size-full object-cover" />
+                ) : (
+                    <FileImage />
+                )}
+            </span>
+            <span className="min-w-0 truncate">{media.title}</span>
+        </span>
+    );
+}
+
+function StaticImageMediaSelectItem({media}: { media: StaticImageMediaOption }) {
+    return (
+        <SelectPreviewItem value={media.id} textValue={media.title}>
+            <StaticImageMediaOptionPreview media={media} />
+        </SelectPreviewItem>
+    );
+}
+
 export function ZoneConfigurationEditor({
                                             zoneType,
                                             configurationJson,
+                                            staticImageMediaOptions = [],
+                                            staticImagesAllowed = true,
                                             onChange,
                                             onResetStyle,
                                             errors,
@@ -71,8 +123,12 @@ export function ZoneConfigurationEditor({
         const mode = getStringConfig(
             configurationJson,
             'contentType',
-            getStringConfig(configurationJson, 'imageUrl') ? 'image' : 'text',
+            getStringConfig(configurationJson, 'mediaItemId') ? 'image' : 'text',
         );
+        const renderedMode = staticImagesAllowed && mode === 'image' ? 'image' : 'text';
+        const selectedMedia = staticImageMediaOptions.find((media) =>
+            media.id === getStringConfig(configurationJson, 'mediaItemId'),
+        ) ?? null;
 
         const setMode = (nextMode: string) => {
             const base = {
@@ -83,7 +139,7 @@ export function ZoneConfigurationEditor({
             onChange(nextMode === 'image'
                 ? {
                     ...base,
-                    imageUrl: getStringConfig(configurationJson, 'imageUrl'),
+                    mediaItemId: getStringConfig(configurationJson, 'mediaItemId'),
                     fit: getStringConfig(configurationJson, 'fit', 'contain'),
                 }
                 : {
@@ -96,12 +152,18 @@ export function ZoneConfigurationEditor({
         return (
             <div className="flex flex-col gap-3">
                 {styleEditor}
-                <Tabs value={mode === 'image' ? 'image' : 'text'} onValueChange={setMode} className="gap-3">
-                    <TabsList>
+                <Tabs value={renderedMode} onValueChange={setMode} className="gap-3">
+                    <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="text">Texte</TabsTrigger>
-                        <TabsTrigger value="image">Image</TabsTrigger>
+                        <TabsTrigger value="image" disabled={!staticImagesAllowed}>Image</TabsTrigger>
                     </TabsList>
-                    {mode !== 'image' ? (
+                    {!staticImagesAllowed ? (
+                        <p className="text-muted-foreground text-sm">
+                            Les images statiques liées à la médiathèque sont disponibles uniquement sur les modèles
+                            d&apos;organisation.
+                        </p>
+                    ) : null}
+                    {renderedMode !== 'image' ? (
                         <TabsContent>
                             <FieldGroup className="grid gap-3 md:grid-cols-2">
                                 <Field data-invalid={Boolean(errors?.text)}>
@@ -114,7 +176,7 @@ export function ZoneConfigurationEditor({
                                             ...configurationJson,
                                             contentType: 'text',
                                             text: event.target.value,
-                                            imageUrl: undefined,
+                                            mediaItemId: undefined,
                                             fit: undefined,
                                         })}
                                     />
@@ -139,31 +201,62 @@ export function ZoneConfigurationEditor({
                             </FieldGroup>
                         </TabsContent>
                     ) : null}
-                    {mode === 'image' ? (
+                    {renderedMode === 'image' ? (
                         <TabsContent>
                             <FieldGroup className="grid gap-3 md:grid-cols-2">
-                                <Field data-invalid={Boolean(errors?.imageUrl)}>
-                                    <FieldLabel htmlFor={`${fieldIdPrefix}-static-image-url`}>
-                                        URL image
+                                <Field data-invalid={Boolean(errors?.mediaItemId)} className="md:col-span-2">
+                                    <FieldLabel htmlFor={`${fieldIdPrefix}-static-media-item`}>
+                                        Image
                                     </FieldLabel>
-                                    <Input
-                                        id={`${fieldIdPrefix}-static-image-url`}
-                                        value={getStringConfig(configurationJson, 'imageUrl')}
-                                        aria-invalid={Boolean(errors?.imageUrl)}
-                                        onChange={(event) => onChange({
+                                    <Select
+                                        value={getStringConfig(configurationJson, 'mediaItemId') || undefined}
+                                        onValueChange={(value) => onChange({
                                             ...configurationJson,
                                             contentType: 'image',
-                                            imageUrl: event.target.value,
+                                            mediaItemId: value,
                                             text: undefined,
                                             color: undefined,
                                         })}
-                                    />
-                                    {errors?.imageUrl ? <FieldError errors={[errors.imageUrl]} /> : null}
+                                    >
+                                        <SelectTrigger
+                                            id={`${fieldIdPrefix}-static-media-item`}
+                                            className="min-h-14 w-full py-1 data-[size=default]:h-auto"
+                                            aria-invalid={Boolean(errors?.mediaItemId)}
+                                        >
+                                            {selectedMedia ? (
+                                                <StaticImageMediaOptionPreview media={selectedMedia}
+                                                                               className="flex-1" />
+                                            ) : (
+                                                <SelectValue placeholder="Sélectionner une image" />
+                                            )}
+                                        </SelectTrigger>
+                                        <SelectContent
+                                            align="start"
+                                            position="popper"
+                                            className="max-w-(--radix-select-trigger-width)"
+                                        >
+                                            {staticImageMediaOptions.length > 0 ? (
+                                                <SelectGroup>
+                                                    {staticImageMediaOptions.map((media) => (
+                                                        <StaticImageMediaSelectItem key={media.id} media={media} />
+                                                    ))}
+                                                </SelectGroup>
+                                            ) : (
+                                                <div className="text-muted-foreground px-2 py-2 text-sm">
+                                                    Aucune image disponible dans la médiathèque.
+                                                </div>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors?.mediaItemId ? <FieldError errors={[errors.mediaItemId]} /> : null}
                                 </Field>
                                 <Field data-invalid={Boolean(errors?.fit)}>
-                                    <FieldLabel htmlFor={`${fieldIdPrefix}-static-fit`}>
+                                    <HelpLabel
+                                        htmlFor={`${fieldIdPrefix}-static-fit`}
+                                        help="Contenir affiche toute l'image quitte à laisser des marges. Couvrir remplit toute la zone quitte à rogner l'image."
+                                    >
                                         Ajustement
-                                    </FieldLabel>
+                                    </HelpLabel>
                                     <Select
                                         value={getStringConfig(configurationJson, 'fit', 'contain')}
                                         onValueChange={(value) => onChange({
@@ -206,7 +299,7 @@ function ZoneStyleSheet({
                             onResetStyle,
                             errors,
                         }: ZoneConfigurationEditorProps) {
-    const hasErrors = Boolean(errors && Object.keys(errors).length > 0);
+    const hasErrors = hasZoneStyleErrors(errors);
     const setNumberConfig = (key: string, value: number) => {
         onChange({...configurationJson, [key]: Number.isFinite(value) ? value : 0});
     };
@@ -218,7 +311,7 @@ function ZoneStyleSheet({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="w-fit"
+                    className="w-full"
                     aria-invalid={hasErrors}
                 >
                     <Paintbrush data-icon="inline-start" />
@@ -229,7 +322,7 @@ function ZoneStyleSheet({
                 <SheetHeader>
                     <SheetTitle>Style de zone</SheetTitle>
                     <SheetDescription>
-                        Ajustez l’apparence visuelle de cette zone sans modifier sa position.
+                        Ajustez l&apos;apparence visuelle de cette zone sans modifier sa position.
                     </SheetDescription>
                 </SheetHeader>
                 <FieldGroup className="px-4 pb-4">

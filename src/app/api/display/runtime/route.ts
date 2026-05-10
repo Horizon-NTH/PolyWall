@@ -58,7 +58,7 @@ export async function GET(request: Request) {
             return NextResponse.json({error: 'Cet écran est révoqué.'}, {status: 403});
         }
 
-        return NextResponse.json({error: 'L’écran n’est pas prêt pour la diffusion.'}, {status: 409});
+        return NextResponse.json({error: 'L\'écran n\'est pas prêt pour la diffusion.'}, {status: 409});
     } catch (error) {
         log.error(error, {ip, deviceId: parsed.data.deviceId});
         return NextResponse.json({error: 'Erreur interne.'}, {status: 500});
