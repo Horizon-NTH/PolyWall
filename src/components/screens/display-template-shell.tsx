@@ -3,8 +3,9 @@
 import * as React from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import { DisplayWidget } from '@/components/screens/display-widget-registry';
+import { DisplayPlaylistCarousel } from '@/components/screens/display-playlist-carousel';
+import { DisplaySequenceMedia } from '@/components/screens/display-sequence-media';
 import { ZoneType } from '@/generated/prisma/enums';
 import {
     type DisplayResolvedState,
@@ -20,77 +21,22 @@ export type TemplateRendererProps = {
     resolvedState: DisplayResolvedState;
     syncStatus: DisplaySyncStatus;
     assetSrc: string | null;
+    playlistAssetSrcByCacheKey?: Record<string, string>;
     staticAssetSrcByCacheKey?: Record<string, string>;
 };
 
 function DisplayMediaViewport(props: TemplateRendererProps) {
-    const videoRef = React.useRef<HTMLVideoElement | null>(null);
-    const activeVideoItemId = props.resolvedState.status === 'PLAYING' && props.resolvedState.currentItem.mediaKind === 'video'
-        ? props.resolvedState.currentItem.id
-        : null;
-
-    React.useEffect(() => {
-        const videoElement = videoRef.current;
-        if (!videoElement || props.resolvedState.status !== 'PLAYING' || props.resolvedState.currentItem.mediaKind !== 'video') {
-            return;
-        }
-
-        const targetTime = props.resolvedState.itemOffsetSeconds;
-        const syncVideo = () => {
-            if (Math.abs(videoElement.currentTime - targetTime) > 0.75) {
-                videoElement.currentTime = targetTime;
-            }
-        };
-
-        syncVideo();
-        videoElement.addEventListener('loadedmetadata', syncVideo);
-
-        return () => {
-            videoElement.removeEventListener('loadedmetadata', syncVideo);
-        };
-    }, [
-        activeVideoItemId,
-        props.assetSrc,
-        props.resolvedState.currentItem?.mediaKind,
-        props.resolvedState.itemOffsetSeconds,
-        props.resolvedState.status,
-    ]);
-
     if (props.resolvedState.status !== 'PLAYING') {
         return null;
     }
 
-    if (!props.assetSrc) {
-        return <Skeleton className="h-full w-full rounded-none" />;
-    }
-
-    if (props.resolvedState.currentItem.mediaKind === 'video') {
-        return (
-            <div className="flex h-full w-full items-center justify-center overflow-hidden">
-                <video
-                    ref={videoRef}
-                    key={props.resolvedState.currentItem.id}
-                    src={props.assetSrc}
-                    autoPlay
-                    muted
-                    playsInline
-                    preload="auto"
-                    className="h-full w-full object-contain"
-                />
-            </div>
-        );
-    }
-
     return (
-        <div className="flex h-full w-full items-center justify-center overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-                src={props.assetSrc}
-                alt={props.resolvedState.currentItem.mediaTitle}
-                className="h-full w-full object-contain"
-                draggable={false}
-            />
-        </div>
+        <DisplaySequenceMedia
+            item={props.resolvedState.currentItem}
+            src={props.assetSrc}
+            playing
+            itemOffsetSeconds={props.resolvedState.itemOffsetSeconds}
+        />
     );
 }
 
@@ -167,6 +113,28 @@ function WidgetZone({zone}: { zone: DisplayTemplateZone }) {
     );
 }
 
+function DisplayPlaylistZone(props: TemplateRendererProps & { zone: DisplayTemplateZone }) {
+    const configurationJson = props.zone.configurationJson ?? {};
+    const displayMode = getRequiredStringConfig(configurationJson, 'displayMode', 'fullscreen');
+
+    return (
+        <div
+            className="h-full w-full overflow-hidden"
+            style={getZoneAppearanceStyle(configurationJson, props.zone.zoneType)}
+        >
+            {displayMode === 'carousel' ? (
+                props.resolvedState.status === 'PLAYING' && props.resolvedState.playlist.items.length > 1 ? (
+                    <DisplayPlaylistCarousel {...props} configurationJson={configurationJson} />
+                ) : (
+                    <DisplayMediaViewport {...props} />
+                )
+            ) : (
+                <DisplayMediaViewport {...props} />
+            )}
+        </div>
+    );
+}
+
 function DisplayLayoutRenderer(props: TemplateRendererProps) {
     const overlayLabel = props.syncStatus === 'DEGRADED'
         ? 'Mode dégradé'
@@ -184,12 +152,7 @@ function DisplayLayoutRenderer(props: TemplateRendererProps) {
                     style={getZoneStyle(zone, props.snapshot)}
                 >
                     {zone.zoneType === ZoneType.PLAYLIST ? (
-                        <div
-                            className="h-full w-full overflow-hidden"
-                            style={getZoneAppearanceStyle(zone.configurationJson ?? {}, zone.zoneType)}
-                        >
-                            <DisplayMediaViewport {...props} />
-                        </div>
+                        <DisplayPlaylistZone {...props} zone={zone} />
                     ) : zone.zoneType === ZoneType.WIDGET ? (
                         <WidgetZone zone={zone} />
                     ) : zone.zoneType === ZoneType.STATIC ? (

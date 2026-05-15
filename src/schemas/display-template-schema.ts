@@ -47,6 +47,15 @@ const zoneStyleSchema = z
     })
     .strip();
 
+const playlistZoneConfigurationSchema = zoneStyleSchema
+    .extend({
+        displayMode: z.enum(['fullscreen', 'carousel']).default('fullscreen'),
+        carouselMediaBorderRadius: boundedNumber(0, 256, 'Les coins arrondis des médias doivent être compris entre 0 et 256.').optional(),
+        carouselItemGap: boundedNumber(0, 256, 'L\'espacement du carousel doit être compris entre 0 et 256.').optional(),
+        carouselSideDimOpacity: boundedNumber(0, 0.9, 'L\'assombrissement doit être compris entre 0 et 0.9.').optional(),
+    })
+    .strip();
+
 const staticZoneConfigurationSchema = zoneStyleSchema
     .extend({
         contentType: z.enum(['text', 'image']).optional(),
@@ -69,6 +78,7 @@ const staticZoneConfigurationSchema = zoneStyleSchema
     });
 
 function getZoneConfigurationSchema(zoneType: ZoneType) {
+    if (zoneType === ZoneType.PLAYLIST) return playlistZoneConfigurationSchema;
     return zoneType === ZoneType.STATIC ? staticZoneConfigurationSchema : zoneStyleSchema;
 }
 

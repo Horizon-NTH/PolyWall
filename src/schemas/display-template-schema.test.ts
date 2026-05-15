@@ -145,6 +145,7 @@ describe('display-template-schema', () => {
         expect(parsed.success).toBe(true);
         expect(parsed.data?.configurationJson).toEqual({backgroundColor: '#000000'});
         expect(parsed.data?.zones[0]?.configurationJson).toEqual({
+            displayMode: 'fullscreen',
             backgroundColor: '#ffffff33',
             borderRadius: 24,
             padding: 16,
@@ -153,6 +154,74 @@ describe('display-template-schema', () => {
             shadow: 'md',
             opacity: 0.9,
         });
+    });
+
+    it('accepts carousel display mode on playlist zones', () => {
+        const parsed = displayTemplateCreateSchema.safeParse({
+            ...baseTemplate,
+            zones: [{
+                ...baseTemplate.zones[0],
+                configurationJson: {
+                    displayMode: 'carousel',
+                    backgroundColor: 'transparent',
+                    carouselMediaBorderRadius: 24,
+                    carouselItemGap: 40,
+                    carouselSideDimOpacity: 0.35,
+                },
+            }],
+        });
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.data?.zones[0]?.configurationJson).toEqual({
+            displayMode: 'carousel',
+            backgroundColor: 'transparent',
+            carouselMediaBorderRadius: 24,
+            carouselItemGap: 40,
+            carouselSideDimOpacity: 0.35,
+        });
+    });
+
+    it('rejects invalid playlist display modes', () => {
+        const parsed = displayTemplateCreateSchema.safeParse({
+            ...baseTemplate,
+            zones: [{
+                ...baseTemplate.zones[0],
+                configurationJson: {
+                    displayMode: 'ticker',
+                },
+            }],
+        });
+
+        expect(parsed.success).toBe(false);
+        expect(parsed.error?.issues.some((issue) =>
+            issue.path.join('.') === 'zones.0.configurationJson.displayMode',
+        )).toBe(true);
+    });
+
+    it('rejects invalid carousel style values', () => {
+        const parsed = displayTemplateCreateSchema.safeParse({
+            ...baseTemplate,
+            zones: [{
+                ...baseTemplate.zones[0],
+                configurationJson: {
+                    displayMode: 'carousel',
+                    carouselMediaBorderRadius: 999,
+                    carouselItemGap: -1,
+                    carouselSideDimOpacity: 1,
+                },
+            }],
+        });
+
+        expect(parsed.success).toBe(false);
+        expect(parsed.error?.issues.some((issue) =>
+            issue.path.join('.') === 'zones.0.configurationJson.carouselMediaBorderRadius',
+        )).toBe(true);
+        expect(parsed.error?.issues.some((issue) =>
+            issue.path.join('.') === 'zones.0.configurationJson.carouselItemGap',
+        )).toBe(true);
+        expect(parsed.error?.issues.some((issue) =>
+            issue.path.join('.') === 'zones.0.configurationJson.carouselSideDimOpacity',
+        )).toBe(true);
     });
 
     it('rejects invalid style values', () => {

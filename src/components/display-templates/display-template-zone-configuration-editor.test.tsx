@@ -104,6 +104,41 @@ function renderControlledEditor(
 }
 
 describe('ZoneConfigurationEditor', () => {
+    it('renders playlist display mode choices', () => {
+        renderControlledEditor(ZoneType.PLAYLIST, {displayMode: 'fullscreen'});
+
+        expect(screen.getByText('Affichage de la playlist')).toBeInTheDocument();
+        expect(screen.getByRole('tab', {name: 'Plein écran'})).toBeInTheDocument();
+        expect(screen.getByRole('tab', {name: 'Carousel'})).toBeInTheDocument();
+    });
+
+    it('updates carousel appearance settings', () => {
+        const {onChange} = renderControlledEditor(ZoneType.PLAYLIST, {displayMode: 'carousel'});
+
+        expect(screen.getByLabelText('Arrondi médias')).toHaveValue(8);
+        expect(screen.getByLabelText('Espacement')).toHaveValue(32);
+        expect(screen.getByLabelText('Assombrissement')).toHaveValue(0.42);
+
+        fireEvent.change(screen.getByLabelText('Arrondi médias'), {target: {value: '24'}});
+        fireEvent.change(screen.getByLabelText('Espacement'), {target: {value: '48'}});
+        fireEvent.change(screen.getByLabelText('Assombrissement'), {target: {value: '0.3'}});
+
+        expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({
+            displayMode: 'carousel',
+            carouselMediaBorderRadius: 24,
+            carouselItemGap: 48,
+            carouselSideDimOpacity: 0.3,
+        }));
+    });
+
+    it('renders playlist display mode errors', () => {
+        renderControlledEditor(ZoneType.PLAYLIST, {displayMode: 'ticker'}, {
+            displayMode: {message: 'Mode d\'affichage invalide.'},
+        });
+
+        expect(screen.getByText('Mode d\'affichage invalide.')).toBeInTheDocument();
+    });
+
     it('updates shared zone style settings', () => {
         const {onChange} = renderControlledEditor(ZoneType.PLAYLIST, {
             backgroundColor: 'transparent',

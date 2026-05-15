@@ -93,6 +93,7 @@ function defaultZone(zoneType: ZoneType, orderIndex: number): ZoneValue {
 }
 
 function getDefaultZoneConfiguration(zoneType: ZoneType): Record<string, unknown> {
+    if (zoneType === ZoneType.PLAYLIST) return {displayMode: 'fullscreen'};
     return zoneType === ZoneType.STATIC ? {text: 'Texte', color: '#ffffff'} : {};
 }
 

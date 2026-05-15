@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { type ReactNode, useId } from 'react';
 import { FileImage, Paintbrush, RotateCcw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,10 @@ export type ZoneConfigurationEditorErrors = Partial<Record<
     | 'borderWidth'
     | 'shadow'
     | 'opacity'
+    | 'displayMode'
+    | 'carouselMediaBorderRadius'
+    | 'carouselItemGap'
+    | 'carouselSideDimOpacity'
     | 'contentType'
     | 'text'
     | 'color'
@@ -116,7 +120,14 @@ export function ZoneConfigurationEditor({
     );
 
     if (zoneType === ZoneType.PLAYLIST) {
-        return styleEditor;
+        return (
+            <PlaylistConfigurationEditor
+                configurationJson={configurationJson}
+                onChange={onChange}
+                errors={errors}
+                styleEditor={styleEditor}
+            />
+        );
     }
 
     if (zoneType === ZoneType.STATIC) {
@@ -290,6 +301,110 @@ export function ZoneConfigurationEditor({
     }
 
     return styleEditor;
+}
+
+function PlaylistConfigurationEditor({
+                                         configurationJson,
+                                         onChange,
+                                         errors,
+                                         styleEditor,
+                                     }: {
+    configurationJson: Record<string, unknown>;
+    onChange: (configurationJson: Record<string, unknown>) => void;
+    errors?: ZoneConfigurationEditorErrors;
+    styleEditor: ReactNode;
+}) {
+    const fieldIdPrefix = useId();
+    const displayMode = getStringConfig(configurationJson, 'displayMode', 'fullscreen');
+    const setNumberConfig = (key: string, value: number) => {
+        onChange({...configurationJson, [key]: Number.isFinite(value) ? value : 0});
+    };
+
+    return (
+        <FieldGroup>
+            {styleEditor}
+            <Field data-invalid={Boolean(errors?.displayMode)}>
+                <HelpLabel
+                    htmlFor={`${fieldIdPrefix}-playlist-display-mode`}
+                    help="Plein écran conserve l'affichage actuel. Carousel prépare un affichage animé avec les médias voisins visibles."
+                >
+                    Affichage de la playlist
+                </HelpLabel>
+                <Tabs
+                    value={displayMode}
+                    onValueChange={(value) => onChange({...configurationJson, displayMode: value})}
+                    className="gap-3"
+                >
+                    <TabsList id={`${fieldIdPrefix}-playlist-display-mode`} className="grid w-full grid-cols-2">
+                        <TabsTrigger value="fullscreen">Plein écran</TabsTrigger>
+                        <TabsTrigger value="carousel">Carousel</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+                {errors?.displayMode ? <FieldError errors={[errors.displayMode]} /> : null}
+            </Field>
+            {displayMode === 'carousel' ? (
+                <div className="grid gap-3 md:grid-cols-3">
+                    <Field data-invalid={Boolean(errors?.carouselMediaBorderRadius)}>
+                        <HelpLabel
+                            htmlFor={`${fieldIdPrefix}-carousel-media-border-radius`}
+                            help="Arrondi appliqué directement aux médias affichés dans le carousel."
+                        >
+                            Arrondi médias
+                        </HelpLabel>
+                        <Input
+                            id={`${fieldIdPrefix}-carousel-media-border-radius`}
+                            type="number"
+                            min={0}
+                            value={getNumberConfig(configurationJson, 'carouselMediaBorderRadius', 8)}
+                            aria-invalid={Boolean(errors?.carouselMediaBorderRadius)}
+                            onChange={(event) => setNumberConfig('carouselMediaBorderRadius', Number(event.target.value))}
+                        />
+                        {errors?.carouselMediaBorderRadius ? (
+                            <FieldError errors={[errors.carouselMediaBorderRadius]} />
+                        ) : null}
+                    </Field>
+                    <Field data-invalid={Boolean(errors?.carouselItemGap)}>
+                        <HelpLabel
+                            htmlFor={`${fieldIdPrefix}-carousel-item-gap`}
+                            help="Espace horizontal entre les médias voisins du carousel."
+                        >
+                            Espacement
+                        </HelpLabel>
+                        <Input
+                            id={`${fieldIdPrefix}-carousel-item-gap`}
+                            type="number"
+                            min={0}
+                            value={getNumberConfig(configurationJson, 'carouselItemGap', 32)}
+                            aria-invalid={Boolean(errors?.carouselItemGap)}
+                            onChange={(event) => setNumberConfig('carouselItemGap', Number(event.target.value))}
+                        />
+                        {errors?.carouselItemGap ? <FieldError errors={[errors.carouselItemGap]} /> : null}
+                    </Field>
+                    <Field data-invalid={Boolean(errors?.carouselSideDimOpacity)}>
+                        <HelpLabel
+                            htmlFor={`${fieldIdPrefix}-carousel-side-dim-opacity`}
+                            help="Force du voile sombre appliqué aux médias non centraux."
+                        >
+                            Assombrissement
+                        </HelpLabel>
+                        <Input
+                            id={`${fieldIdPrefix}-carousel-side-dim-opacity`}
+                            type="number"
+                            min={0}
+                            max={0.9}
+                            step={0.05}
+                            value={getNumberConfig(configurationJson, 'carouselSideDimOpacity', 0.42)}
+                            aria-invalid={Boolean(errors?.carouselSideDimOpacity)}
+                            onChange={(event) => setNumberConfig('carouselSideDimOpacity', Number(event.target.value))}
+                        />
+                        {errors?.carouselSideDimOpacity ? (
+                            <FieldError errors={[errors.carouselSideDimOpacity]} />
+                        ) : null}
+                    </Field>
+                </div>
+            ) : null}
+        </FieldGroup>
+    );
 }
 
 function ZoneStyleSheet({
