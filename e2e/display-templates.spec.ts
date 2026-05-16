@@ -40,7 +40,12 @@ async function fillTextField(container: Page | Locator, label: string, value: st
 }
 
 async function fillNumberField(container: Page | Locator, label: string, value: number) {
-    await (await fieldByLabel(container, label)).getByRole('spinbutton').fill(String(value));
+    try {
+        await (await fieldByLabel(container, label)).getByRole('spinbutton').fill(String(value));
+    } catch (error) {
+        if (!(error instanceof Error) || !error.message.includes('Champ introuvable')) throw error;
+        await container.getByRole('spinbutton', {name: label}).fill(String(value));
+    }
 }
 
 async function selectFieldOption(container: Page | Locator, label: string, optionName: string | RegExp) {
@@ -78,6 +83,11 @@ async function createDisplayTemplate(
         scope?: 'global' | 'organization';
         includeWidget?: boolean;
         includeStatic?: boolean;
+        carousel?: {
+            mediaBorderRadius: number;
+            itemGap: number;
+            sideDimOpacity: number;
+        };
     },
 ) {
     await safeGoto(page, '/dashboard/display-templates/new');
@@ -85,6 +95,14 @@ async function createDisplayTemplate(
 
     if (params.scope) {
         await selectFieldOption(page, 'Portée', params.scope === 'global' ? 'Global' : 'Organisation');
+    }
+
+    if (params.carousel) {
+        const playlistCard = zoneCard(page, 'PLAYLIST');
+        await playlistCard.getByRole('tab', {name: 'Carousel'}).click();
+        await fillNumberField(playlistCard, 'Arrondi médias', params.carousel.mediaBorderRadius);
+        await fillNumberField(playlistCard, 'Espacement', params.carousel.itemGap);
+        await fillNumberField(playlistCard, 'Assombrissement', params.carousel.sideDimOpacity);
     }
 
     if (params.includeWidget) {
@@ -253,6 +271,39 @@ test.describe('display templates', () => {
         await deleteDisplayTemplateById(page, templateId);
         createdTemplateIds.remove(templateId);
         await expect(page.getByText('Modèle supprimé.')).toBeVisible();
+    });
+
+    test('admin can create a carousel display template and keep its playlist options', async ({page}, testInfo) => {
+        await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
+
+        const templateName = uniqueE2eName(testInfo.project.name, 'Template carousel');
+        const templateId = await createDisplayTemplate(page, {
+            name: templateName,
+            description: 'Modèle e2e avec affichage carousel.',
+            carousel: {
+                mediaBorderRadius: 18,
+                itemGap: 44,
+                sideDimOpacity: 0.25,
+            },
+        });
+        createdTemplateIds.add(templateId);
+
+        await page.getByRole('link', {name: 'Modifier'}).click();
+        await expect(page).toHaveURL(new RegExp(`/dashboard/display-templates/${templateId}/edit`));
+
+        const playlistCard = zoneCard(page, 'PLAYLIST');
+        await expect(playlistCard.getByRole('tab', {name: 'Carousel'})).toHaveAttribute('data-state', 'active');
+        await expect(playlistCard.getByRole('spinbutton', {name: 'Arrondi médias'})).toHaveValue('18');
+        await expect(playlistCard.getByRole('spinbutton', {name: 'Espacement'})).toHaveValue('44');
+        await expect(playlistCard.getByRole('spinbutton', {name: 'Assombrissement'})).toHaveValue('0.25');
+
+        await fillNumberField(playlistCard, 'Espacement', 52);
+        await page.getByRole('main').getByRole('button', {name: 'Enregistrer'}).click();
+        await page.waitForURL(new RegExp(`/dashboard/display-templates/${templateId}$`), {timeout: 15000});
+
+        await page.getByRole('link', {name: 'Modifier'}).click();
+        const updatedPlaylistCard = zoneCard(page, 'PLAYLIST');
+        await expect(updatedPlaylistCard.getByRole('spinbutton', {name: 'Espacement'})).toHaveValue('52');
     });
 
     test('template deletion is blocked when a channel uses it', async ({page}, testInfo) => {

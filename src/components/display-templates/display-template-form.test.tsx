@@ -217,6 +217,55 @@ describe('DisplayTemplateForm', () => {
         });
     });
 
+    it('submits carousel playlist configuration', async () => {
+        createDisplayTemplateMock.mockResolvedValueOnce({ok: true, templateId: 'template-carousel'});
+
+        render(
+            <DisplayTemplateForm
+                mode="create"
+                widgetTypes={widgetTypes}
+                cancelHref="/dashboard/display-templates"
+                defaultValues={{
+                    scope: 'organization',
+                    name: '',
+                    description: '',
+                    resolutionX: 1920,
+                    resolutionY: 1080,
+                    configurationJson: {backgroundColor: '#000000'},
+                    zones: [{
+                        name: 'Playlist',
+                        zoneType: ZoneType.PLAYLIST,
+                        orderIndex: 0,
+                        positionX: 0,
+                        positionY: 0,
+                        width: 1920,
+                        height: 1080,
+                        configurationJson: {displayMode: 'carousel'},
+                        widgetInstance: null,
+                    }],
+                }}
+            />,
+        );
+
+        fireEvent.change(screen.getByLabelText('Nom'), {target: {value: 'Template carousel'}});
+        fireEvent.change(screen.getByLabelText('Description'), {target: {value: 'Modèle avec carousel'}});
+        fireEvent.change(screen.getByLabelText('Arrondi médias'), {target: {value: '18'}});
+        fireEvent.change(screen.getByLabelText('Espacement'), {target: {value: '44'}});
+        fireEvent.change(screen.getByLabelText('Assombrissement'), {target: {value: '0.25'}});
+        fireEvent.click(screen.getByRole('button', {name: 'Créer'}));
+
+        await waitFor(() => {
+            const payload = createDisplayTemplateMock.mock.calls[0]?.[0] as DisplayTemplateCreateValues;
+
+            expect(payload.zones[0]?.configurationJson).toEqual({
+                displayMode: 'carousel',
+                carouselMediaBorderRadius: 18,
+                carouselItemGap: 44,
+                carouselSideDimOpacity: 0.25,
+            });
+        });
+    });
+
     it('shows field-level errors for invalid zone style settings', async () => {
         render(
             <DisplayTemplateForm
