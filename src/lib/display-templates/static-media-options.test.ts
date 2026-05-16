@@ -1,21 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MediaFileStatus, MediaFileVariant } from '@/generated/prisma/enums';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
 
 type ResolveThumbUrl = typeof import('@/lib/storage/presigned-url')['resolveThumbUrl'];
 
 const mocks = vi.hoisted(() => ({
-    prisma: {
-        mediaItem: {
-            findMany: vi.fn(),
-        },
-    },
     resolveThumbUrl: vi.fn(),
 }));
 
-vi.mock('@/lib/prisma', () => ({
-    prisma: mocks.prisma,
-}));
+mockPrismaModule();
 
 vi.mock('@/lib/storage/presigned-url', () => ({
     resolveThumbUrl: (...args: Parameters<ResolveThumbUrl>) => mocks.resolveThumbUrl(...args),
@@ -50,8 +44,8 @@ function mediaFile(overrides: Partial<{
 }
 
 describe('findStaticImageMediaOptions', () => {
-    beforeEach(() => {
-        mocks.prisma.mediaItem.findMany.mockReset();
+    beforeEach(async () => {
+        await resetPrismaMock();
         mocks.resolveThumbUrl.mockReset();
         mocks.resolveThumbUrl.mockImplementation(async (file) => file ? `signed://${file.objectKey}` : null);
     });
@@ -62,7 +56,8 @@ describe('findStaticImageMediaOptions', () => {
         await expect(findStaticImageMediaOptions(null)).resolves.toEqual([]);
         await expect(findStaticImageMediaOptions(undefined)).resolves.toEqual([]);
 
-        expect(mocks.prisma.mediaItem.findMany).not.toHaveBeenCalled();
+        const prisma = await getPrismaMock();
+        expect(prisma.mediaItem.findMany).not.toHaveBeenCalled();
     });
 
     it('queries active ready image media and resolves thumbnails before originals', async () => {
@@ -73,7 +68,8 @@ describe('findStaticImageMediaOptions', () => {
             variant: MediaFileVariant.THUMB,
             objectKey: 'org/thumb.png',
         });
-        mocks.prisma.mediaItem.findMany.mockResolvedValueOnce([
+        const prisma = await getPrismaMock();
+        prisma.mediaItem.findMany.mockResolvedValueOnce([
             {
                 id: 'media-1',
                 title: 'Logo BDE',
@@ -89,7 +85,7 @@ describe('findStaticImageMediaOptions', () => {
         const {findStaticImageMediaOptions} = await import('@/lib/display-templates/static-media-options');
         const result = await findStaticImageMediaOptions('org-1');
 
-        expect(mocks.prisma.mediaItem.findMany).toHaveBeenCalledWith({
+        expect(prisma.mediaItem.findMany).toHaveBeenCalledWith({
             where: {
                 organizationId: 'org-1',
                 active: true,

@@ -1,61 +1,27 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { UsersTable } from '@/components/users/users-table';
-import { UserRole } from '@/generated/prisma/enums';
+import { routerMock, setMockPathname } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
+import { buildUserRow } from '@/test/fixtures/builders';
 
-const refreshMock = vi.fn();
 const toggleUserActiveMock = vi.fn();
 const deleteUserMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-    }),
-    usePathname: () => '/dashboard/users',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/user-actions', () => ({
     toggleUserActive: (...args: unknown[]) => toggleUserActiveMock(...args),
     deleteUser: (...args: unknown[]) => deleteUserMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('UsersTable', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
+        setMockPathname('/dashboard/users');
         toggleUserActiveMock.mockReset();
         deleteUserMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
-    const data = [
-        {
-            id: 'user-1',
-            fullName: 'Jean Dupont',
-            email: 'jean@example.com',
-            description: 'Gestionnaire',
-            role: UserRole.CONTENT_MANAGER,
-            active: true,
-            createdAt: '2024-01-01T10:00:00.000Z',
-        },
-    ];
+    const data = [buildUserRow()];
 
     it('renders user data and links', () => {
         render(<UsersTable data={data} />);
@@ -80,8 +46,8 @@ describe('UsersTable', () => {
 
         await waitFor(() => {
             expect(toggleUserActiveMock).toHaveBeenCalledWith('user-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Utilisateur désactivé.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Utilisateur désactivé.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -98,8 +64,8 @@ describe('UsersTable', () => {
 
         await waitFor(() => {
             expect(deleteUserMock).toHaveBeenCalledWith('user-1');
-            expect(toastErrorMock).toHaveBeenCalledWith('Erreur serveur');
+            expect(toastMock.error).toHaveBeenCalledWith('Erreur serveur');
         });
-        expect(refreshMock).not.toHaveBeenCalled();
+        expect(routerMock.refresh).not.toHaveBeenCalled();
     });
 });

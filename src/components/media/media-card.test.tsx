@@ -1,39 +1,21 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { MediaCard } from '@/components/media/media-card';
+import { buildMediaGridItem } from '@/test/fixtures/builders';
+import { setMockPathname } from '@/test/mocks/next-navigation';
 
 const onToggleMock = vi.fn();
 const onDeleteMock = vi.fn();
 
-vi.mock('next/navigation', () => ({
-    usePathname: () => '/dashboard/media',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
-
 describe('MediaCard', () => {
     beforeEach(() => {
+        setMockPathname('/dashboard/media');
         onToggleMock.mockReset();
         onDeleteMock.mockReset();
     });
 
-    const baseItem = {
-        id: 'media-1',
-        title: 'Affiche Hall',
-        description: 'Visuel principal',
-        active: true,
-        updatedAt: '2026-02-01T10:00:00.000Z',
-        kind: 'image' as const,
-        status: 'READY' as const,
-        thumbUrl: null,
-        sizeBytes: 1024,
-    };
+    const baseItem = buildMediaGridItem();
 
     it('renders media metadata and links', () => {
         render(

@@ -1,36 +1,26 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-import { ScheduleType } from '@/generated/prisma/enums';
 import { ScheduleSummaryCard } from '@/components/schedules/schedule-summary-card';
-
-vi.mock('next/navigation', () => ({
-    usePathname: () => '/dashboard/schedules/schedule-1',
-    useSearchParams: () => new URLSearchParams(),
-}));
+import { ScheduleType } from '@/generated/prisma/enums';
+import { buildScheduleViewModel } from '@/test/fixtures/builders';
+import { setMockPathname } from '@/test/mocks/next-navigation';
 
 describe('ScheduleSummaryCard', () => {
+    beforeEach(() => {
+        setMockPathname('/dashboard/schedules/schedule-1');
+    });
+
     it('renders navigation links to the playlist and channel details pages', () => {
         render(
             <ScheduleSummaryCard
-                schedule={{
-                    id: 'schedule-1',
+                schedule={buildScheduleViewModel({
                     type: ScheduleType.EVENT,
-                    active: true,
-                    playlistId: 'playlist-1',
                     playlistName: 'Playlist événementielle',
-                    channelId: 'channel-1',
                     channelName: 'Accueil',
-                    startDate: new Date().toISOString(),
-                    endDate: new Date().toISOString(),
                     daysLabel: 'Lundi',
                     dateLabel: '6 avr. 2026',
-                    timeLabel: '09:00 - 10:00',
-                    lifecycleStatus: 'ongoing',
-                    updatedAt: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                    slots: [],
-                }}
+                })}
             />,
         );
 

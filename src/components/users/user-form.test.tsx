@@ -1,36 +1,16 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { UserForm } from '@/components/users/user-form';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
-const refreshMock = vi.fn();
 const createUserMock = vi.fn();
 const updateUserMock = vi.fn();
-const toastSuccessMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-        refresh: refreshMock,
-    }),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/user-actions', () => ({
     createUser: (...args: unknown[]) => createUserMock(...args),
     updateUser: (...args: unknown[]) => updateUserMock(...args),
-}));
-
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-    },
 }));
 
 describe('UserForm', () => {
@@ -57,11 +37,8 @@ describe('UserForm', () => {
     };
 
     beforeEach(() => {
-        pushMock.mockReset();
-        refreshMock.mockReset();
         createUserMock.mockReset();
         updateUserMock.mockReset();
-        toastSuccessMock.mockReset();
     });
 
     it('creates a user and redirects on success', async () => {
@@ -86,8 +63,8 @@ describe('UserForm', () => {
                 confirmPassword: 'Password123!',
                 active: true,
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Utilisateur créé.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/users');
+            expect(toastMock.success).toHaveBeenCalledWith('Utilisateur créé.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/users');
         });
     });
 
@@ -117,8 +94,8 @@ describe('UserForm', () => {
                 description: 'Gestionnaire principal',
                 active: false,
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Utilisateur mis à jour.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/users/user-2');
+            expect(toastMock.success).toHaveBeenCalledWith('Utilisateur mis à jour.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/users/user-2');
         });
     });
 });

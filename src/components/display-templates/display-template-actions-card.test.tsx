@@ -1,43 +1,22 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { DisplayTemplateActionsCard } from '@/components/display-templates/display-template-actions-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
-const replaceMock = vi.fn();
 const duplicateDisplayTemplateMock = vi.fn();
 const deleteDisplayTemplateMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-        replace: replaceMock,
-    }),
-}));
 
 vi.mock('@/actions/display-template-actions', () => ({
     duplicateDisplayTemplate: (...args: unknown[]) => duplicateDisplayTemplateMock(...args),
     deleteDisplayTemplate: (...args: unknown[]) => deleteDisplayTemplateMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('DisplayTemplateActionsCard', () => {
     beforeEach(() => {
-        pushMock.mockReset();
-        replaceMock.mockReset();
         duplicateDisplayTemplateMock.mockReset();
         deleteDisplayTemplateMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('duplicates the template', async () => {
@@ -59,8 +38,8 @@ describe('DisplayTemplateActionsCard', () => {
             expect(duplicateDisplayTemplateMock).toHaveBeenCalledWith('template-1', {
                 name: 'Modèle Hall - copie',
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Modèle dupliqué.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/display-templates/template-copy');
+            expect(toastMock.success).toHaveBeenCalledWith('Modèle dupliqué.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/display-templates/template-copy');
         });
     });
 
@@ -85,8 +64,8 @@ describe('DisplayTemplateActionsCard', () => {
 
         await waitFor(() => {
             expect(deleteDisplayTemplateMock).toHaveBeenCalledWith('template-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Modèle supprimé.');
-            expect(replaceMock).toHaveBeenCalledWith('/dashboard/display-templates');
+            expect(toastMock.success).toHaveBeenCalledWith('Modèle supprimé.');
+            expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/display-templates');
         });
     });
 

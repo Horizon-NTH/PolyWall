@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ScreenPairingCard } from '@/components/screens/screen-pairing-card';
+import { routerMock } from '@/test/mocks/next-navigation';
 
-const refreshMock = vi.fn();
 const createScreenPairingTokenMock = vi.fn();
 const getActiveScreenPairingTokenStateMock = vi.fn();
 const revokeActiveScreenPairingTokenMock = vi.fn();
@@ -18,12 +18,6 @@ const localStorageMock = {
     }),
 };
 
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-    }),
-}));
-
 vi.mock('@/actions/screen-actions', () => ({
     createScreenPairingToken: (...args: unknown[]) => createScreenPairingTokenMock(...args),
     getActiveScreenPairingTokenState: (...args: unknown[]) => getActiveScreenPairingTokenStateMock(...args),
@@ -32,7 +26,6 @@ vi.mock('@/actions/screen-actions', () => ({
 
 describe('ScreenPairingCard', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
         createScreenPairingTokenMock.mockReset();
         getActiveScreenPairingTokenStateMock.mockReset();
         revokeActiveScreenPairingTokenMock.mockReset();
@@ -97,7 +90,7 @@ describe('ScreenPairingCard', () => {
         render(<ScreenPairingCard organizationId="org-1" />);
         await waitFor(() => expect(screen.getByDisplayValue('123456')).toBeInTheDocument());
 
-        expect(refreshMock).toHaveBeenCalled();
+        expect(routerMock.refresh).toHaveBeenCalled();
         expect(setIntervalSpy).toHaveBeenCalled();
     });
 

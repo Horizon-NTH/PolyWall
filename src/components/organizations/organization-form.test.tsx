@@ -2,41 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { OrganizationForm } from '@/components/organizations/organization-form';
-import React from 'react';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
 const createOrganizationMock = vi.fn();
 const updateOrganizationMock = vi.fn();
-const toastSuccessMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-    }),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/organization-actions', () => ({
     createOrganization: (...args: unknown[]) => createOrganizationMock(...args),
     updateOrganization: (...args: unknown[]) => updateOrganizationMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-    },
-}));
-
 describe('OrganizationForm', () => {
     beforeEach(() => {
-        pushMock.mockReset();
         createOrganizationMock.mockReset();
         updateOrganizationMock.mockReset();
-        toastSuccessMock.mockReset();
     });
 
     it('shows a root error when edit mode is missing organizationId', async () => {
@@ -115,8 +95,8 @@ describe('OrganizationForm', () => {
                 name: 'Org Name',
                 description: 'Description',
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Organisation créée.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/organizations');
+            expect(toastMock.success).toHaveBeenCalledWith('Organisation créée.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/organizations');
         });
     });
 
@@ -139,8 +119,8 @@ describe('OrganizationForm', () => {
                 name: 'Org Name',
                 description: 'Description',
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Organisation mise à jour.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/organizations/org-2');
+            expect(toastMock.success).toHaveBeenCalledWith('Organisation mise à jour.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/organizations/org-2');
         });
     });
 });

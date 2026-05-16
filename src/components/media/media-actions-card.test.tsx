@@ -1,43 +1,22 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { MediaActionsCard } from '@/components/media/media-actions-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const refreshMock = vi.fn();
-const replaceMock = vi.fn();
 const toggleMediaItemActiveMock = vi.fn();
 const deleteMediaItemMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-        replace: replaceMock,
-    }),
-}));
 
 vi.mock('@/actions/media-actions', () => ({
     toggleMediaItemActive: (...args: unknown[]) => toggleMediaItemActiveMock(...args),
     deleteMediaItem: (...args: unknown[]) => deleteMediaItemMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('MediaActionsCard', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
-        replaceMock.mockReset();
         toggleMediaItemActiveMock.mockReset();
         deleteMediaItemMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('toggles media state and refreshes page on success', async () => {
@@ -56,8 +35,8 @@ describe('MediaActionsCard', () => {
 
         await waitFor(() => {
             expect(toggleMediaItemActiveMock).toHaveBeenCalledWith('media-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Média désactivé.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Média désactivé.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -76,8 +55,8 @@ describe('MediaActionsCard', () => {
         fireEvent.click(screen.getByRole('button', {name: 'Activer'}));
 
         await waitFor(() => {
-            expect(toastErrorMock).toHaveBeenCalledWith('Accès refusé.');
-            expect(refreshMock).not.toHaveBeenCalled();
+            expect(toastMock.error).toHaveBeenCalledWith('Accès refusé.');
+            expect(routerMock.refresh).not.toHaveBeenCalled();
         });
     });
 
@@ -99,8 +78,8 @@ describe('MediaActionsCard', () => {
 
         await waitFor(() => {
             expect(deleteMediaItemMock).toHaveBeenCalledWith('media-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Média supprimé.');
-            expect(replaceMock).toHaveBeenCalledWith('/dashboard/media');
+            expect(toastMock.success).toHaveBeenCalledWith('Média supprimé.');
+            expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/media');
         });
     });
 

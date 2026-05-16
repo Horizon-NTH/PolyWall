@@ -1,13 +1,7 @@
-import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import { MediaEmptyState } from '@/components/media/media-empty-state';
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 describe('MediaEmptyState', () => {
     it('renders default content and create link', () => {

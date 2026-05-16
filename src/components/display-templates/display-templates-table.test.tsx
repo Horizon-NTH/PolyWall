@@ -1,4 +1,3 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
@@ -6,62 +5,35 @@ import {
     DisplayTemplatesTable,
     type DisplayTemplateRow,
 } from '@/components/display-templates/display-templates-table';
+import { buildDisplayTemplateRow } from '@/test/fixtures/builders';
+import { routerMock, setMockPathname } from '@/test/mocks/next-navigation';
 
-const refreshMock = vi.fn();
 const deleteDisplayTemplateMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-    }),
-    usePathname: () => '/dashboard/display-templates',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/display-template-actions', () => ({
     deleteDisplayTemplate: (...args: unknown[]) => deleteDisplayTemplateMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: vi.fn(),
-        error: vi.fn(),
-    },
-}));
-
 describe('DisplayTemplatesTable', () => {
     const rows: DisplayTemplateRow[] = [
-        {
+        buildDisplayTemplateRow({
             id: 'template-org',
-            name: 'Template org',
-            description: 'Template de l\'organisation',
             scope: 'organization',
-            resolution: '1920x1080',
-            zonesCount: 2,
-            widgetsCount: 1,
-            channelsCount: 0,
             updatedAt: '2026-05-01T10:00:00.000Z',
-        },
-        {
+        }),
+        buildDisplayTemplateRow({
             id: 'template-global',
             name: 'Template global',
             description: 'Template global',
             scope: 'global',
-            resolution: '1920x1080',
             zonesCount: 1,
             widgetsCount: 0,
-            channelsCount: 0,
             updatedAt: '2026-05-02T10:00:00.000Z',
-        },
+        }),
     ];
 
     beforeEach(() => {
-        refreshMock.mockReset();
+        setMockPathname('/dashboard/display-templates');
         deleteDisplayTemplateMock.mockReset();
     });
 
@@ -126,7 +98,7 @@ describe('DisplayTemplatesTable', () => {
 
         await waitFor(() => {
             expect(deleteDisplayTemplateMock).toHaveBeenCalledWith('template-global');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 

@@ -6,37 +6,14 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
-import { safeGoto } from './helpers/navigation';
+import { createCleanupTracker, extractDashboardEntityId, uniqueE2eName } from './helpers/data';
+import { ensureDashboardPath, safeGoto } from './helpers/navigation';
+import { confirmAlertDialog } from './helpers/ui';
 
-function buildUniqueChannelName(projectName: string, suffix: string) {
-    return `PW E2E ${projectName} Canal ${Date.now()} ${suffix}`;
-}
-
-const createdChannelIds: string[] = [];
-
-function trackChannelId(channelId: string) {
-    createdChannelIds.push(channelId);
-}
-
-function extractChannelId(url: string) {
-    const match = url.match(/\/dashboard\/channels\/(?!new$)(?!.*\/edit$)([^/]+)$/);
-    if (!match) throw new Error(`Impossible de lire l'ID canal depuis l'URL: ${url}`);
-    return match[1];
-}
-
-async function ensureChannelsList(page: Parameters<typeof login>[0]) {
-    if (/\/dashboard\/channels$/.test(page.url())) {
-        await page.waitForLoadState('domcontentloaded');
-        return;
-    }
-
-    await safeGoto(page, '/dashboard/channels');
-    await page.waitForURL(/\/dashboard\/channels$/, {timeout: 15000});
-    await page.waitForLoadState('domcontentloaded');
-}
+const createdChannelIds = createCleanupTracker<string>();
 
 async function filterChannels(page: Parameters<typeof login>[0], query: string) {
-    await ensureChannelsList(page);
+    await ensureDashboardPath(page, '/dashboard/channels');
     const search = page.getByRole('textbox', {name: /Rechercher un canal/i});
     await expect(search).toBeVisible();
     await search.fill(query);
@@ -71,7 +48,7 @@ async function createChannel(
         createButton.click(),
     ]);
 
-    const channelId = extractChannelId(page.url());
+    const channelId = extractDashboardEntityId(page.url(), 'channels');
     await expect(page.getByRole('heading', {name: params.name})).toBeVisible();
     return channelId;
 }
@@ -84,8 +61,7 @@ async function deleteChannelById(page: Parameters<typeof login>[0], channelId: s
     if ((await deleteTrigger.count()) === 0) return;
 
     await deleteTrigger.click();
-    const dialog = page.getByRole('alertdialog');
-    await dialog.getByRole('button', {name: 'Supprimer'}).click();
+    await confirmAlertDialog(page);
     await page.waitForURL(/\/dashboard\/channels$/, {timeout: 15000});
 }
 
@@ -94,15 +70,15 @@ test.describe('channels', () => {
 
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
-        createdChannelIds.length = 0;
+        createdChannelIds.clear();
     });
 
     test.afterEach(async ({page}) => {
-        if (createdChannelIds.length === 0) return;
-        for (const channelId of new Set(createdChannelIds)) {
+        if (createdChannelIds.isEmpty) return;
+        for (const channelId of createdChannelIds.unique()) {
             await deleteChannelById(page, channelId);
         }
-        createdChannelIds.length = 0;
+        createdChannelIds.clear();
     });
 
     test('super admin must select an organization before accessing channels pages', async ({page}) => {
@@ -133,7 +109,7 @@ test.describe('channels', () => {
 
     test('list page supports search, filters, reset and row actions', async ({page}) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
-        await ensureChannelsList(page);
+        await ensureDashboardPath(page, '/dashboard/channels');
 
         await filterChannels(page, 'Hall');
         await expect(page.getByRole('link', {name: /Hall/i}).first()).toBeVisible();
@@ -158,12 +134,12 @@ test.describe('channels', () => {
     test('admin can create, edit and delete a channel', async ({page}, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
-        const channelName = buildUniqueChannelName(testInfo.project.name, 'Flow');
+        const channelName = uniqueE2eName(testInfo.project.name, 'Canal', 'Flow');
         const channelId = await createChannel(page, {
             name: channelName,
             description: 'Canal e2e à modifier et supprimer.',
         });
-        trackChannelId(channelId);
+        createdChannelIds.add(channelId);
 
         await page.getByRole('link', {name: 'Modifier infos'}).click();
         await expect(page).toHaveURL(new RegExp(`/dashboard/channels/${channelId}/edit$`));
@@ -183,11 +159,10 @@ test.describe('channels', () => {
         await expect(page.getByText('Aperçu de diffusion', {exact: true})).toHaveCount(0);
 
         await page.getByRole('button', {name: 'Supprimer'}).first().click();
-        const deleteDialog = page.getByRole('alertdialog');
-        await deleteDialog.getByRole('button', {name: 'Supprimer'}).click();
+        await confirmAlertDialog(page);
 
         await page.waitForURL(/\/dashboard\/channels$/, {timeout: 15000});
         await expect(page.getByText('Canal supprimé.')).toBeVisible();
-        createdChannelIds.length = 0;
+        createdChannelIds.clear();
     });
 });

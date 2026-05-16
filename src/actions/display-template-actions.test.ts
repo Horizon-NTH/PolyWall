@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { buildSession, getAuthMocks, mockAuthModule } from '@/test/mocks/auth';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+import { buildSession, getAuthMocks, mockAuthModule, resetAuthMocks } from '@/test/mocks/auth';
+import { mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
 import { UserRole, ZoneType } from '@/generated/prisma/enums';
 
 mockAuthModule();
@@ -31,19 +31,9 @@ const templatePayload = {
 
 describe('display-template-actions', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const {defineAbilityFor} = await getCaslMocks();
-        const prisma = await getPrismaMock();
-
-        auth.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
-
-        prisma.displayTemplate.findFirst.mockReset();
-        prisma.displayTemplate.create.mockReset();
-        prisma.displayTemplate.delete.mockReset();
-        prisma.widgetType.findMany.mockReset();
-        prisma.mediaItem.count.mockReset();
+        await resetAuthMocks();
+        await resetCaslMocks();
+        await resetPrismaMock();
     });
 
     it('creates an organization template', async () => {

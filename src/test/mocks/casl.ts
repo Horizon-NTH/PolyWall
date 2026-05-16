@@ -12,3 +12,12 @@ export const getCaslMocks = async () => {
         defineAbilityFor: ReturnType<typeof vi.fn>;
     };
 };
+
+export const resetCaslMocks = async (can: boolean | ((action: string, subject: string) => boolean) = true) => {
+    const mocks = await getCaslMocks();
+    mocks.defineAbilityFor.mockReset();
+    mocks.defineAbilityFor.mockReturnValue({
+        can: vi.fn(typeof can === 'function' ? can : () => can),
+    });
+    return mocks;
+};

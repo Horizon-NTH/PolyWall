@@ -16,6 +16,13 @@ export const getAuthMocks = async () => {
     };
 };
 
+export const resetAuthMocks = async () => {
+    const mocks = await getAuthMocks();
+    mocks.auth.mockReset();
+    mocks.unstable_update.mockReset();
+    return mocks;
+};
+
 export const mockArgon2Module = () => {
     vi.doMock('argon2', () => ({
         default: {
@@ -34,6 +41,13 @@ export const getArgon2Mock = async () => {
         verify: ReturnType<typeof vi.fn>;
         hash: ReturnType<typeof vi.fn>;
     };
+};
+
+export const resetArgon2Mock = async () => {
+    const argon2 = await getArgon2Mock();
+    argon2.verify.mockReset();
+    argon2.hash.mockReset();
+    return argon2;
 };
 
 export const buildSession = (overrides?: {

@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom/vitest';
-import { vi } from 'vitest';
+import { beforeEach, vi } from 'vitest';
+import { resetNavigationMocks } from '@/test/mocks/next-navigation';
+import '@/test/mocks/next-link';
+import { resetToastMocks } from '@/test/mocks/sonner';
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/env', () => ({
@@ -38,4 +41,9 @@ class ResizeObserverMock {
 Object.defineProperty(globalThis, 'ResizeObserver', {
     writable: true,
     value: ResizeObserverMock,
+});
+
+beforeEach(() => {
+    resetNavigationMocks();
+    resetToastMocks();
 });

@@ -7,6 +7,7 @@ import {
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
 import { safeGoto } from './helpers/navigation';
+import { confirmAlertDialog } from './helpers/ui';
 
 test.describe('screens', () => {
     test('super admin must select an organization before accessing screens page', async ({page}) => {
@@ -109,8 +110,7 @@ test.describe('screens', () => {
         await page.reload({waitUntil: 'domcontentloaded'});
 
         await page.getByRole('button', {name: 'Supprimer'}).click();
-        const deleteDialog = page.getByRole('alertdialog');
-        await deleteDialog.getByRole('button', {name: 'Supprimer'}).click();
+        await confirmAlertDialog(page);
         await expect(page.getByText('Écran supprimé.')).toBeVisible();
         await safeGoto(page, '/dashboard/screens');
         await expect(page).toHaveURL(/\/dashboard\/screens$/);

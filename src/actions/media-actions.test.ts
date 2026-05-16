@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildSession, getAuthMocks, mockAuthModule } from '@/test/mocks/auth';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+import { buildSession, getAuthMocks, mockAuthModule, resetAuthMocks } from '@/test/mocks/auth';
+import { getCaslMocks, mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
 
 mockAuthModule();
 mockCaslModule();
@@ -16,17 +16,9 @@ vi.mock('@/lib/storage/storage-service', () => ({
 
 describe('media-actions', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.mediaItem.findFirst.mockReset();
-        prisma.mediaItem.update.mockReset();
-        prisma.mediaItem.delete.mockReset();
-        prisma.playlistItem.findMany.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
+        await resetAuthMocks();
+        await resetCaslMocks();
+        await resetPrismaMock();
     });
 
     it('rejects unauthenticated update', async () => {

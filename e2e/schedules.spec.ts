@@ -7,6 +7,7 @@ import {
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
 import { safeGoto } from './helpers/navigation';
+import { confirmAlertDialog } from './helpers/ui';
 
 async function ensureSchedulesList(page: Page) {
     await safeGoto(page, '/dashboard/schedules');
@@ -232,7 +233,7 @@ async function deleteScheduleViaUi(params: {
         const dialog = page.getByRole('alertdialog');
         if ((await dialog.count()) > 0) {
             hasDialog = true;
-            await dialog.getByRole('button', {name: 'Supprimer'}).click();
+            await confirmAlertDialog(page);
             break;
         }
     }
@@ -275,7 +276,7 @@ async function cleanupShortActusEventsViaUi(params: {
             await page.getByRole('menuitem', {name: 'Supprimer'}).click();
             const dialog = page.getByRole('alertdialog');
             if ((await dialog.count()) > 0) {
-                await dialog.getByRole('button', {name: 'Supprimer'}).click();
+                await confirmAlertDialog(page);
             }
             await page.waitForTimeout(300);
             deletedOne = true;
@@ -509,7 +510,7 @@ test.describe('schedules', () => {
         await expect(page).toHaveURL(initialSchedulesUrl);
     });
 
-    test('keeps returnTo when editing a schedule and saving without changes', async ({page}) => {
+    test('keeps returnTo when editing and saving a schedule', async ({page}) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
         const scheduleContext = await ensureChannelWithSchedules(page);
@@ -525,6 +526,7 @@ test.describe('schedules', () => {
         expect(scheduleEditUrl.pathname).toMatch(/^\/dashboard\/schedules\/[^/]+\/edit$/);
         expect(scheduleEditUrl.searchParams.get('returnTo')).toBe(initialSchedulesUrl);
 
+        await page.getByRole('checkbox', {name: 'Programmation active'}).click();
         await page.getByRole('button', {name: 'Enregistrer'}).click();
         await expect(page).toHaveURL(`${scheduleDetailUrl.pathname}${scheduleDetailUrl.search}`);
 

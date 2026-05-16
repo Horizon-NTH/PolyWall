@@ -1,15 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-import { ScheduleType } from '@/generated/prisma/enums';
 import { ScheduleDefaultCard } from '@/components/schedules/schedule-default-card';
-
-vi.mock('next/navigation', () => ({
-    usePathname: () => '/dashboard/schedules',
-    useSearchParams: () => new URLSearchParams(),
-}));
+import { ScheduleType } from '@/generated/prisma/enums';
+import { buildScheduleViewModel } from '@/test/fixtures/builders';
+import { setMockPathname } from '@/test/mocks/next-navigation';
 
 describe('ScheduleDefaultCard', () => {
+    beforeEach(() => {
+        setMockPathname('/dashboard/schedules');
+    });
+
     it('renders the empty state when no default schedule exists', () => {
         render(<ScheduleDefaultCard channelId="channel-1" defaultSchedule={null} defaultPlaylist={null} />);
 
@@ -24,24 +25,12 @@ describe('ScheduleDefaultCard', () => {
         render(
             <ScheduleDefaultCard
                 channelId="channel-1"
-                defaultSchedule={{
-                    id: 'schedule-1',
+                defaultSchedule={buildScheduleViewModel({
                     type: ScheduleType.DEFAULT,
-                    active: true,
-                    playlistId: 'playlist-1',
                     playlistName: 'Playlist par défaut',
-                    channelId: 'channel-1',
-                    channelName: 'Hall',
-                    startDate: null,
-                    endDate: null,
                     daysLabel: 'Tous les jours',
-                    dateLabel: 'Toujours active',
                     timeLabel: 'Toute la journée',
-                    lifecycleStatus: 'ongoing',
-                    updatedAt: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                    slots: [],
-                }}
+                })}
                 defaultPlaylist={{
                     id: 'playlist-1',
                     name: 'Playlist par défaut',

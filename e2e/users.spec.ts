@@ -7,62 +7,15 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
+import { createCleanupTracker, uniqueE2eEmail, uniqueE2eName } from './helpers/data';
+import { ensureDashboardPath } from './helpers/navigation';
+import { confirmAlertDialog, fillSearchByPlaceholder } from './helpers/ui';
 
-function buildUniqueUserName(projectName: string, suffix: string) {
-    return `PW E2E ${projectName} User ${Date.now()} ${suffix}`;
-}
-
-function buildUniqueUserEmail(projectName: string, suffix: string) {
-    return `pw-e2e-${projectName}-${Date.now()}-${suffix}@polywall.test`;
-}
-
-const createdUserNames: string[] = [];
-
-function trackUser(name: string) {
-    createdUserNames.push(name);
-}
-
-async function ensureUsersList(page: Parameters<typeof login>[0]) {
-    if (/\/dashboard\/users$/.test(page.url())) {
-        await page.waitForLoadState('domcontentloaded');
-        return;
-    }
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-            await page.goto('/dashboard/users', {waitUntil: 'domcontentloaded'});
-            break;
-        } catch (error) {
-            const message = String(error);
-            if (
-                message.includes('NS_BINDING_ABORTED') ||
-                message.includes('interrupted by another navigation')
-            ) {
-                await page.waitForLoadState('domcontentloaded');
-                continue;
-            }
-            throw error;
-        }
-    }
-
-    await page.waitForURL(/\/dashboard\/users$/, {timeout: 15000});
-}
+const createdUserNames = createCleanupTracker<string>();
 
 async function filterUsers(page: Parameters<typeof login>[0], query: string) {
-    await ensureUsersList(page);
-    const search = page.getByPlaceholder('Rechercher un utilisateur...');
-    await expect(search).toBeVisible();
-    const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        await search.fill(query);
-        await page.waitForTimeout(50);
-        if ((await search.inputValue()) === query) break;
-        await search.press(`${modifierKey}+A`);
-        await search.fill(query);
-        await page.waitForTimeout(50);
-        if ((await search.inputValue()) === query) break;
-    }
-    await expect(search).toHaveValue(query);
+    await ensureDashboardPath(page, '/dashboard/users');
+    await fillSearchByPlaceholder(page, 'Rechercher un utilisateur...', query);
 }
 
 async function getUserIdFromList(page: Parameters<typeof login>[0], name: string) {
@@ -94,7 +47,7 @@ async function createUser(
 
 async function deleteUserByName(page: Parameters<typeof login>[0], name: string) {
     if (page.isClosed()) return;
-    await ensureUsersList(page);
+    await ensureDashboardPath(page, '/dashboard/users');
     await filterUsers(page, name);
     const link = page.getByRole('link', {name}).first();
     if (await link.count() === 0) {
@@ -105,8 +58,7 @@ async function deleteUserByName(page: Parameters<typeof login>[0], name: string)
     const userId = await getUserIdFromList(page, name);
     await page.goto(`/dashboard/users/${userId}`);
     await page.getByRole('button', {name: 'Supprimer'}).click();
-    const deleteDialog = page.getByRole('alertdialog');
-    await deleteDialog.getByRole('button', {name: 'Supprimer'}).click();
+    await confirmAlertDialog(page);
     await expect(page.getByText('Utilisateur supprimé.')).toBeVisible();
     await page.waitForURL(/\/dashboard\/users$/, {timeout: 15000});
     await filterUsers(page, name);
@@ -117,15 +69,15 @@ async function deleteUserByName(page: Parameters<typeof login>[0], name: string)
 test.describe('users', () => {
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
-        createdUserNames.length = 0;
+        createdUserNames.clear();
     });
 
     test.afterEach(async ({page}) => {
-        if (createdUserNames.length === 0) return;
-        for (const name of new Set(createdUserNames)) {
+        if (createdUserNames.isEmpty) return;
+        for (const name of createdUserNames.unique()) {
             await deleteUserByName(page, name);
         }
-        createdUserNames.length = 0;
+        createdUserNames.clear();
     });
 
     test('blocks content managers access to user pages', async ({page}) => {
@@ -155,10 +107,10 @@ test.describe('users', () => {
     test('list page supports filters and row actions', async ({page}, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
-        const userName = buildUniqueUserName(testInfo.project.name, 'List');
-        const userEmail = buildUniqueUserEmail(testInfo.project.name, 'list');
+        const userName = uniqueE2eName(testInfo.project.name, 'User', 'List');
+        const userEmail = uniqueE2eEmail(testInfo.project.name, 'user-list');
         await createUser(page, userName, userEmail, 'Gestionnaire e2e.');
-        trackUser(userName);
+        createdUserNames.add(userName);
 
         await filterUsers(page, userName);
         await expect(page.getByRole('link', {name: userName})).toBeVisible();
@@ -200,10 +152,10 @@ test.describe('users', () => {
     test('create, edit, toggle, and delete user flow', async ({page}, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
-        const userName = buildUniqueUserName(testInfo.project.name, 'Flow');
-        const userEmail = buildUniqueUserEmail(testInfo.project.name, 'flow');
+        const userName = uniqueE2eName(testInfo.project.name, 'User', 'Flow');
+        const userEmail = uniqueE2eEmail(testInfo.project.name, 'user-flow');
         await createUser(page, userName, userEmail, 'Utilisateur à modifier.');
-        trackUser(userName);
+        createdUserNames.add(userName);
 
         const userId = await getUserIdFromList(page, userName);
         await page.goto(`/dashboard/users/${userId}`);
@@ -220,10 +172,9 @@ test.describe('users', () => {
         await expect(page.getByText('Description mise à jour.')).toBeVisible();
 
         await page.getByRole('button', {name: 'Supprimer'}).click();
-        const deleteDialog = page.getByRole('alertdialog');
-        await deleteDialog.getByRole('button', {name: 'Supprimer'}).click();
+        await confirmAlertDialog(page);
         await page.waitForURL(/\/dashboard\/users$/, {timeout: 15000});
         await expect(page.getByText('Utilisateur supprimé.')).toBeVisible();
-        createdUserNames.length = 0;
+        createdUserNames.clear();
     });
 });

@@ -1,39 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildSession, getArgon2Mock, getAuthMocks, mockArgon2Module, mockAuthModule } from '@/test/mocks/auth';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
+import {
+    buildSession,
+    getArgon2Mock,
+    getAuthMocks,
+    mockArgon2Module,
+    mockAuthModule,
+    resetArgon2Mock,
+    resetAuthMocks,
+} from '@/test/mocks/auth';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
+import { getCaslMocks, mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
 import { UserRole } from '@/generated/prisma/enums';
+import { buildAdminCreatePayload, buildAdminUpdatePayload } from '@/test/fixtures/builders';
 
 mockAuthModule();
 mockPrismaModule();
 mockCaslModule();
 mockArgon2Module();
 
-const baseAdminPayload = {
-    fullName: 'Jane Doe',
-    email: 'jane.doe@example.com',
-    description: 'Administrateur principal',
-    role: UserRole.PLATFORM_SUPER_ADMIN,
-    organizationId: null,
-    password: 'Password123!',
-    confirmPassword: 'Password123!',
-    active: true,
-};
+const baseAdminPayload = buildAdminCreatePayload();
 
 describe('createAdmin', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const argon2 = await getArgon2Mock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.user.create.mockReset();
-        prisma.organization.findUnique.mockReset();
-        argon2.hash.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
+        await resetAuthMocks();
+        await resetCaslMocks();
+        await resetPrismaMock();
+        await resetArgon2Mock();
     });
 
     it('rejects unauthenticated users', async () => {
@@ -161,35 +154,10 @@ describe('createAdmin', () => {
 });
 
 describe('updateAdmin', () => {
-    const buildUpdatePayload = (overrides?: Partial<{
-        fullName: string;
-        email: string;
-        description: string;
-        role: UserRole;
-        organizationId: string | null;
-        active: boolean;
-    }>) => ({
-        fullName: 'Admin',
-        email: 'admin@example.com',
-        description: 'Desc',
-        role: UserRole.PLATFORM_SUPER_ADMIN,
-        organizationId: null,
-        active: true,
-        ...(overrides ?? {}),
-    });
-
     const setupUpdateAdminDeps = async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.user.findUnique.mockReset();
-        prisma.user.update.mockReset();
-        prisma.user.count.mockReset();
-        prisma.organization.findUnique.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
+        const {auth} = await resetAuthMocks();
+        const prisma = await resetPrismaMock();
+        const {defineAbilityFor} = await resetCaslMocks();
 
         return {auth, prisma, defineAbilityFor};
     };
@@ -199,7 +167,7 @@ describe('updateAdmin', () => {
         auth.mockResolvedValueOnce(null);
         const {updateAdmin} = await import('@/actions/admin-actions');
 
-        const result = await updateAdmin('admin-1', buildUpdatePayload());
+        const result = await updateAdmin('admin-1', buildAdminUpdatePayload());
 
         expect(result).toEqual({
             ok: false,
@@ -213,7 +181,7 @@ describe('updateAdmin', () => {
         auth.mockResolvedValueOnce(buildSession());
         const {updateAdmin} = await import('@/actions/admin-actions');
 
-        const result = await updateAdmin('', buildUpdatePayload());
+        const result = await updateAdmin('', buildAdminUpdatePayload());
 
         expect(result).toEqual({
             ok: false,
@@ -228,7 +196,7 @@ describe('updateAdmin', () => {
         defineAbilityFor.mockReturnValue({can: vi.fn(() => false)});
         const {updateAdmin} = await import('@/actions/admin-actions');
 
-        const result = await updateAdmin('admin-1', buildUpdatePayload());
+        const result = await updateAdmin('admin-1', buildAdminUpdatePayload());
 
         expect(result).toEqual({
             ok: false,
@@ -242,7 +210,7 @@ describe('updateAdmin', () => {
         auth.mockResolvedValueOnce(buildSession());
         const {updateAdmin} = await import('@/actions/admin-actions');
 
-        const result = await updateAdmin('admin-1', buildUpdatePayload({fullName: 'A'}));
+        const result = await updateAdmin('admin-1', buildAdminUpdatePayload({fullName: 'A'}));
 
         expect(result).toEqual({
             ok: false,
@@ -258,7 +226,7 @@ describe('updateAdmin', () => {
         prisma.user.findUnique.mockResolvedValueOnce(null);
         const {updateAdmin} = await import('@/actions/admin-actions');
 
-        const result = await updateAdmin('missing-admin', buildUpdatePayload());
+        const result = await updateAdmin('missing-admin', buildAdminUpdatePayload());
 
         expect(result).toEqual({
             ok: false,
@@ -279,7 +247,7 @@ describe('updateAdmin', () => {
         prisma.user.count.mockResolvedValueOnce(0);
         const {updateAdmin} = await import('@/actions/admin-actions');
 
-        const result = await updateAdmin('admin-1', buildUpdatePayload({active: false}));
+        const result = await updateAdmin('admin-1', buildAdminUpdatePayload({active: false}));
 
         expect(result).toEqual({
             ok: false,
@@ -303,7 +271,7 @@ describe('updateAdmin', () => {
 
         const result = await updateAdmin(
             'admin-1',
-            buildUpdatePayload({
+            buildAdminUpdatePayload({
                 role: UserRole.ORGANIZATION_ADMIN,
                 organizationId: 'org-1',
             }),
@@ -327,16 +295,9 @@ describe('updateAdmin', () => {
 
 describe('toggleAdminActive', () => {
     const setupToggleAdminDeps = async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.user.findUnique.mockReset();
-        prisma.user.update.mockReset();
-        prisma.user.count.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
+        const {auth} = await resetAuthMocks();
+        const prisma = await resetPrismaMock();
+        const {defineAbilityFor} = await resetCaslMocks();
 
         return {auth, prisma, defineAbilityFor};
     };
@@ -430,16 +391,9 @@ describe('toggleAdminActive', () => {
 
 describe('deleteAdmin', () => {
     const setupDeleteAdminDeps = async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.user.findUnique.mockReset();
-        prisma.user.count.mockReset();
-        prisma.user.delete.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
+        const {auth} = await resetAuthMocks();
+        const prisma = await resetPrismaMock();
+        const {defineAbilityFor} = await resetCaslMocks();
 
         return {auth, prisma, defineAbilityFor};
     };

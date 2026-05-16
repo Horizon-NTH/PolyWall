@@ -7,16 +7,8 @@ import {
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
 import { safeGoto } from './helpers/navigation';
-
-function buildUniqueName(projectName: string, subject: string) {
-    return `PW E2E ${projectName} ${subject} ${Date.now()}`;
-}
-
-function extractEntityId(url: string, resource: 'channels' | 'display-templates') {
-    const match = url.match(new RegExp(`/dashboard/${resource}/(?!new$)(?!.*\\/edit$)([^/?#]+)`));
-    if (!match) throw new Error(`Impossible de lire l'ID depuis l'URL: ${url}`);
-    return match[1];
-}
+import { createCleanupTracker, extractDashboardEntityId, uniqueE2eName } from './helpers/data';
+import { confirmAlertDialog } from './helpers/ui';
 
 async function fieldByLabel(container: Page | Locator, label: string) {
     const fields = await container.locator('[data-slot="field"]').all();
@@ -52,7 +44,12 @@ async function fillNumberField(container: Page | Locator, label: string, value: 
 }
 
 async function selectFieldOption(container: Page | Locator, label: string, optionName: string | RegExp) {
-    await (await fieldByLabel(container, label)).getByRole('combobox').click();
+    const combobox = (await fieldByLabel(container, label)).getByRole('combobox').first();
+    const currentValue = ((await combobox.textContent()) ?? '').replace(/\s+/g, ' ').trim();
+
+    if (typeof optionName === 'string' && currentValue === optionName) return;
+
+    await combobox.click();
     await getPage(container)
         .getByRole('option', typeof optionName === 'string' ? {name: optionName, exact: true} : {name: optionName})
         .click();
@@ -70,7 +67,7 @@ async function findTemplateIdFromList(page: Page, name: string) {
     await expect(link).toBeVisible();
     const href = await link.getAttribute('href');
     if (!href) throw new Error(`Lien du modèle introuvable: ${name}`);
-    return extractEntityId(href, 'display-templates');
+    return extractDashboardEntityId(href, 'display-templates');
 }
 
 async function createDisplayTemplate(
@@ -90,13 +87,10 @@ async function createDisplayTemplate(
         await selectFieldOption(page, 'Portée', params.scope === 'global' ? 'Global' : 'Organisation');
     }
 
-    await page.getByRole('main').getByRole('textbox', {name: 'Nom'}).fill(params.name);
-    await page.getByRole('main').getByRole('textbox', {name: 'Description'}).fill(params.description);
-    await page.getByRole('main').getByRole('textbox', {name: 'Fond global'}).fill('#111827');
-
     if (params.includeWidget) {
         await page.getByRole('button', {name: /Zone widget/}).click();
         const widgetCard = zoneCard(page, 'WIDGET');
+        await expect(widgetCard).toBeVisible();
         await fillTextField(widgetCard, 'Nom', 'Horloge latérale');
         await fillNumberField(widgetCard, 'Position horizontale', 1520);
         await fillNumberField(widgetCard, 'Position verticale', 0);
@@ -110,6 +104,7 @@ async function createDisplayTemplate(
     if (params.includeStatic) {
         await page.getByRole('button', {name: /Zone statique/}).click();
         const staticCard = zoneCard(page, 'STATIC');
+        await expect(staticCard).toBeVisible();
         await fillTextField(staticCard, 'Nom', 'Bandeau info');
         await fillNumberField(staticCard, 'Position horizontale', 0);
         await fillNumberField(staticCard, 'Position verticale', 930);
@@ -118,13 +113,16 @@ async function createDisplayTemplate(
         await staticCard.getByRole('tab', {name: 'Texte'}).click();
         await fillTextField(staticCard, 'Texte', 'Message institutionnel');
         await fillTextField(staticCard, 'Couleur texte', '#ffffff');
-        await fillTextField(staticCard, 'Fond', '#0f172a');
     }
+
+    await page.getByRole('main').getByRole('textbox', {name: 'Nom'}).fill(params.name);
+    await page.getByRole('main').getByRole('textbox', {name: 'Description'}).fill(params.description);
+    await page.getByRole('main').getByRole('textbox', {name: 'Fond global'}).fill('#111827');
 
     await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
     await page.waitForURL(/\/dashboard\/display-templates\/[^/]+$/, {timeout: 15000});
     await expect(page.getByRole('heading', {name: params.name})).toBeVisible();
-    return extractEntityId(page.url(), 'display-templates');
+    return extractDashboardEntityId(page.url(), 'display-templates');
 }
 
 async function deleteDisplayTemplateById(page: Page, templateId: string) {
@@ -139,7 +137,7 @@ async function deleteDisplayTemplateById(page: Page, templateId: string) {
     await deleteButton.click();
     const dialog = page.getByRole('alertdialog');
     if ((await dialog.getByRole('button', {name: 'Supprimer'}).count()) === 0) return;
-    await dialog.getByRole('button', {name: 'Supprimer'}).click();
+    await confirmAlertDialog(page);
     await page.waitForURL(/\/dashboard\/display-templates$/, {timeout: 15000});
 }
 
@@ -153,8 +151,7 @@ async function deleteChannelById(page: Page, channelId: string) {
     if ((await deleteButton.count()) === 0) return;
 
     await deleteButton.click();
-    const dialog = page.getByRole('alertdialog');
-    await dialog.getByRole('button', {name: 'Supprimer'}).click();
+    await confirmAlertDialog(page);
     await page.waitForURL(/\/dashboard\/channels$/, {timeout: 15000});
 }
 
@@ -173,45 +170,45 @@ async function createChannelWithTemplate(
     await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
     await page.waitForURL(/\/dashboard\/channels\/[^/]+$/, {timeout: 15000});
     await expect(page.getByRole('heading', {name: params.name})).toBeVisible();
-    return extractEntityId(page.url(), 'channels');
+    return extractDashboardEntityId(page.url(), 'channels');
 }
 
 test.describe('display templates', () => {
     test.describe.configure({mode: 'serial'});
 
-    const createdTemplateIds: string[] = [];
-    const createdChannelIds: string[] = [];
+    const createdTemplateIds = createCleanupTracker<string>();
+    const createdChannelIds = createCleanupTracker<string>();
 
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
-        createdTemplateIds.length = 0;
-        createdChannelIds.length = 0;
+        createdTemplateIds.clear();
+        createdChannelIds.clear();
     });
 
     test.afterEach(async ({page}) => {
-        for (const channelId of new Set(createdChannelIds)) {
+        for (const channelId of createdChannelIds.unique()) {
             await deleteChannelById(page, channelId);
         }
 
-        for (const templateId of new Set(createdTemplateIds).values()) {
+        for (const templateId of createdTemplateIds.unique()) {
             await deleteDisplayTemplateById(page, templateId);
         }
 
-        createdChannelIds.length = 0;
-        createdTemplateIds.length = 0;
+        createdChannelIds.clear();
+        createdTemplateIds.clear();
     });
 
     test('admin can create, edit, duplicate and delete an organization template with zones and a clock widget', async ({page}, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
-        const templateName = buildUniqueName(testInfo.project.name, 'Template');
+        const templateName = uniqueE2eName(testInfo.project.name, 'Template');
         const templateId = await createDisplayTemplate(page, {
             name: templateName,
             description: 'Modèle e2e avec une playlist, une horloge et un bandeau.',
             includeWidget: true,
             includeStatic: true,
         });
-        createdTemplateIds.push(templateId);
+        createdTemplateIds.add(templateId);
 
         const main = page.getByRole('main');
         await expect(main.getByText('Organisation', {exact: true})).toBeVisible();
@@ -244,38 +241,38 @@ test.describe('display templates', () => {
             const duplicateIdFromUrl = url.pathname.match(/^\/dashboard\/display-templates\/([^/]+)$/)?.[1];
             return duplicateIdFromUrl && duplicateIdFromUrl !== templateId ? duplicateIdFromUrl : null;
         }, {timeout: 15000}).not.toBeNull();
-        const duplicateId = extractEntityId(page.url(), 'display-templates');
-        createdTemplateIds.push(duplicateId);
+        const duplicateId = extractDashboardEntityId(page.url(), 'display-templates');
+        createdTemplateIds.add(duplicateId);
         await expect(page.getByRole('heading', {name: duplicateName})).toBeVisible();
         await expect(page.getByText('Modèle dupliqué.')).toBeVisible();
 
         await deleteDisplayTemplateById(page, duplicateId);
-        createdTemplateIds.splice(createdTemplateIds.indexOf(duplicateId), 1);
+        createdTemplateIds.remove(duplicateId);
         await expect(page.getByText('Modèle supprimé.')).toBeVisible();
 
         await deleteDisplayTemplateById(page, templateId);
-        createdTemplateIds.splice(createdTemplateIds.indexOf(templateId), 1);
+        createdTemplateIds.remove(templateId);
         await expect(page.getByText('Modèle supprimé.')).toBeVisible();
     });
 
     test('template deletion is blocked when a channel uses it', async ({page}, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
-        const templateName = buildUniqueName(testInfo.project.name, 'Template utilisé');
+        const templateName = uniqueE2eName(testInfo.project.name, 'Template utilisé');
         const templateId = await createDisplayTemplate(page, {
             name: templateName,
             description: 'Modèle e2e utilisé par un canal.',
             includeWidget: true,
         });
-        createdTemplateIds.push(templateId);
+        createdTemplateIds.add(templateId);
 
-        const channelName = buildUniqueName(testInfo.project.name, 'Canal modèle');
+        const channelName = uniqueE2eName(testInfo.project.name, 'Canal modèle');
         const channelId = await createChannelWithTemplate(page, {
             name: channelName,
             description: 'Canal e2e associé au modèle.',
             templateName,
         });
-        createdChannelIds.push(channelId);
+        createdChannelIds.add(channelId);
 
         await safeGoto(page, `/dashboard/display-templates/${templateId}`);
         await expect(page.getByRole('link', {name: channelName})).toBeVisible();
@@ -287,7 +284,7 @@ test.describe('display templates', () => {
         await dialog.getByRole('button', {name: 'Fermer'}).click();
 
         await deleteChannelById(page, channelId);
-        createdChannelIds.splice(createdChannelIds.indexOf(channelId), 1);
+        createdChannelIds.remove(channelId);
     });
 
     test('content manager can read templates but cannot create or mutate them', async ({page}) => {
@@ -309,14 +306,14 @@ test.describe('display templates', () => {
     test('platform super admin can create and manage a global template without selecting an organization', async ({page}, testInfo) => {
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
 
-        const templateName = buildUniqueName(testInfo.project.name, 'Global');
+        const templateName = uniqueE2eName(testInfo.project.name, 'Global');
         const templateId = await createDisplayTemplate(page, {
             name: templateName,
             description: 'Modèle global e2e.',
             scope: 'global',
             includeWidget: true,
         });
-        createdTemplateIds.push(templateId);
+        createdTemplateIds.add(templateId);
 
         await expect(page.getByText('Global', {exact: true})).toBeVisible();
         await expect(page.getByRole('link', {name: 'Modifier'})).toBeVisible();
@@ -331,13 +328,13 @@ test.describe('display templates', () => {
     test('organization admin can read a global template but cannot edit it', async ({page}, testInfo) => {
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
 
-        const templateName = buildUniqueName(testInfo.project.name, 'Global lecture');
+        const templateName = uniqueE2eName(testInfo.project.name, 'Global lecture');
         const templateId = await createDisplayTemplate(page, {
             name: templateName,
             description: 'Modèle global lu par une organisation.',
             scope: 'global',
         });
-        createdTemplateIds.push(templateId);
+        createdTemplateIds.add(templateId);
 
         await page.context().clearCookies();
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);

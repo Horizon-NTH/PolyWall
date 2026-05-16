@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { UserRole } from '@/generated/prisma/enums';
+import { buildSession } from '@/test/mocks/auth';
 
 const mocks = vi.hoisted(() => ({
     auth: vi.fn(),
@@ -29,19 +29,6 @@ vi.mock('@/lib/screens/display-runtime-snapshot', () => ({
 vi.mock('@/actions/action-logging', () => ({
     createActionLogger: mocks.createActionLogger,
 }));
-
-function buildSession() {
-    return {
-        user: {
-            id: 'user-1',
-            email: 'user@example.com',
-            name: 'User Example',
-            role: UserRole.ORGANIZATION_ADMIN,
-            organizationId: 'org-1',
-        },
-        expires: new Date().toISOString(),
-    };
-}
 
 describe('channel display preview API route', () => {
     beforeEach(() => {

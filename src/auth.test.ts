@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { UserRole } from '@/generated/prisma/enums';
 
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
-import { getArgon2Mock, mockArgon2Module } from '@/test/mocks/auth';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
+import { getArgon2Mock, mockArgon2Module, resetArgon2Mock } from '@/test/mocks/auth';
 
 mockPrismaModule();
 mockArgon2Module();
@@ -44,6 +44,14 @@ const loadAuthConfig = async () => {
     return mod.authConfig;
 };
 
+const getCredentialsAuthorize = async () => {
+    const authConfig = await loadAuthConfig();
+    const provider = authConfig.providers.find((item) => item.id === 'credentials');
+    return provider?.authorize as
+        | ((credentials: Record<string, unknown>, request?: Request) => Promise<unknown>)
+        | undefined;
+};
+
 const setupRateLimitMocks = async () => {
     const mod = await import('@/lib/rate-limit/login');
     const consumeLoginAttempt = vi
@@ -70,16 +78,14 @@ describe('auth config', () => {
         process.env.AUTH_TRUST_HOST = 'false';
         process.env.AUTH_URL = 'http://localhost:3000';
         vi.clearAllMocks();
+        await resetPrismaMock();
+        await resetArgon2Mock();
         rateLimitMocks = await setupRateLimitMocks();
     });
 
     it('rejects invalid credentials before hitting the database', async () => {
         const prisma = await getPrismaMock();
-        const authConfig = await loadAuthConfig();
-        const provider = authConfig.providers.find((item) => item.id === 'credentials');
-        const authorize = provider?.authorize as
-            | ((credentials: Record<string, unknown>) => Promise<unknown>)
-            | undefined;
+        const authorize = await getCredentialsAuthorize();
 
         expect(authorize).toBeDefined();
 
@@ -93,11 +99,7 @@ describe('auth config', () => {
         const prisma = await getPrismaMock();
         prisma.user.findUnique.mockResolvedValueOnce(null);
 
-        const authConfig = await loadAuthConfig();
-        const provider = authConfig.providers.find((item) => item.id === 'credentials');
-        const authorize = provider?.authorize as
-            | ((credentials: Record<string, unknown>) => Promise<unknown>)
-            | undefined;
+        const authorize = await getCredentialsAuthorize();
 
         const result = await authorize?.({email: 'user@example.com', password: 'password123'});
         expect(result).toBeNull();
@@ -131,11 +133,7 @@ describe('auth config', () => {
             active: false,
         });
 
-        const authConfig = await loadAuthConfig();
-        const provider = authConfig.providers.find((item) => item.id === 'credentials');
-        const authorize = provider?.authorize as
-            | ((credentials: Record<string, unknown>) => Promise<unknown>)
-            | undefined;
+        const authorize = await getCredentialsAuthorize();
 
         const result = await authorize?.({email: 'user@example.com', password: 'password123'});
         expect(result).toBeNull();
@@ -155,11 +153,7 @@ describe('auth config', () => {
         });
         argon2.verify.mockResolvedValueOnce(false);
 
-        const authConfig = await loadAuthConfig();
-        const provider = authConfig.providers.find((item) => item.id === 'credentials');
-        const authorize = provider?.authorize as
-            | ((credentials: Record<string, unknown>) => Promise<unknown>)
-            | undefined;
+        const authorize = await getCredentialsAuthorize();
 
         const result = await authorize?.({email: 'user@example.com', password: 'password123'});
         expect(result).toBeNull();
@@ -179,11 +173,7 @@ describe('auth config', () => {
         });
         argon2.verify.mockRejectedValueOnce(new Error('boom'));
 
-        const authConfig = await loadAuthConfig();
-        const provider = authConfig.providers.find((item) => item.id === 'credentials');
-        const authorize = provider?.authorize as
-            | ((credentials: Record<string, unknown>) => Promise<unknown>)
-            | undefined;
+        const authorize = await getCredentialsAuthorize();
 
         const result = await authorize?.({email: 'user@example.com', password: 'password123'});
         expect(result).toBeNull();
@@ -203,11 +193,7 @@ describe('auth config', () => {
         });
         argon2.verify.mockResolvedValueOnce(true);
 
-        const authConfig = await loadAuthConfig();
-        const provider = authConfig.providers.find((item) => item.id === 'credentials');
-        const authorize = provider?.authorize as
-            | ((credentials: Record<string, unknown>) => Promise<unknown>)
-            | undefined;
+        const authorize = await getCredentialsAuthorize();
 
         const result = await authorize?.({email: 'USER@EXAMPLE.COM', password: 'password123'});
         expect(result).toEqual({
@@ -225,11 +211,7 @@ describe('auth config', () => {
 
     it('throws a rate limited error when limiter blocks the login', async () => {
         const prisma = await getPrismaMock();
-        const authConfig = await loadAuthConfig();
-        const provider = authConfig.providers.find((item) => item.id === 'credentials');
-        const authorize = provider?.authorize as
-            | ((credentials: Record<string, unknown>, request?: Request) => Promise<unknown>)
-            | undefined;
+        const authorize = await getCredentialsAuthorize();
 
         rateLimitMocks.consumeLoginAttempt.mockRejectedValueOnce(new rateLimitMocks.RateLimitExceeded(1000));
 

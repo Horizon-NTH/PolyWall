@@ -1,35 +1,17 @@
-import React, { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ScreenForm } from '@/components/screens/screen-form';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
 const approvePendingScreenMock = vi.fn();
 const updateScreenMock = vi.fn();
-const toastSuccessMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-    }),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/screen-actions', () => ({
     approvePendingScreen: (...args: unknown[]) => approvePendingScreenMock(...args),
     updateScreen: (...args: unknown[]) => updateScreenMock(...args),
-}));
-
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: vi.fn(),
-    },
 }));
 
 vi.mock('@/components/ui/select', () => ({
@@ -98,10 +80,8 @@ describe('ScreenForm', () => {
     ];
 
     beforeEach(() => {
-        pushMock.mockReset();
         approvePendingScreenMock.mockReset();
         updateScreenMock.mockReset();
-        toastSuccessMock.mockReset();
     });
 
     it('approves a pending screen and redirects on success', async () => {
@@ -130,8 +110,8 @@ describe('ScreenForm', () => {
                 interactiveUrl: '',
                 inactivityTimeoutSeconds: undefined,
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Écran validé.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/screens/screen-1');
+            expect(toastMock.success).toHaveBeenCalledWith('Écran validé.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/screens/screen-1');
         });
     });
 
@@ -166,8 +146,8 @@ describe('ScreenForm', () => {
                 interactiveUrl: '',
                 inactivityTimeoutSeconds: undefined,
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Écran mis à jour.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/screens/screen-2');
+            expect(toastMock.success).toHaveBeenCalledWith('Écran mis à jour.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/screens/screen-2');
         });
     });
 

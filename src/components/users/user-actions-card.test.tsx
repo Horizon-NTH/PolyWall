@@ -2,41 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { UserActionsCard } from '@/components/users/user-actions-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const refreshMock = vi.fn();
-const replaceMock = vi.fn();
 const toggleUserActiveMock = vi.fn();
 const deleteUserMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-        replace: replaceMock,
-    }),
-}));
 
 vi.mock('@/actions/user-actions', () => ({
     toggleUserActive: (...args: unknown[]) => toggleUserActiveMock(...args),
     deleteUser: (...args: unknown[]) => deleteUserMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('UserActionsCard', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
-        replaceMock.mockReset();
         toggleUserActiveMock.mockReset();
         deleteUserMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('toggles the user status and refreshes', async () => {
@@ -54,8 +34,8 @@ describe('UserActionsCard', () => {
 
         await waitFor(() => {
             expect(toggleUserActiveMock).toHaveBeenCalledWith('user-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Utilisateur désactivé.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Utilisateur désactivé.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -76,8 +56,8 @@ describe('UserActionsCard', () => {
 
         await waitFor(() => {
             expect(deleteUserMock).toHaveBeenCalledWith('user-1');
-            expect(toastErrorMock).toHaveBeenCalledWith('Erreur serveur');
+            expect(toastMock.error).toHaveBeenCalledWith('Erreur serveur');
         });
-        expect(replaceMock).not.toHaveBeenCalled();
+        expect(routerMock.replace).not.toHaveBeenCalled();
     });
 });

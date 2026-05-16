@@ -1,37 +1,19 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { PlaylistActionsCard } from '@/components/playlists/playlist-actions-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const replaceMock = vi.fn();
 const deletePlaylistMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        replace: replaceMock,
-    }),
-}));
 
 vi.mock('@/actions/playlist-actions', () => ({
     deletePlaylist: (...args: unknown[]) => deletePlaylistMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('PlaylistActionsCard', () => {
     beforeEach(() => {
-        replaceMock.mockReset();
         deletePlaylistMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('deletes playlist and redirects on success', async () => {
@@ -57,8 +39,8 @@ describe('PlaylistActionsCard', () => {
 
         await waitFor(() => {
             expect(deletePlaylistMock).toHaveBeenCalledWith('playlist-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Playlist supprimée.');
-            expect(replaceMock).toHaveBeenCalledWith('/dashboard/playlists');
+            expect(toastMock.success).toHaveBeenCalledWith('Playlist supprimée.');
+            expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/playlists');
         });
     });
 
@@ -72,8 +54,8 @@ describe('PlaylistActionsCard', () => {
         fireEvent.click(within(dialog).getByRole('button', {name: 'Supprimer'}));
 
         await waitFor(() => {
-            expect(toastErrorMock).toHaveBeenCalledWith('Suppression impossible.');
-            expect(replaceMock).not.toHaveBeenCalled();
+            expect(toastMock.error).toHaveBeenCalledWith('Suppression impossible.');
+            expect(routerMock.replace).not.toHaveBeenCalled();
         });
     });
 });

@@ -1,33 +1,19 @@
-import React, { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { DisplayTemplateForm } from '@/components/display-templates/display-template-form';
 import { ZoneType } from '@/generated/prisma/enums';
 import { type DisplayTemplateCreateValues } from '@/schemas/display-template-schema';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
 const createDisplayTemplateMock = vi.fn();
 const updateDisplayTemplateMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-    }),
-}));
 
 vi.mock('@/actions/display-template-actions', () => ({
     createDisplayTemplate: (...args: unknown[]) => createDisplayTemplateMock(...args),
     updateDisplayTemplate: (...args: unknown[]) => updateDisplayTemplateMock(...args),
-}));
-
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
 }));
 
 vi.mock('@/components/ui/select', () => ({
@@ -70,11 +56,6 @@ vi.mock('@/components/ui/tooltip', () => ({
     TooltipContent: ({children}: { children: ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
-
 describe('DisplayTemplateForm', () => {
     const widgetTypes = [
         {id: 'widget-clock', name: 'Horloge', technicalKey: 'clock'},
@@ -82,11 +63,8 @@ describe('DisplayTemplateForm', () => {
     ];
 
     beforeEach(() => {
-        pushMock.mockReset();
         createDisplayTemplateMock.mockReset();
         updateDisplayTemplateMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('creates a global template and redirects on success', async () => {
@@ -115,8 +93,8 @@ describe('DisplayTemplateForm', () => {
                 resolutionX: 1920,
                 resolutionY: 1080,
             }));
-            expect(toastSuccessMock).toHaveBeenCalledWith('Modèle créé.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/display-templates/template-global');
+            expect(toastMock.success).toHaveBeenCalledWith('Modèle créé.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/display-templates/template-global');
         });
     });
 
@@ -257,7 +235,7 @@ describe('DisplayTemplateForm', () => {
         fireEvent.click(screen.getByRole('button', {name: 'Créer'}));
 
         await waitFor(() => {
-            expect(toastErrorMock).toHaveBeenCalledWith('Certains champs du modèle sont invalides.');
+            expect(toastMock.error).toHaveBeenCalledWith('Certains champs du modèle sont invalides.');
             expect(createDisplayTemplateMock).not.toHaveBeenCalled();
             expect(screen.getByRole('button', {name: 'Style de zone'})).toHaveAttribute('aria-invalid', 'true');
         });
@@ -330,7 +308,7 @@ describe('DisplayTemplateForm', () => {
 
         await waitFor(() => {
             const payload = createDisplayTemplateMock.mock.calls[0]?.[0] as DisplayTemplateCreateValues;
-            expect(payload.zones[0]?.configurationJson).toEqual({});
+            expect(payload.zones[0]?.configurationJson).toEqual({displayMode: 'fullscreen'});
         });
     });
 
@@ -380,8 +358,8 @@ describe('DisplayTemplateForm', () => {
                     description: 'Description existante',
                 }),
             );
-            expect(toastSuccessMock).toHaveBeenCalledWith('Modèle mis à jour.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/display-templates/template-1');
+            expect(toastMock.success).toHaveBeenCalledWith('Modèle mis à jour.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/display-templates/template-1');
         });
     });
 });

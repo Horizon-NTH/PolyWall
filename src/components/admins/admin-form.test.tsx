@@ -1,37 +1,17 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { AdminForm } from '@/components/admins/admin-form';
 import { UserRole } from '@/generated/prisma/enums';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
-const refreshMock = vi.fn();
 const createAdminMock = vi.fn();
 const updateAdminMock = vi.fn();
-const toastSuccessMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-        refresh: refreshMock,
-    }),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/admin-actions', () => ({
     createAdmin: (...args: unknown[]) => createAdminMock(...args),
     updateAdmin: (...args: unknown[]) => updateAdminMock(...args),
-}));
-
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-    },
 }));
 
 describe('AdminForm', () => {
@@ -58,11 +38,8 @@ describe('AdminForm', () => {
     };
 
     beforeEach(() => {
-        pushMock.mockReset();
-        refreshMock.mockReset();
         createAdminMock.mockReset();
         updateAdminMock.mockReset();
-        toastSuccessMock.mockReset();
     });
 
     const organizations = [
@@ -115,8 +92,8 @@ describe('AdminForm', () => {
                 confirmPassword: 'Password123!',
                 active: true,
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Administrateur créé.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/administrators');
+            expect(toastMock.success).toHaveBeenCalledWith('Administrateur créé.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/administrators');
         });
     });
 
@@ -151,8 +128,8 @@ describe('AdminForm', () => {
                 organizationId: 'org-1',
                 active: false,
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Administrateur mis à jour.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/administrators/admin-2');
+            expect(toastMock.success).toHaveBeenCalledWith('Administrateur mis à jour.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/administrators/admin-2');
         });
     });
 });

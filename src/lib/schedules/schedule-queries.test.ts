@@ -1,19 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+import { notFoundMock } from '@/test/mocks/next-navigation';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
 type ResolveThumbUrl = typeof import('@/lib/storage/presigned-url')['resolveThumbUrl'];
 type ToScheduleViewModel = typeof import('@/lib/schedules/schedule-view-model')['toScheduleViewModel'];
 
-const notFoundMock = vi.fn(() => {
-    throw new Error('NOT_FOUND');
-});
 const resolveThumbUrlMock = vi.fn<ResolveThumbUrl>(async (ref) => (ref ? 'https://cdn/thumb.jpg' : null));
 const toScheduleViewModelMock = vi.fn<ToScheduleViewModel>((value) => ({id: `vm-${value.id}`} as ReturnType<ToScheduleViewModel>));
-
-vi.mock('next/navigation', () => ({
-    notFound: () => notFoundMock(),
-}));
 
 vi.mock('@/lib/storage/presigned-url', () => ({
     resolveThumbUrl: (...args: Parameters<ResolveThumbUrl>) => resolveThumbUrlMock(...args),
@@ -27,14 +21,10 @@ mockPrismaModule();
 
 describe('schedule-queries', () => {
     beforeEach(async () => {
-        const prisma = await getPrismaMock();
-
-        prisma.channel.findMany.mockReset();
-        prisma.channel.findFirst.mockReset();
-        prisma.playlist.findMany.mockReset();
-        prisma.playlistSchedule.findFirst.mockReset();
-
-        notFoundMock.mockReset();
+        await resetPrismaMock();
+        notFoundMock.mockImplementation(() => {
+            throw new Error('NOT_FOUND');
+        });
         resolveThumbUrlMock.mockReset();
         resolveThumbUrlMock.mockImplementation(async (ref) => (ref ? 'https://cdn/thumb.jpg' : null));
         toScheduleViewModelMock.mockReset();
