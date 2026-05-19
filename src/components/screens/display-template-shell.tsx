@@ -14,6 +14,7 @@ import {
     type DisplayTemplateZone,
 } from '@/lib/display-runtime/types';
 import { getRequiredStringConfig } from '@/lib/config/json-config';
+import { isTransparentBackground } from '@/lib/display-runtime/color-contrast';
 import { getZoneAppearanceStyle } from '@/lib/display-runtime/template-style';
 
 export type TemplateRendererProps = {
@@ -21,6 +22,7 @@ export type TemplateRendererProps = {
     resolvedState: DisplayResolvedState;
     syncStatus: DisplaySyncStatus;
     assetSrc: string | null;
+    deviceId?: string | null;
     playlistAssetSrcByCacheKey?: Record<string, string>;
     staticAssetSrcByCacheKey?: Record<string, string>;
 };
@@ -90,8 +92,31 @@ function StaticZone({
     );
 }
 
-function WidgetZone({zone}: { zone: DisplayTemplateZone }) {
+function resolveWidgetZoneConfiguration(
+    zoneConfiguration: Record<string, unknown>,
+    templateBackgroundColor: string,
+) {
+    if (!isTransparentBackground(zoneConfiguration.backgroundColor)) {
+        return zoneConfiguration;
+    }
+
+    return {
+        ...zoneConfiguration,
+        backgroundColor: templateBackgroundColor,
+    };
+}
+
+function WidgetZone({
+                        zone,
+                        deviceId,
+                        templateBackgroundColor,
+                    }: {
+    zone: DisplayTemplateZone;
+    deviceId?: string | null;
+    templateBackgroundColor: string;
+}) {
     const configurationJson = zone.configurationJson ?? {};
+    const widgetConfiguration = resolveWidgetZoneConfiguration(configurationJson, templateBackgroundColor);
     const widget = zone.widgetInstance ?? null;
     const gap = typeof configurationJson.gap === 'number' ? configurationJson.gap : 12;
 
@@ -102,7 +127,7 @@ function WidgetZone({zone}: { zone: DisplayTemplateZone }) {
         >
             {widget ? (
                 <div className="min-h-0 flex-1 overflow-hidden">
-                    <DisplayWidget widget={widget} />
+                    <DisplayWidget widget={widget} deviceId={deviceId} zoneConfiguration={widgetConfiguration} />
                 </div>
             ) : (
                 <div className="flex h-full w-full items-center justify-center text-center text-white/70">
@@ -154,7 +179,11 @@ function DisplayLayoutRenderer(props: TemplateRendererProps) {
                     {zone.zoneType === ZoneType.PLAYLIST ? (
                         <DisplayPlaylistZone {...props} zone={zone} />
                     ) : zone.zoneType === ZoneType.WIDGET ? (
-                        <WidgetZone zone={zone} />
+                        <WidgetZone
+                            zone={zone}
+                            deviceId={props.deviceId}
+                            templateBackgroundColor={backgroundColor}
+                        />
                     ) : zone.zoneType === ZoneType.STATIC ? (
                         <StaticZone zone={zone} staticAssetSrcByCacheKey={props.staticAssetSrcByCacheKey} />
                     ) : null}

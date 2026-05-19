@@ -17,6 +17,7 @@ type DisplayPlaybackSurfaceProps = {
     snapshot: DisplayRuntimeSnapshot;
     syncStatus: DisplaySyncStatus;
     serverOffsetMs: number;
+    deviceId?: string | null;
     className?: string;
     onPointerDown?: React.PointerEventHandler<HTMLDivElement>;
 };
@@ -28,6 +29,7 @@ export function DisplayPlaybackSurface({
                                            snapshot,
                                            syncStatus,
                                            serverOffsetMs,
+                                           deviceId,
                                            className,
                                            onPointerDown,
                                        }: DisplayPlaybackSurfaceProps) {
@@ -142,6 +144,7 @@ export function DisplayPlaybackSurface({
                 resolvedState={resolvedState}
                 syncStatus={syncStatus}
                 assetSrc={visibleAssetSrc}
+                deviceId={deviceId}
                 playlistAssetSrcByCacheKey={playlistAssetSrcByCacheKey}
                 staticAssetSrcByCacheKey={staticAssetSrcByCacheKey}
             />

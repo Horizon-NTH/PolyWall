@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DisplayTemplateShell } from '@/components/screens/display-template-shell';
@@ -271,7 +271,41 @@ describe('DisplayTemplateShell', () => {
         expect(screen.getByAltText('Logo')).toHaveAttribute('src', 'blob:http://localhost/logo');
     });
 
-    it('renders playlist zones in carousel mode with neighboring assets', () => {
+    it('uses the template background as widget contrast fallback when the widget zone is transparent', () => {
+        const snapshot = buildSnapshot();
+        snapshot.channel.template.configurationJson = {backgroundColor: '#ffffff'};
+        snapshot.channel.template.zones = [{
+            id: 'zone-clock',
+            name: 'Horloge',
+            zoneType: ZoneType.WIDGET,
+            orderIndex: 1,
+            positionX: 0,
+            positionY: 0,
+            width: 320,
+            height: 180,
+            configurationJson: {backgroundColor: 'transparent'},
+            widgetInstance: {
+                id: 'widget-clock',
+                technicalKey: 'clock',
+                active: true,
+                refreshPeriodSeconds: 30,
+                configurationJson: {timezone: 'UTC', format: 'HH:mm'},
+            },
+        }];
+
+        const {container} = render(
+            <DisplayTemplateShell
+                snapshot={snapshot}
+                resolvedState={buildPlayingResolvedState()}
+                syncStatus="PLAYING"
+                assetSrc="https://example.com/image.png"
+            />,
+        );
+
+        expect(container.querySelector('.text-slate-950')).toBeInTheDocument();
+    });
+
+    it('renders playlist zones in carousel mode with neighboring assets', async () => {
         const snapshot = buildSnapshot();
         const baseItem = snapshot.playlists[0]!.items[0]!;
         snapshot.channel.template.zones[0] = {
@@ -359,6 +393,7 @@ describe('DisplayTemplateShell', () => {
                 }}
             />,
         );
+        await act(async () => {});
 
         expect(screen.getByRole('region', {name: 'Playlist'})).toBeInTheDocument();
         expect(screen.getByAltText('Affiche principale')).toHaveAttribute('src', 'blob:previous');
@@ -367,7 +402,7 @@ describe('DisplayTemplateShell', () => {
         expect(screen.queryByAltText('Affiche hors fenêtre')).not.toBeInTheDocument();
     });
 
-    it('renders repeated slides for short carousel playlists so loop playback has enough content', () => {
+    it('renders repeated slides for short carousel playlists so loop playback has enough content', async () => {
         const snapshot = buildSnapshot();
         const baseItem = snapshot.playlists[0]!.items[0]!;
         snapshot.channel.template.zones[0] = {
@@ -415,6 +450,7 @@ describe('DisplayTemplateShell', () => {
                 }}
             />,
         );
+        await act(async () => {});
 
         expect(screen.getAllByRole('group')).toHaveLength(10);
         expect(screen.getAllByAltText('Affiche principale').length).toBeGreaterThan(1);

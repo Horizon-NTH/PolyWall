@@ -7,21 +7,28 @@ const WIDGET_CATALOG = {
     },
     weather: {
         label: 'Météo',
-        description: 'Affiche la météo (dev/mock)',
+        description: 'Affiche la météo',
         defaultRefreshPeriodSeconds: 300,
-        defaultConfiguration: {source: 'Dijon', maxItems: 1},
+        defaultConfiguration: {source: '', maxItems: 1},
     },
     rss: {
         label: 'Flux RSS',
-        description: 'Affiche un flux RSS (dev/mock)',
+        description: 'Affiche un flux RSS',
         defaultRefreshPeriodSeconds: 300,
         defaultConfiguration: {source: '', maxItems: 5},
     },
-    'tram-times': {
+    transit: {
         label: 'Transports',
-        description: 'Affiche des prochains passages (dev/mock)',
-        defaultRefreshPeriodSeconds: 300,
-        defaultConfiguration: {source: '', maxItems: 3},
+        description: 'Affiche les prochains passages depuis un flux GTFS/GTFS-RT',
+        defaultRefreshPeriodSeconds: 30,
+        defaultConfiguration: {
+            providerId: '',
+            stopIds: [],
+            routeIds: [],
+            destinations: [],
+            maxDeparturesPerLine: 2,
+            layoutDirection: 'row',
+        },
     },
 } as const satisfies Record<string, {
     label: string;

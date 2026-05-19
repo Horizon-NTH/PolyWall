@@ -429,6 +429,7 @@ export function DisplayClient(props: DisplayClientProps) {
                     snapshot={effectiveSnapshot}
                     syncStatus={effectiveSyncStatus}
                     serverOffsetMs={serverOffsetMs}
+                    deviceId={isDebugMode ? null : deviceId}
                     onPointerDown={() => interruptionController.notifyUserInteraction()}
                 />
             </main>

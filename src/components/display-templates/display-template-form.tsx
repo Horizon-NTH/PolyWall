@@ -21,6 +21,7 @@ import {
     ZoneConfigurationEditor,
     type ZoneConfigurationEditorErrors,
 } from '@/components/display-templates/display-template-zone-configuration-editor';
+import { TransitWidgetConfigurationEditor } from '@/components/display-templates/transit/transit-widget-configuration-editor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -875,7 +876,9 @@ function WidgetEditor({
                         option.id === field.value ? (
                             <TabsContent key={option.id}>
                                 <FieldGroup
-                                    className={widgetType?.technicalKey === 'clock' ? 'gap-3' : 'grid gap-3 md:grid-cols-2'}>
+                                    className={widgetType?.technicalKey === 'clock' || widgetType?.technicalKey === 'transit'
+                                        ? 'gap-3'
+                                        : 'grid gap-3 md:grid-cols-2'}>
                                     {widgetType?.technicalKey !== 'clock' ? (
                                         <Controller
                                             name={`zones.${zoneIndex}.widgetInstance.refreshPeriodSeconds`}
@@ -972,6 +975,10 @@ function WidgetConfigurationEditor({
                 </Field>
             </FieldGroup>
         );
+    }
+
+    if (technicalKey === 'transit') {
+        return <TransitWidgetConfigurationEditor configurationJson={configurationJson} onChange={onChange} />;
     }
 
     return (

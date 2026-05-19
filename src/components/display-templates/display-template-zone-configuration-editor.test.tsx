@@ -10,23 +10,61 @@ vi.mock('@/components/ui/select', () => ({
         children: ReactNode;
         value?: string;
         onValueChange?: (value: string) => void;
-    }) => (
-        <select
-            data-testid="mock-select"
-            value={value}
-            onChange={(event) => onValueChange?.(event.target.value)}
-        >
-            {children}
-        </select>
-    ),
-    SelectTrigger: ({children}: { children: ReactNode }) => <>{children}</>,
+    }) => {
+        const options: ReactNode[] = [];
+
+        function collectOptions(node: ReactNode): void {
+            if (Array.isArray(node)) {
+                node.forEach(collectOptions);
+                return;
+            }
+
+            if (!React.isValidElement<{
+                children?: ReactNode;
+                media?: {id: string; title: string};
+                value?: string;
+                textValue?: string;
+            }>(node)) return;
+
+            const elementName = typeof node.type === 'function' ? node.type.name : '';
+            if (node.props.media && elementName === 'StaticImageMediaSelectItem') {
+                options.push(<option key={node.props.media.id} value={node.props.media.id}>{node.props.media.title}</option>);
+                return;
+            }
+
+            if (node.props.value) {
+                options.push(<option key={node.props.value} value={node.props.value}>{node.props.textValue ?? node.props.children}</option>);
+                return;
+            }
+
+            collectOptions(node.props.children);
+        }
+
+        collectOptions(children);
+
+        return (
+            <>
+            <select
+                data-testid="mock-select"
+                value={value}
+                onChange={(event) => onValueChange?.(event.target.value)}
+            >
+                {options}
+            </select>
+                {children}
+            </>
+        );
+    },
+    SelectTrigger: () => null,
     SelectValue: () => null,
     SelectContent: ({children}: { children: ReactNode }) => <>{children}</>,
     SelectGroup: ({children}: { children: ReactNode }) => <>{children}</>,
-    SelectItem: ({value, children}: { value: string; children: ReactNode }) => (
-        <option value={value}>{children}</option>
-    ),
+    SelectItem,
 }));
+
+function SelectItem() {
+    return null;
+}
 
 vi.mock('radix-ui', async (importOriginal) => {
     const actual = await importOriginal<typeof import('radix-ui')>();
@@ -35,9 +73,7 @@ vi.mock('radix-ui', async (importOriginal) => {
         ...actual,
         Select: {
             ...actual.Select,
-            Item: ({value, textValue}: { value: string; textValue?: string }) => (
-                <option value={value}>{textValue ?? value}</option>
-            ),
+            Item: () => null,
             ItemText: ({children}: { children: ReactNode }) => <>{children}</>,
             ItemIndicator: ({children}: { children: ReactNode }) => <>{children}</>,
         },

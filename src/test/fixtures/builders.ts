@@ -9,8 +9,10 @@ import type { OrganizationRow } from '@/components/organizations/organizations-t
 import type { PlaylistRow } from '@/components/playlists/playlists-table';
 import type { ScreenRow } from '@/components/screens/screens-table';
 import type { UserRow } from '@/components/users/users-table';
+import type { DisplayWidgetInstance } from '@/lib/display-runtime/types';
 import type { PlaylistScheduleImpact } from '@/lib/playlists/playlist-schedule-impact';
 import type { ScheduleViewModel } from '@/lib/schedules/schedule-view-model';
+import type { TransitDeparture, TransitDeparturesResult } from '@/lib/transit/transit-types';
 import type { userCreateSchema, userUpdateSchema } from '@/schemas/user-schema';
 
 type MediaGridItem = Parameters<typeof MediaGrid>[0]['data'][number];
@@ -115,6 +117,46 @@ export const buildScreenRow = (overrides: Partial<ScreenRow> = {}): ScreenRow =>
     lastSeenAt: TEST_DATES.updatedAt,
     createdAt: TEST_DATES.createdAt,
     updatedAt: TEST_DATES.updatedAt,
+    ...overrides,
+});
+
+export const buildDisplayWidgetInstance = (
+    overrides: Partial<DisplayWidgetInstance> = {},
+): DisplayWidgetInstance => ({
+    id: 'widget-1',
+    technicalKey: 'clock',
+    active: true,
+    refreshPeriodSeconds: 30,
+    configurationJson: {},
+    ...overrides,
+});
+
+export const buildTransitDeparture = (
+    overrides: Partial<TransitDeparture> = {},
+): TransitDeparture => ({
+    stopId: 'stop-1',
+    stopName: 'Université',
+    line: {
+        routeId: 'route-t1',
+        shortName: 'T1',
+        longName: 'Tram T1',
+        type: 0,
+        color: '#be185d',
+        textColor: '#ffffff',
+    },
+    destination: 'DIJON Gare',
+    departureTime: '2026-05-09T10:19:30.000Z',
+    realtime: true,
+    ...overrides,
+});
+
+export const buildTransitDeparturesResult = (
+    overrides: Partial<TransitDeparturesResult> = {},
+): TransitDeparturesResult => ({
+    departures: [
+        buildTransitDeparture(),
+        buildTransitDeparture({departureTime: '2026-05-09T10:26:30.000Z'}),
+    ],
     ...overrides,
 });
 
