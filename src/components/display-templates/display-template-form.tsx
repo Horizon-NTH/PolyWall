@@ -21,7 +21,9 @@ import {
     ZoneConfigurationEditor,
     type ZoneConfigurationEditorErrors,
 } from '@/components/display-templates/display-template-zone-configuration-editor';
-import { TransitWidgetConfigurationEditor } from '@/components/display-templates/transit/transit-widget-configuration-editor';
+import {
+    TransitWidgetConfigurationEditor,
+} from '@/components/display-templates/transit/transit-widget-configuration-editor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -876,7 +878,9 @@ function WidgetEditor({
                         option.id === field.value ? (
                             <TabsContent key={option.id}>
                                 <FieldGroup
-                                    className={widgetType?.technicalKey === 'clock' || widgetType?.technicalKey === 'transit'
+                                    className={widgetType?.technicalKey === 'clock' ||
+                                    widgetType?.technicalKey === 'rss' ||
+                                    widgetType?.technicalKey === 'transit'
                                         ? 'gap-3'
                                         : 'grid gap-3 md:grid-cols-2'}>
                                     {widgetType?.technicalKey !== 'clock' ? (
@@ -979,6 +983,35 @@ function WidgetConfigurationEditor({
 
     if (technicalKey === 'transit') {
         return <TransitWidgetConfigurationEditor configurationJson={configurationJson} onChange={onChange} />;
+    }
+
+    if (technicalKey === 'rss') {
+        return (
+            <FieldGroup className="grid gap-3 md:grid-cols-2">
+                <Field className="md:col-span-2">
+                    <HelpLabel
+                        help="URL publique d'un flux RSS ou Atom. Le flux est récupéré côté serveur et affiché sous forme de texte."
+                    >
+                        URL du flux
+                    </HelpLabel>
+                    <Input
+                        placeholder="https://exemple.com/feed.xml"
+                        value={getStringConfig(configurationJson, 'source')}
+                        onChange={(event) => onChange({...configurationJson, source: event.target.value})}
+                    />
+                </Field>
+                <Field className="md:col-span-2">
+                    <FieldLabel>Nombre d&apos;éléments</FieldLabel>
+                    <Input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={getNumberConfig(configurationJson, 'maxItems', 5)}
+                        onChange={(event) => onChange({...configurationJson, maxItems: Number(event.target.value)})}
+                    />
+                </Field>
+            </FieldGroup>
+        );
     }
 
     return (

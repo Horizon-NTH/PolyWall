@@ -4,8 +4,8 @@ import { z } from 'zod';
 import { createActionLogger } from '@/actions/action-logging';
 import { ScreenStatus } from '@/generated/prisma/enums';
 import { asConfigurationRecord } from '@/lib/config/json-config';
-import { prisma } from '@/lib/prisma';
 import { guardDisplayRateLimit } from '@/lib/screens/display-route-utils';
+import { findDisplayWidgetForDevice } from '@/lib/screens/display-widget-route-utils';
 import { parseTransitWidgetConfig } from '@/lib/transit/transit-config';
 import { getTransitDepartures } from '@/lib/transit/gtfs-service';
 import { getRequestIp } from '@/lib/utils';
@@ -14,44 +14,6 @@ const transitWidgetQuerySchema = z.object({
     deviceId: z.string().trim().min(1),
     widgetId: z.string().trim().min(1),
 });
-
-async function findTransitWidgetForDevice(deviceId: string, widgetId: string) {
-    return prisma.screen.findFirst({
-        where: {deviceId},
-        select: {
-            id: true,
-            status: true,
-            channel: {
-                select: {
-                    displayTemplate: {
-                        select: {
-                            zones: {
-                                where: {
-                                    widgetInstance: {
-                                        id: widgetId,
-                                        active: true,
-                                        widgetType: {
-                                            technicalKey: 'transit',
-                                        },
-                                    },
-                                },
-                                select: {
-                                    widgetInstance: {
-                                        select: {
-                                            id: true,
-                                            configurationJson: true,
-                                        },
-                                    },
-                                },
-                                take: 1,
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    });
-}
 
 export async function GET(request: Request) {
     const ip = getRequestIp(request) ?? 'unknown';
@@ -77,7 +39,7 @@ export async function GET(request: Request) {
     }
 
     try {
-        const screen = await findTransitWidgetForDevice(parsed.data.deviceId, parsed.data.widgetId);
+        const screen = await findDisplayWidgetForDevice(parsed.data.deviceId, parsed.data.widgetId, 'transit');
 
         if (!screen) {
             log.invalid({reason: 'screen_not_found', ip, deviceId: parsed.data.deviceId});

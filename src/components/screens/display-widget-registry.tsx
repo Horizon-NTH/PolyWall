@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import { ClockWidget } from '@/components/screens/display-clock-widget';
+import { RssWidget } from '@/components/screens/display-rss-widget';
 import { TransitWidget } from '@/components/screens/display-transit-widget';
 import { WidgetPlaceholder } from '@/components/screens/display-widget-placeholder';
 import { type DisplayWidgetProps } from '@/components/screens/display-widget-types';
@@ -20,6 +21,7 @@ function PlaceholderWidget({widget, zoneConfiguration}: DisplayWidgetProps) {
 
 const IMPLEMENTED_WIDGETS = {
     clock: ClockWidget,
+    rss: RssWidget,
     transit: TransitWidget,
 } satisfies Partial<Record<(typeof SUPPORTED_WIDGET_KEYS)[number], React.ComponentType<DisplayWidgetProps>>>;
 

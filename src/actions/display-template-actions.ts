@@ -10,6 +10,7 @@ import { MediaFileStatus, MediaFileVariant, UserRole, ZoneType } from '@/generat
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { createDisplayTemplateKey } from '@/lib/display-templates/template-key';
 import { prisma } from '@/lib/prisma';
+import { isValidRssSource, parseRssWidgetConfig } from '@/lib/rss/rss-config';
 import { areSupportedWidgetTypeIds } from '@/lib/widgets/widget-type-queries';
 import {
     displayTemplateCreateSchema,
@@ -119,6 +120,37 @@ async function areStaticImageMediaIdsAccessible(mediaItemIds: string[], organiza
     return mediaCount === mediaItemIds.length;
 }
 
+async function validateWidgetConfigurations(
+    zones: z.infer<typeof displayTemplateCreateSchema>['zones'],
+): Promise<DisplayTemplateActionResult | null> {
+    const widgetTypeIds = zones.flatMap((zone) => zone.widgetInstance ? [zone.widgetInstance.widgetTypeId] : []);
+    if (widgetTypeIds.length === 0) return null;
+
+    const widgetTypes = await prisma.widgetType.findMany({
+        where: {id: {in: [...new Set(widgetTypeIds)]}},
+        select: {id: true, technicalKey: true},
+    });
+    const widgetTypeById = new Map(widgetTypes.map((widgetType) => [widgetType.id, widgetType.technicalKey]));
+
+    for (const zone of zones) {
+        if (!zone.widgetInstance) continue;
+
+        const technicalKey = widgetTypeById.get(zone.widgetInstance.widgetTypeId);
+        if (technicalKey !== 'rss') continue;
+
+        const config = parseRssWidgetConfig(zone.widgetInstance.configurationJson);
+        if (!config.source || !isValidRssSource(config.source)) {
+            return {
+                ok: false,
+                field: 'zones',
+                message: 'Le widget RSS doit utiliser une URL publique http ou https.',
+            };
+        }
+    }
+
+    return null;
+}
+
 function buildZoneCreateData(
     zone: z.infer<typeof displayTemplateCreateSchema>['zones'][number],
 ) {
@@ -167,6 +199,12 @@ export async function createDisplayTemplate(
     if (!widgetTypesValid) {
         log.invalid({field: 'zones', actorUserId: access.session.user.id, organizationId: access.organizationId});
         return {ok: false, field: 'zones', message: 'Un type de widget est introuvable.'};
+    }
+
+    const widgetConfigurationError = await validateWidgetConfigurations(parsed.data.zones);
+    if (widgetConfigurationError) {
+        log.invalid({field: 'zones', actorUserId: access.session.user.id, organizationId: access.organizationId});
+        return widgetConfigurationError;
     }
 
     const organizationId = parsed.data.scope === 'global' ? null : access.organizationId;
@@ -281,6 +319,17 @@ export async function updateDisplayTemplate(
             targetId: template.id,
         });
         return {ok: false, field: 'zones', message: 'Un type de widget est introuvable.'};
+    }
+
+    const widgetConfigurationError = await validateWidgetConfigurations(parsed.data.zones);
+    if (widgetConfigurationError) {
+        log.invalid({
+            field: 'zones',
+            actorUserId: access.session.user.id,
+            organizationId: access.organizationId,
+            targetId: template.id,
+        });
+        return widgetConfigurationError;
     }
 
     const staticImageMediaValid = await areStaticImageMediaIdsAccessible(

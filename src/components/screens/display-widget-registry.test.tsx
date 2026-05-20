@@ -30,6 +30,15 @@ describe('DisplayWidget', () => {
         expect(screen.getByText('Source dynamique à connecter')).toBeInTheDocument();
     });
 
+    it('routes RSS widgets to the RSS component', () => {
+        render(<DisplayWidget widget={buildDisplayWidgetInstance({
+            technicalKey: 'rss',
+            configurationJson: {source: '', maxItems: 5},
+        })} deviceId="device-1" />);
+
+        expect(screen.getByText('URL du flux à configurer.')).toBeInTheDocument();
+    });
+
     it('renders a fallback for unknown widgets', () => {
         render(<DisplayWidget widget={buildDisplayWidgetInstance({technicalKey: 'custom-widget'})} />);
 
