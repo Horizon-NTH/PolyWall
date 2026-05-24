@@ -1,13 +1,7 @@
-import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import { MediaDetailPreview } from '@/components/media/media-detail-preview';
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 describe('MediaDetailPreview', () => {
     it('shows unavailable state when original file is missing', () => {

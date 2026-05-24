@@ -7,20 +7,10 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
+import { createCleanupTracker, uniqueE2eEmail, uniqueE2eName } from './helpers/data';
+import { confirmAlertDialog } from './helpers/ui';
 
-function buildUniqueAdminName(projectName: string, suffix: string) {
-    return `PW E2E ${projectName} Admin ${Date.now()} ${suffix}`;
-}
-
-function buildUniqueAdminEmail(projectName: string, suffix: string) {
-    return `pw-e2e-${projectName}-${Date.now()}-${suffix}@polywall.test`;
-}
-
-const createdAdminNames: string[] = [];
-
-function trackAdmin(name: string) {
-    createdAdminNames.push(name);
-}
+const createdAdminNames = createCleanupTracker<string>();
 
 async function filterAdmins(page: Parameters<typeof login>[0], query: string) {
     const search = page.getByPlaceholder('Rechercher un administrateur...');
@@ -92,8 +82,7 @@ async function deleteAdminByName(page: Parameters<typeof login>[0], name: string
     const adminId = await getAdminIdFromList(page, name);
     await page.goto(`/dashboard/administrators/${adminId}`);
     await page.getByRole('button', {name: 'Supprimer'}).click();
-    const deleteDialog = page.getByRole('alertdialog');
-    await deleteDialog.getByRole('button', {name: 'Supprimer'}).click();
+    await confirmAlertDialog(page);
     await expect(page.getByText('Administrateur supprimé.')).toBeVisible();
     await page.waitForURL(/\/dashboard\/administrators$/, {timeout: 15000});
     await filterAdmins(page, name);
@@ -104,15 +93,15 @@ async function deleteAdminByName(page: Parameters<typeof login>[0], name: string
 test.describe('administrators', () => {
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
-        createdAdminNames.length = 0;
+        createdAdminNames.clear();
     });
 
     test.afterEach(async ({page}) => {
-        if (createdAdminNames.length === 0) return;
-        for (const name of new Set(createdAdminNames)) {
+        if (createdAdminNames.isEmpty) return;
+        for (const name of createdAdminNames.unique()) {
             await deleteAdminByName(page, name);
         }
-        createdAdminNames.length = 0;
+        createdAdminNames.clear();
     });
 
     [
@@ -132,10 +121,10 @@ test.describe('administrators', () => {
     test('list page supports filters, columns, and row actions', async ({page}, testInfo) => {
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
 
-        const adminName = buildUniqueAdminName(testInfo.project.name, 'List');
-        const adminEmail = buildUniqueAdminEmail(testInfo.project.name, 'list');
+        const adminName = uniqueE2eName(testInfo.project.name, 'Admin', 'List');
+        const adminEmail = uniqueE2eEmail(testInfo.project.name, 'admin-list');
         await createAdmin(page, adminName, adminEmail, 'Administrateur e2e.', DEMO_ORG_NAME);
-        trackAdmin(adminName);
+        createdAdminNames.add(adminName);
 
         await filterAdmins(page, adminName);
         await expect(page.getByRole('link', {name: adminName})).toBeVisible();
@@ -182,10 +171,10 @@ test.describe('administrators', () => {
     test('create, edit, toggle, and delete admin flow', async ({page}, testInfo) => {
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
 
-        const adminName = buildUniqueAdminName(testInfo.project.name, 'Flow');
-        const adminEmail = buildUniqueAdminEmail(testInfo.project.name, 'flow');
+        const adminName = uniqueE2eName(testInfo.project.name, 'Admin', 'Flow');
+        const adminEmail = uniqueE2eEmail(testInfo.project.name, 'admin-flow');
         await createAdmin(page, adminName, adminEmail, 'Administrateur à modifier.', DEMO_ORG_NAME);
-        trackAdmin(adminName);
+        createdAdminNames.add(adminName);
 
         const adminId = await getAdminIdFromList(page, adminName);
         await page.goto(`/dashboard/administrators/${adminId}`);
@@ -202,10 +191,9 @@ test.describe('administrators', () => {
         await expect(page.getByText('Description mise à jour.')).toBeVisible();
 
         await page.getByRole('button', {name: 'Supprimer'}).click();
-        const deleteDialog = page.getByRole('alertdialog');
-        await deleteDialog.getByRole('button', {name: 'Supprimer'}).click();
+        await confirmAlertDialog(page);
         await expect(page.getByText('Administrateur supprimé.')).toBeVisible();
         await page.waitForURL(/\/dashboard\/administrators$/, {timeout: 15000});
-        createdAdminNames.length = 0;
+        createdAdminNames.clear();
     });
 });

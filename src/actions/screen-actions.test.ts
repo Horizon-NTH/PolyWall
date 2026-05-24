@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildSession, getAuthMocks, mockAuthModule } from '@/test/mocks/auth';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+import { buildSession, getAuthMocks, mockAuthModule, resetAuthMocks } from '@/test/mocks/auth';
+import { getCaslMocks, mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
 
 mockAuthModule();
 mockCaslModule();
@@ -10,20 +10,9 @@ mockPrismaModule();
 
 describe('screen-actions', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
-
-        prisma.screen.findFirst.mockReset();
-        prisma.screen.update.mockReset();
-        prisma.screen.delete.mockReset();
-        prisma.screenPairingToken.create.mockReset();
-        prisma.screenPairingToken.findFirst.mockReset();
-        prisma.channel.findFirst.mockReset();
+        await resetAuthMocks();
+        await resetCaslMocks();
+        await resetPrismaMock();
     });
 
     it('rejects unauthenticated pairing token creation', async () => {

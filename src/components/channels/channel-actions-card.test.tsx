@@ -1,19 +1,12 @@
-import React, { type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { ChannelActionsCard } from '@/components/channels/channel-actions-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const replaceMock = vi.fn();
 const deleteChannelMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        replace: replaceMock,
-    }),
-}));
 
 vi.mock('@/components/ui/select', () => ({
     Select: ({children, value, onValueChange, disabled}: {
@@ -43,19 +36,9 @@ vi.mock('@/actions/channel-actions', () => ({
     deleteChannel: (...args: unknown[]) => deleteChannelMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('ChannelActionsCard', () => {
     beforeEach(() => {
-        replaceMock.mockReset();
         deleteChannelMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('requires reassign channel selection when screens are attached', async () => {
@@ -98,8 +81,8 @@ describe('ChannelActionsCard', () => {
             expect(deleteChannelMock).toHaveBeenCalledWith('channel-1', {
                 reassignToChannelId: undefined,
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Canal supprimé.');
-            expect(replaceMock).toHaveBeenCalledWith('/dashboard/channels');
+            expect(toastMock.success).toHaveBeenCalledWith('Canal supprimé.');
+            expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/channels');
         });
     });
 });

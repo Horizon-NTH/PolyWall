@@ -1,64 +1,24 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { PlaylistsTable } from '@/components/playlists/playlists-table';
+import { routerMock, setMockPathname } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
+import { buildPlaylistRow } from '@/test/fixtures/builders';
 
-const refreshMock = vi.fn();
 const deletePlaylistMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-    }),
-    usePathname: () => '/dashboard/playlists',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/playlist-actions', () => ({
     deletePlaylist: (...args: unknown[]) => deletePlaylistMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('PlaylistsTable', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
+        setMockPathname('/dashboard/playlists');
         deletePlaylistMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
-    const data = [
-        {
-            id: 'playlist-1',
-            name: 'Default',
-            description: 'Playlist principale',
-            mediaCount: 3,
-            activeMediaCount: 2,
-            totalDurationSeconds: 120,
-            impactedSchedules: [{
-                id: 'schedule-1',
-                typeLabel: 'Récurrente',
-                dateLabel: 'Toujours active',
-                timeLabel: '08:00 - 10:00',
-            }],
-            createdAt: '2026-01-01T10:00:00.000Z',
-            updatedAt: '2026-01-02T10:00:00.000Z',
-        },
-    ];
+    const data = [buildPlaylistRow()];
 
     it('renders playlist data and links', () => {
         render(<PlaylistsTable data={data} />);
@@ -94,8 +54,8 @@ describe('PlaylistsTable', () => {
 
         await waitFor(() => {
             expect(deletePlaylistMock).toHaveBeenCalledWith('playlist-1');
-            expect(toastErrorMock).toHaveBeenCalledWith('Erreur serveur');
+            expect(toastMock.error).toHaveBeenCalledWith('Erreur serveur');
         });
-        expect(refreshMock).not.toHaveBeenCalled();
+        expect(routerMock.refresh).not.toHaveBeenCalled();
     });
 });

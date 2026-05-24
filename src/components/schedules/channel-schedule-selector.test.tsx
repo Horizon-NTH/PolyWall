@@ -3,14 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { ChannelScheduleSelector } from '@/components/schedules/channel-schedule-selector';
-
-const pushMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({push: pushMock}),
-    usePathname: () => '/dashboard/schedules',
-    useSearchParams: () => new URLSearchParams('tab=calendar'),
-}));
+import { routerMock, setMockPathname, setMockSearchParams } from '@/test/mocks/next-navigation';
 
 vi.mock('@/components/ui/select', () => ({
     Select: ({children, value, onValueChange}: {
@@ -30,7 +23,8 @@ vi.mock('@/components/ui/select', () => ({
 
 describe('ChannelScheduleSelector', () => {
     beforeEach(() => {
-        pushMock.mockReset();
+        setMockPathname('/dashboard/schedules');
+        setMockSearchParams('tab=calendar');
     });
 
     it('updates channelId in query params and keeps existing params', () => {
@@ -46,6 +40,6 @@ describe('ChannelScheduleSelector', () => {
 
         fireEvent.change(screen.getByTestId('channel-select'), {target: {value: 'channel-2'}});
 
-        expect(pushMock).toHaveBeenCalledWith('/dashboard/schedules?tab=calendar&channelId=channel-2');
+        expect(routerMock.push).toHaveBeenCalledWith('/dashboard/schedules?tab=calendar&channelId=channel-2');
     });
 });

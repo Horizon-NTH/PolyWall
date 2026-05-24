@@ -4,32 +4,16 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
 import { ScheduleForm } from '@/components/schedules/schedule-form';
+import { routerMock, setMockPathname } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
-const replaceMock = vi.fn();
 const createScheduleMock = vi.fn();
 const updateScheduleMock = vi.fn();
 const upsertDefaultScheduleMock = vi.fn();
-const toastSuccessMock = vi.fn();
 const SelectMockContext = React.createContext<{
     value?: string;
     onValueChange?: (value: string) => void;
 } | null>(null);
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-        replace: replaceMock,
-        refresh: vi.fn(),
-    }),
-    usePathname: () => '/dashboard/schedules/new',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/hooks/use-current-return-to', () => ({
     useCurrentReturnTo: () => '/dashboard/schedules',
@@ -117,13 +101,6 @@ vi.mock('@/actions/schedule-actions', () => ({
     upsertDefaultSchedule: (...args: unknown[]) => upsertDefaultScheduleMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: vi.fn(),
-    },
-}));
-
 describe('ScheduleForm', () => {
     const channels = [{id: 'channel-1', name: 'Hall'}];
     const playlists = [{
@@ -135,12 +112,10 @@ describe('ScheduleForm', () => {
     }];
 
     beforeEach(() => {
-        pushMock.mockReset();
-        replaceMock.mockReset();
+        setMockPathname('/dashboard/schedules/new');
         createScheduleMock.mockReset();
         updateScheduleMock.mockReset();
         upsertDefaultScheduleMock.mockReset();
-        toastSuccessMock.mockReset();
     });
 
     it('creates a recurring schedule and redirects to details page', async () => {
@@ -172,8 +147,8 @@ describe('ScheduleForm', () => {
                 endMode: 'playlist',
                 daysOfWeek: [DayOfWeek.MONDAY],
             }));
-            expect(toastSuccessMock).toHaveBeenCalledWith('Programmation créée.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/schedules/schedule-1');
+            expect(toastMock.success).toHaveBeenCalledWith('Programmation créée.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/schedules/schedule-1');
         });
     });
 
@@ -213,6 +188,6 @@ describe('ScheduleForm', () => {
 
         expect(await screen.findByText('Conflit détecté')).toBeInTheDocument();
         expect(screen.getByText('Programmation existante')).toBeInTheDocument();
-        expect(pushMock).not.toHaveBeenCalled();
+        expect(routerMock.push).not.toHaveBeenCalled();
     });
 });

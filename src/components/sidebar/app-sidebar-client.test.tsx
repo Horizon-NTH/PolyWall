@@ -3,14 +3,7 @@ import { render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { UserRole } from '@/generated/prisma/enums';
-
-let pathname = '/dashboard';
-const refreshMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({refresh: refreshMock}),
-    usePathname: () => pathname,
-}));
+import { setMockPathname } from '@/test/mocks/next-navigation';
 
 vi.mock('next/image', () => ({
     __esModule: true,
@@ -45,8 +38,7 @@ async function renderSidebar(role: UserRole, organizationId: string | null) {
 }
 
 beforeEach(() => {
-    pathname = '/dashboard';
-    refreshMock.mockReset();
+    setMockPathname('/dashboard');
 });
 
 describe('AppSidebarClient', () => {

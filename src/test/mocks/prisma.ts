@@ -19,6 +19,7 @@ export const mockPrismaModule = () => {
             },
             mediaItem: {
                 findFirst: vi.fn(),
+                findMany: vi.fn(),
                 update: vi.fn(),
                 delete: vi.fn(),
                 count: vi.fn(),
@@ -39,6 +40,15 @@ export const mockPrismaModule = () => {
             },
             displayTemplate: {
                 findFirst: vi.fn(),
+                findMany: vi.fn(),
+                create: vi.fn(),
+                update: vi.fn(),
+                delete: vi.fn(),
+            },
+            displayZone: {
+                deleteMany: vi.fn(),
+            },
+            widgetType: {
                 findMany: vi.fn(),
             },
             screen: {
@@ -91,6 +101,7 @@ export const getPrismaMock = async () => {
         };
         mediaItem: {
             findFirst: ReturnType<typeof vi.fn>;
+            findMany: ReturnType<typeof vi.fn>;
             update: ReturnType<typeof vi.fn>;
             delete: ReturnType<typeof vi.fn>;
             count: ReturnType<typeof vi.fn>;
@@ -111,6 +122,15 @@ export const getPrismaMock = async () => {
         };
         displayTemplate: {
             findFirst: ReturnType<typeof vi.fn>;
+            findMany: ReturnType<typeof vi.fn>;
+            create: ReturnType<typeof vi.fn>;
+            update: ReturnType<typeof vi.fn>;
+            delete: ReturnType<typeof vi.fn>;
+        };
+        displayZone: {
+            deleteMany: ReturnType<typeof vi.fn>;
+        };
+        widgetType: {
             findMany: ReturnType<typeof vi.fn>;
         };
         screen: {
@@ -141,4 +161,23 @@ export const getPrismaMock = async () => {
         };
         $transaction: ReturnType<typeof vi.fn>;
     };
+};
+
+function resetMockTree(value: unknown) {
+    if (!value || typeof value !== 'object') return;
+
+    Object.values(value).forEach((entry) => {
+        if (typeof entry === 'function' && 'mockReset' in entry) {
+            (entry as ReturnType<typeof vi.fn>).mockReset();
+            return;
+        }
+
+        resetMockTree(entry);
+    });
+}
+
+export const resetPrismaMock = async () => {
+    const prisma = await getPrismaMock();
+    resetMockTree(prisma);
+    return prisma;
 };

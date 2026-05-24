@@ -2,35 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { OrganizationDeleteCard } from '@/components/organizations/organization-delete-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
 const deleteOrganizationMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-    }),
-}));
 
 vi.mock('@/actions/organization-actions', () => ({
     deleteOrganization: (...args: unknown[]) => deleteOrganizationMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('OrganizationDeleteCard', () => {
     beforeEach(() => {
-        pushMock.mockReset();
         deleteOrganizationMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('disables deletion when linked data exists', () => {
@@ -44,7 +27,6 @@ describe('OrganizationDeleteCard', () => {
                     channels: 0,
                     playlists: 0,
                     displayTemplates: 0,
-                    widgetInstances: 0,
                 }}
             />,
         );
@@ -71,7 +53,6 @@ describe('OrganizationDeleteCard', () => {
                     channels: 0,
                     playlists: 0,
                     displayTemplates: 0,
-                    widgetInstances: 0,
                 }}
             />,
         );
@@ -81,9 +62,9 @@ describe('OrganizationDeleteCard', () => {
 
         await waitFor(() => {
             expect(deleteOrganizationMock).toHaveBeenCalledWith('org-1');
-            expect(toastErrorMock).toHaveBeenCalledWith('Erreur serveur');
+            expect(toastMock.error).toHaveBeenCalledWith('Erreur serveur');
         });
-        expect(pushMock).not.toHaveBeenCalled();
+        expect(routerMock.push).not.toHaveBeenCalled();
     });
 
     it('deletes and redirects on success', async () => {
@@ -99,7 +80,6 @@ describe('OrganizationDeleteCard', () => {
                     channels: 0,
                     playlists: 0,
                     displayTemplates: 0,
-                    widgetInstances: 0,
                 }}
             />,
         );
@@ -109,8 +89,8 @@ describe('OrganizationDeleteCard', () => {
 
         await waitFor(() => {
             expect(deleteOrganizationMock).toHaveBeenCalledWith('org-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Organisation supprimée.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/organizations');
+            expect(toastMock.success).toHaveBeenCalledWith('Organisation supprimée.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/organizations');
         });
     });
 });

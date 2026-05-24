@@ -1,26 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { LoginForm } from '@/components/login/login-form';
+import { routerMock, setMockSearchParams } from '@/test/mocks/next-navigation';
 
-const replaceMock = vi.fn();
 const signInMock = vi.fn();
 
 vi.mock('next-auth/react', () => ({
     signIn: (...args: unknown[]) => signInMock(...args),
 }));
 
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        replace: replaceMock,
-    }),
-    useSearchParams: () => ({
-        get: (key: string) => (key === 'callbackUrl' ? '/welcome' : null),
-    }),
-}));
-
 describe('LoginForm', () => {
     beforeEach(() => {
-        replaceMock.mockReset();
+        setMockSearchParams('callbackUrl=/welcome');
         signInMock.mockReset();
     });
 
@@ -70,7 +61,7 @@ describe('LoginForm', () => {
         });
 
         await waitFor(() => {
-            expect(replaceMock).toHaveBeenCalledWith('/welcome');
+            expect(routerMock.replace).toHaveBeenCalledWith('/welcome');
         });
     });
 });

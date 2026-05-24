@@ -4,33 +4,17 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 
 import { ScreenStatus } from '@/generated/prisma/enums';
 import { ScreenActionsCard } from '@/components/screens/screen-actions-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const refreshMock = vi.fn();
-const replaceMock = vi.fn();
 const deleteScreenMock = vi.fn();
 const revokeScreenMock = vi.fn();
 const reactivateScreenMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-        replace: replaceMock,
-    }),
-}));
 
 vi.mock('@/actions/screen-actions', () => ({
     deleteScreen: (...args: unknown[]) => deleteScreenMock(...args),
     revokeScreen: (...args: unknown[]) => revokeScreenMock(...args),
     reactivateScreen: (...args: unknown[]) => reactivateScreenMock(...args),
-}));
-
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
 }));
 
 vi.mock('@/components/ui/select', () => ({
@@ -62,13 +46,9 @@ describe('ScreenActionsCard', () => {
     ];
 
     beforeEach(() => {
-        refreshMock.mockReset();
-        replaceMock.mockReset();
         deleteScreenMock.mockReset();
         revokeScreenMock.mockReset();
         reactivateScreenMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('revokes an active screen and refreshes on success', async () => {
@@ -89,8 +69,8 @@ describe('ScreenActionsCard', () => {
 
         await waitFor(() => {
             expect(revokeScreenMock).toHaveBeenCalledWith('screen-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Écran révoqué.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Écran révoqué.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -119,8 +99,8 @@ describe('ScreenActionsCard', () => {
 
         await waitFor(() => {
             expect(reactivateScreenMock).toHaveBeenCalledWith('screen-2', {channelId: 'channel-2'});
-            expect(toastSuccessMock).toHaveBeenCalledWith('Écran réactivé.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Écran réactivé.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -142,8 +122,8 @@ describe('ScreenActionsCard', () => {
 
         await waitFor(() => {
             expect(deleteScreenMock).toHaveBeenCalledWith('screen-3');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Écran supprimé.');
-            expect(replaceMock).toHaveBeenCalledWith('/dashboard/screens');
+            expect(toastMock.success).toHaveBeenCalledWith('Écran supprimé.');
+            expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/screens');
         });
     });
 });

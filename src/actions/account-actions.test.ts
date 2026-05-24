@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { buildSession, getArgon2Mock, getAuthMocks, mockArgon2Module, mockAuthModule } from '@/test/mocks/auth';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+import {
+    buildSession,
+    getArgon2Mock,
+    getAuthMocks,
+    mockArgon2Module,
+    mockAuthModule,
+    resetArgon2Mock,
+    resetAuthMocks,
+} from '@/test/mocks/auth';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
 
 mockAuthModule();
 mockPrismaModule();
@@ -9,12 +17,8 @@ mockArgon2Module();
 
 describe('updateProfile', () => {
     beforeEach(async () => {
-        const {auth, unstable_update} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-
-        auth.mockReset();
-        unstable_update.mockReset();
-        prisma.user.update.mockReset();
+        await resetAuthMocks();
+        await resetPrismaMock();
     });
 
     it('rejects unauthenticated users', async () => {
@@ -68,15 +72,9 @@ describe('updateProfile', () => {
 
 describe('changePassword', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const argon2 = await getArgon2Mock();
-
-        auth.mockReset();
-        prisma.user.findUnique.mockReset();
-        prisma.user.update.mockReset();
-        argon2.verify.mockReset();
-        argon2.hash.mockReset();
+        await resetAuthMocks();
+        await resetPrismaMock();
+        await resetArgon2Mock();
     });
 
     it('rejects unauthenticated users', async () => {

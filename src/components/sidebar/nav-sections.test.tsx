@@ -1,15 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { NavSection, NavSingle } from '@/components/sidebar/nav-sections';
-
-let pathname = '/dashboard';
-
-vi.mock('next/navigation', () => ({
-    usePathname: () => pathname,
-}));
+import { setMockPathname } from '@/test/mocks/next-navigation';
 
 const items = [
     {title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard},
@@ -21,7 +16,7 @@ function renderWithSidebar(ui: ReactElement) {
 }
 
 beforeEach(() => {
-    pathname = '/dashboard';
+    setMockPathname('/dashboard');
 });
 
 describe('Nav sections', () => {
@@ -34,7 +29,7 @@ describe('Nav sections', () => {
     });
 
     it('does not mark dashboard root as active on nested paths', () => {
-        pathname = '/dashboard/settings';
+        setMockPathname('/dashboard/settings');
         renderWithSidebar(<NavSection label="Main" items={items} />);
 
         expect(

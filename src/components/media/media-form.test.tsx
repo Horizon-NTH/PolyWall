@@ -1,27 +1,13 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { MediaForm } from '@/components/media/media-form';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
 const updateMediaItemMock = vi.fn();
 const deleteMediaItemMock = vi.fn();
 const uploadMediaWithIntentMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-        refresh: vi.fn(),
-    }),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/media-actions', () => ({
     updateMediaItem: (...args: unknown[]) => updateMediaItemMock(...args),
@@ -33,21 +19,11 @@ vi.mock('@/lib/media/media-upload-client', () => ({
     isUploadMediaError: (error: unknown) => Boolean(error && typeof error === 'object' && 'stage' in (error as Record<string, unknown>)),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('MediaForm', () => {
     beforeEach(() => {
-        pushMock.mockReset();
         updateMediaItemMock.mockReset();
         uploadMediaWithIntentMock.mockReset();
         deleteMediaItemMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('creates a media and redirects on success', async () => {
@@ -81,8 +57,8 @@ describe('MediaForm', () => {
                     organizationId: 'org-1',
                 }),
             );
-            expect(toastSuccessMock).toHaveBeenCalledWith('Média créé.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/media/media-1');
+            expect(toastMock.success).toHaveBeenCalledWith('Média créé.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/media/media-1');
         });
     });
 
@@ -113,8 +89,8 @@ describe('MediaForm', () => {
                 durationSeconds: 15,
                 active: true,
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Média mis à jour.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/media/media-2');
+            expect(toastMock.success).toHaveBeenCalledWith('Média mis à jour.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/media/media-2');
         });
     });
 
@@ -147,6 +123,6 @@ describe('MediaForm', () => {
         await waitFor(() => {
             expect(deleteMediaItemMock).toHaveBeenCalledWith('media-rollback');
         });
-        expect(pushMock).not.toHaveBeenCalled();
+        expect(routerMock.push).not.toHaveBeenCalled();
     });
 });

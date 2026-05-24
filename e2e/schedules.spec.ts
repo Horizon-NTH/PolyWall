@@ -7,6 +7,7 @@ import {
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
 import { safeGoto } from './helpers/navigation';
+import { confirmAlertDialog } from './helpers/ui';
 
 async function ensureSchedulesList(page: Page) {
     await safeGoto(page, '/dashboard/schedules');
@@ -105,6 +106,25 @@ async function selectFirstOption(page: Page, label: string) {
     return ((await trigger.textContent()) ?? '').trim();
 }
 
+async function openScheduleEditFromDetail(page: Page) {
+    const editLink = page.getByRole('main').getByRole('link', {name: 'Modifier'});
+    await expect(editLink).toBeVisible();
+
+    const href = await editLink.getAttribute('href');
+    if (!href) throw new Error('Lien de modification introuvable sur la fiche programmation.');
+    expect(href).toMatch(/^\/dashboard\/schedules\/[^/]+\/edit(\?.*)?$/);
+
+    await safeGoto(page, href);
+    await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+\/edit(\?.*)?$/);
+}
+
+async function openScheduleDetail(page: Page, scheduleLink: Awaited<ReturnType<typeof findScheduleLink>>) {
+    if (!scheduleLink) throw new Error('Lien programmation introuvable.');
+
+    await safeGoto(page, scheduleLink.href);
+    await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+}
+
 function getFieldButton(page: Page, label: string) {
     return page
         .locator('[data-slot="field"]')
@@ -115,8 +135,15 @@ function getFieldButton(page: Page, label: string) {
 }
 
 async function selectDateByEnabledIndex(page: Page, label: string, enabledIndex: number) {
-    await getFieldButton(page, label).click();
-    const enabledDayButtons = page.locator('[data-slot="calendar"] button[data-day]:not([disabled])');
+    await expect(page).toHaveURL(/\/dashboard\/schedules\/new/);
+
+    const fieldButton = getFieldButton(page, label);
+    await expect(fieldButton).toBeVisible();
+    await fieldButton.click();
+
+    const calendar = page.locator('[data-slot="calendar"]').last();
+    await expect(calendar).toBeVisible({timeout: 10_000});
+    const enabledDayButtons = calendar.locator('button[data-day]:not([disabled])');
     await expect(enabledDayButtons.nth(enabledIndex)).toBeVisible();
     await enabledDayButtons.nth(enabledIndex).click();
 }
@@ -168,8 +195,7 @@ async function createEventScheduleWithRetry(params: {
                 const pathname = new URL(page.url()).pathname;
                 return /^\/dashboard\/schedules\/[^/]+$/.test(pathname) && pathname !== '/dashboard/schedules/new';
             }, {timeout: 3500}).toBe(true);
-            const scheduleId = new URL(page.url()).pathname.match(/^\/dashboard\/schedules\/([^/]+)$/)?.[1];
-            if (!scheduleId) throw new Error('Impossible de récupérer l’identifiant de la programmation créée.');
+            const scheduleId = new URL(page.url()).pathname.match(/^\/dashboard\/schedules\/([^/]+)$/)![1];
             return {dateIndex, scheduleId};
         } catch {
             // Keep trying with another date when submission does not land on schedule detail.
@@ -207,7 +233,7 @@ async function deleteScheduleViaUi(params: {
         const dialog = page.getByRole('alertdialog');
         if ((await dialog.count()) > 0) {
             hasDialog = true;
-            await dialog.getByRole('button', {name: 'Supprimer'}).click();
+            await confirmAlertDialog(page);
             break;
         }
     }
@@ -250,7 +276,7 @@ async function cleanupShortActusEventsViaUi(params: {
             await page.getByRole('menuitem', {name: 'Supprimer'}).click();
             const dialog = page.getByRole('alertdialog');
             if ((await dialog.count()) > 0) {
-                await dialog.getByRole('button', {name: 'Supprimer'}).click();
+                await confirmAlertDialog(page);
             }
             await page.waitForTimeout(300);
             deletedOne = true;
@@ -394,17 +420,12 @@ test.describe('schedules', () => {
 
         const scheduleContext = await ensureChannelWithSchedules(page);
         const {scheduleLink} = scheduleContext!;
-        await scheduleLink.locator.click();
-
-        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+        await openScheduleDetail(page, scheduleLink);
         await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible();
         await expect(page.getByText('Informations')).toBeVisible();
         await expect(page.getByText('Playlist', {exact: true})).toBeVisible();
         await expect(page.getByText('Canal', {exact: true})).toBeVisible();
-        await expect(page.getByRole('link', {name: 'Modifier'})).toBeVisible();
-
-        await page.getByRole('link', {name: 'Modifier'}).click();
-        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+\/edit(\?.*)?$/);
+        await openScheduleEditFromDetail(page);
         await expect(page.getByLabel('Type')).toBeVisible();
         await expect(page.getByLabel('Playlist')).toBeVisible();
         await expect(page.getByRole('button', {name: 'Enregistrer'})).toBeVisible();
@@ -418,8 +439,7 @@ test.describe('schedules', () => {
 
         const scheduleContext = await ensureChannelWithSchedules(page);
         const {initialSchedulesUrl, scheduleLink} = scheduleContext!;
-        await scheduleLink.locator.click();
-        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+        await openScheduleDetail(page, scheduleLink);
 
         const scheduleDetailUrl = new URL(page.url());
         expect(scheduleDetailUrl.pathname).toMatch(/^\/dashboard\/schedules\/[^/]+$/);
@@ -458,8 +478,7 @@ test.describe('schedules', () => {
 
         const scheduleContext = await ensureChannelWithSchedules(page);
         const {initialSchedulesUrl, scheduleLink} = scheduleContext!;
-        await scheduleLink.locator.click();
-        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+        await openScheduleDetail(page, scheduleLink);
 
         const scheduleDetailUrl = new URL(page.url());
         expect(scheduleDetailUrl.pathname).toMatch(/^\/dashboard\/schedules\/[^/]+$/);
@@ -491,24 +510,23 @@ test.describe('schedules', () => {
         await expect(page).toHaveURL(initialSchedulesUrl);
     });
 
-    test('keeps returnTo when editing a schedule and saving without changes', async ({page}) => {
+    test('keeps returnTo when editing and saving a schedule', async ({page}) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
         const scheduleContext = await ensureChannelWithSchedules(page);
         const {initialSchedulesUrl, scheduleLink} = scheduleContext!;
-        await scheduleLink.locator.click();
-        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+        await openScheduleDetail(page, scheduleLink);
 
         const scheduleDetailUrl = new URL(page.url());
         expect(scheduleDetailUrl.pathname).toMatch(/^\/dashboard\/schedules\/[^/]+$/);
         expect(scheduleDetailUrl.searchParams.get('returnTo')).toBe(initialSchedulesUrl);
 
-        await page.getByRole('link', {name: 'Modifier'}).click();
-        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+\/edit(\?.*)?$/);
+        await openScheduleEditFromDetail(page);
         const scheduleEditUrl = new URL(page.url());
         expect(scheduleEditUrl.pathname).toMatch(/^\/dashboard\/schedules\/[^/]+\/edit$/);
         expect(scheduleEditUrl.searchParams.get('returnTo')).toBe(initialSchedulesUrl);
 
+        await page.getByRole('checkbox', {name: 'Programmation active'}).click();
         await page.getByRole('button', {name: 'Enregistrer'}).click();
         await expect(page).toHaveURL(`${scheduleDetailUrl.pathname}${scheduleDetailUrl.search}`);
 

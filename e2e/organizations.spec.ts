@@ -5,16 +5,9 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
+import { createCleanupTracker, uniqueE2eName } from './helpers/data';
 
-function buildUniqueOrgName(projectName: string, suffix: string) {
-    return `PW E2E ${projectName} ${Date.now()} ${suffix}`;
-}
-
-const createdOrgNames: string[] = [];
-
-function trackOrganization(name: string) {
-    createdOrgNames.push(name);
-}
+const createdOrgNames = createCleanupTracker<string>();
 
 async function filterOrganizations(page: Parameters<typeof login>[0], query: string) {
     const search = page.getByPlaceholder('Rechercher une organisation...');
@@ -88,15 +81,15 @@ test.describe('organizations', () => {
 
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
-        createdOrgNames.length = 0;
+        createdOrgNames.clear();
     });
 
     test.afterEach(async ({page}) => {
-        if (createdOrgNames.length === 0) return;
-        for (const name of new Set(createdOrgNames)) {
+        if (createdOrgNames.isEmpty) return;
+        for (const name of createdOrgNames.unique()) {
             await deleteOrganizationByName(page, name);
         }
-        createdOrgNames.length = 0;
+        createdOrgNames.clear();
     });
 
     [
@@ -132,9 +125,9 @@ test.describe('organizations', () => {
         });
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
 
-        const orgName = buildUniqueOrgName(testInfo.project.name, 'List');
+        const orgName = uniqueE2eName(testInfo.project.name, 'Organisation', 'List');
         await createOrganization(page, orgName, 'Organisation créée pour les tests e2e.');
-        trackOrganization(orgName);
+        createdOrgNames.add(orgName);
 
         await filterOrganizations(page, 'Second');
         await expect(page.getByRole('link', {name: SECOND_ORG_NAME})).toBeVisible();
@@ -231,9 +224,9 @@ test.describe('organizations', () => {
                                                                                       }, testInfo) => {
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
 
-        const orgName = buildUniqueOrgName(testInfo.project.name, 'Edit');
+        const orgName = uniqueE2eName(testInfo.project.name, 'Organisation', 'Edit');
         await createOrganization(page, orgName, 'Organisation à modifier.');
-        trackOrganization(orgName);
+        createdOrgNames.add(orgName);
         const orgId = await getOrganizationIdFromList(page, orgName);
 
         await page.goto(`/dashboard/organizations/${orgId}/edit`);
@@ -257,7 +250,7 @@ test.describe('organizations', () => {
         await page.getByLabel('Nom').fill(updatedName);
         await page.getByLabel('Description').fill('Description mise à jour.');
         await page.getByRole('button', {name: 'Enregistrer'}).click();
-        trackOrganization(updatedName);
+        createdOrgNames.add(updatedName);
 
         await expect(page).toHaveURL(new RegExp(`/dashboard/organizations/${orgId}$`));
         await expect(page.getByRole('heading', {name: updatedName})).toBeVisible();
@@ -281,9 +274,9 @@ test.describe('organizations', () => {
             .toBeVisible();
         await expect(page.getByRole('button', {name: 'Supprimer'})).toBeDisabled();
 
-        const orgName = buildUniqueOrgName(testInfo.project.name, 'Delete');
+        const orgName = uniqueE2eName(testInfo.project.name, 'Organisation', 'Delete');
         await createOrganization(page, orgName, 'Organisation à supprimer.');
-        trackOrganization(orgName);
+        createdOrgNames.add(orgName);
         const orgId = await getOrganizationIdFromList(page, orgName);
 
         await page.goto(`/dashboard/organizations/${orgId}`);

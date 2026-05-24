@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { buildSession, getAuthMocks, mockAuthModule } from '@/test/mocks/auth';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+import { buildSession, getAuthMocks, mockAuthModule, resetAuthMocks } from '@/test/mocks/auth';
+import { mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
 import { DayOfWeek, ScheduleType } from '@/generated/prisma/enums';
 
 mockAuthModule();
@@ -36,21 +36,9 @@ function buildMediaItemFixture(overrides?: Partial<{
 
 describe('schedule-actions', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const {defineAbilityFor} = await getCaslMocks();
-        const prisma = await getPrismaMock();
-
-        auth.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
-
-        prisma.channel.findFirst.mockReset();
-        prisma.playlist.findFirst.mockReset();
-        prisma.playlistSchedule.findFirst.mockReset();
-        prisma.playlistSchedule.findMany.mockReset();
-        prisma.playlistSchedule.create.mockReset();
-        prisma.playlistSchedule.update.mockReset();
-        prisma.playlistSchedule.delete.mockReset();
+        await resetAuthMocks();
+        await resetCaslMocks();
+        await resetPrismaMock();
     });
 
     it('rejects create when user has no organization', async () => {

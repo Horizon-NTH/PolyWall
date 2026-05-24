@@ -1,13 +1,7 @@
-import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import { ChannelEmptyState } from '@/components/channels/channel-empty-state';
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 describe('ChannelEmptyState', () => {
     it('renders default content and create link', () => {

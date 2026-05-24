@@ -7,52 +7,14 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
+import { createCleanupTracker, extractDashboardEntityId, uniqueE2eName } from './helpers/data';
+import { ensureDashboardPath } from './helpers/navigation';
+import { confirmAlertDialog } from './helpers/ui';
 
-function buildUniqueMediaTitle(projectName: string, suffix: string) {
-    return `PW E2E ${projectName} Media ${Date.now()} ${suffix}`;
-}
-
-const createdMediaIds: string[] = [];
-
-function trackMediaId(mediaItemId: string) {
-    createdMediaIds.push(mediaItemId);
-}
-
-function extractMediaId(url: string) {
-    const pathname = new URL(url, 'http://localhost').pathname;
-    const match = pathname.match(/\/dashboard\/media\/(?!new$)([^/]+)$/);
-    if (!match) throw new Error(`Impossible de lire l'ID média depuis l'URL: ${url}`);
-    return match[1];
-}
-
-async function ensureMediaList(page: Parameters<typeof login>[0]) {
-    if (/\/dashboard\/media$/.test(page.url())) {
-        await page.waitForLoadState('domcontentloaded');
-        return;
-    }
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-            await page.goto('/dashboard/media', {waitUntil: 'domcontentloaded'});
-            break;
-        } catch (error) {
-            const message = String(error);
-            if (
-                message.includes('NS_BINDING_ABORTED') ||
-                message.includes('interrupted by another navigation')
-            ) {
-                await page.waitForLoadState('domcontentloaded');
-                continue;
-            }
-            throw error;
-        }
-    }
-
-    await page.waitForURL(/\/dashboard\/media$/, {timeout: 15000});
-}
+const createdMediaIds = createCleanupTracker<string>();
 
 async function filterMedia(page: Parameters<typeof login>[0], query: string) {
-    await ensureMediaList(page);
+    await ensureDashboardPath(page, '/dashboard/media');
     const search = page.getByPlaceholder('Rechercher un média...');
     await expect(search).toBeVisible();
     await search.fill(query);
@@ -97,7 +59,7 @@ async function createMedia(
         {timeout: 25000},
     );
 
-    const mediaId = extractMediaId(page.url());
+    const mediaId = extractDashboardEntityId(page.url(), 'media');
     await expect(page.getByRole('heading', {name: params.title})).toBeVisible();
 
     await page.unroute('**/api/media/upload-complete');
@@ -114,8 +76,7 @@ async function deleteMediaById(page: Parameters<typeof login>[0], mediaId: strin
     if ((await deleteButton.count()) === 0) return;
 
     await deleteButton.click();
-    const dialog = page.getByRole('alertdialog');
-    await dialog.getByRole('button', {name: 'Supprimer'}).click();
+    await confirmAlertDialog(page);
     await page.waitForURL(/\/dashboard\/media$/, {timeout: 15000});
 }
 
@@ -132,16 +93,16 @@ test.describe('media', () => {
 
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
-        createdMediaIds.length = 0;
+        createdMediaIds.clear();
     });
 
     test.afterEach(async ({page}) => {
-        if (createdMediaIds.length === 0) return;
+        if (createdMediaIds.isEmpty) return;
 
-        for (const mediaId of new Set(createdMediaIds)) {
+        for (const mediaId of createdMediaIds.unique()) {
             await deleteMediaById(page, mediaId);
         }
-        createdMediaIds.length = 0;
+        createdMediaIds.clear();
     });
 
     test('super admin must select an organization before accessing media page', async ({
@@ -168,15 +129,15 @@ test.describe('media', () => {
                                                                                       }, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
-        const mediaTitle = buildUniqueMediaTitle(testInfo.project.name, 'List');
+        const mediaTitle = uniqueE2eName(testInfo.project.name, 'Media', 'List');
         const mediaId = await createMedia(page, {
             title: mediaTitle,
             description: 'Média e2e pour tester la liste.',
             file: uploadImageFile,
         });
-        trackMediaId(mediaId);
+        createdMediaIds.add(mediaId);
 
-        await ensureMediaList(page);
+        await ensureDashboardPath(page, '/dashboard/media');
         await filterMedia(page, mediaTitle);
         await expect(
             page.getByRole('main').locator('[data-slot="card-title"]', {hasText: mediaTitle}),
@@ -230,7 +191,7 @@ test.describe('media', () => {
         await expect(page.getByText('La description est requise.')).toBeVisible();
         await expect(page.getByText('Le fichier est requis.')).toBeVisible();
 
-        const mediaTitle = buildUniqueMediaTitle(testInfo.project.name, 'Mime');
+        const mediaTitle = uniqueE2eName(testInfo.project.name, 'Media', 'Mime');
         await page.getByLabel('Titre').fill(mediaTitle);
         await page.getByLabel('Description').fill('Tentative avec un format non autorisé.');
         await page.getByLabel('Fichier média').setInputFiles(disallowedSvgPath);
@@ -243,13 +204,13 @@ test.describe('media', () => {
     test('create, edit, toggle, and delete media flow', async ({page}, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
-        const mediaTitle = buildUniqueMediaTitle(testInfo.project.name, 'Flow');
+        const mediaTitle = uniqueE2eName(testInfo.project.name, 'Media', 'Flow');
         const mediaId = await createMedia(page, {
             title: mediaTitle,
             description: 'Média à modifier et supprimer.',
             file: uploadImageFile,
         });
-        trackMediaId(mediaId);
+        createdMediaIds.add(mediaId);
 
         await page.getByRole('link', {name: 'Modifier'}).click();
         await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}/edit$`));
@@ -270,10 +231,9 @@ test.describe('media', () => {
         await expect(page.getByRole('button', {name: 'Désactiver'})).toBeVisible();
 
         await page.getByRole('button', {name: 'Supprimer'}).click();
-        const dialog = page.getByRole('alertdialog');
-        await dialog.getByRole('button', {name: 'Supprimer'}).click();
+        await confirmAlertDialog(page);
         await page.waitForURL(/\/dashboard\/media$/, {timeout: 15000});
         await expect(page.getByText('Média supprimé.')).toBeVisible();
-        createdMediaIds.length = 0;
+        createdMediaIds.clear();
     });
 });

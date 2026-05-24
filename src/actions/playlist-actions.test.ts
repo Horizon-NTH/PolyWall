@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { buildSession, getAuthMocks, mockAuthModule } from '@/test/mocks/auth';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
+import { buildSession, getAuthMocks, mockAuthModule, resetAuthMocks } from '@/test/mocks/auth';
+import { mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
 
 mockAuthModule();
 mockCaslModule();
@@ -10,23 +10,9 @@ mockPrismaModule();
 
 describe('playlist-actions', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
-
-        prisma.playlist.findFirst.mockReset();
-        prisma.playlist.create.mockReset();
-        prisma.playlist.update.mockReset();
-        prisma.playlist.delete.mockReset();
-        prisma.playlist.findMany.mockReset();
-        prisma.playlistItem.deleteMany.mockReset();
-        prisma.playlistItem.createMany.mockReset();
-        prisma.mediaItem.count.mockReset();
-        prisma.$transaction.mockReset();
+        await resetAuthMocks();
+        await resetCaslMocks();
+        const prisma = await resetPrismaMock();
         prisma.$transaction.mockResolvedValue([]);
     });
 

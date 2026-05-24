@@ -37,7 +37,7 @@ pnpm prisma db seed
 
 Core seed (always):
 
-- Creates missing WidgetTypes: `clock`, `weather`, `rss`.
+- Creates missing WidgetTypes: `clock`, `weather`, `rss` and `transit`.
 
 Dev seed (`SEED_MODE=dev`):
 

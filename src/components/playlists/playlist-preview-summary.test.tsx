@@ -17,11 +17,6 @@ vi.mock('next/image', () => ({
     },
 }));
 
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
-
 describe('PlaylistPreviewSummary', () => {
     it('renders thumbnails, overflow count, and a title link', () => {
         render(

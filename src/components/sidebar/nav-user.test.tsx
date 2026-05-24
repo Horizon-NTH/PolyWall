@@ -10,10 +10,6 @@ vi.mock('next-auth/react', () => ({
     signOut: (...args: unknown[]) => signOutMock(...args),
 }));
 
-vi.mock('next/link', () => ({
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
-
 describe('NavUser', () => {
     beforeEach(() => {
         signOutMock.mockReset();

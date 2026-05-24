@@ -1,15 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 
-import { ScheduleType } from '@/generated/prisma/enums';
-
-const replaceMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    usePathname: () => '/dashboard/schedules',
-    useSearchParams: () => new URLSearchParams(''),
-    useRouter: () => ({replace: replaceMock}),
-}));
+import { routerMock, setMockPathname, setMockSearchParams } from '@/test/mocks/next-navigation';
+import { buildScheduleViewModel } from '@/test/fixtures/builders';
 
 vi.mock('@/components/schedules/schedules-table', () => ({
     SchedulesTable: () => <div>Table schedules</div>,
@@ -21,43 +14,27 @@ vi.mock('@/components/schedules/schedules-calendar', () => ({
 
 describe('SchedulePageTabs', () => {
     it('switches from table to calendar view', async () => {
-        replaceMock.mockReset();
+        setMockPathname('/dashboard/schedules');
+        setMockSearchParams('');
         const {SchedulePageTabs} = await import('@/components/schedules/schedule-page-tabs');
 
         render(
             <SchedulePageTabs
                 canManage
                 channelContent={<div>Channel content</div>}
-                schedules={[{
-                    id: 'schedule-1',
-                    type: ScheduleType.EVENT,
-                    active: true,
-                    playlistId: 'playlist-1',
-                    playlistName: 'Actus',
-                    channelId: 'channel-1',
-                    channelName: 'Hall',
-                    startDate: new Date().toISOString(),
-                    endDate: new Date().toISOString(),
-                    daysLabel: 'Ponctuelle',
-                    dateLabel: '18 avr. 2026',
-                    timeLabel: '15:00 - 16:00',
-                    lifecycleStatus: 'ongoing',
-                    updatedAt: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                    slots: [],
-                }]}
+                schedules={[buildScheduleViewModel()]}
             />,
         );
 
         expect(screen.getByText('Table schedules')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('tab', {name: 'Planning'}));
         expect(screen.getByText('Calendar schedules')).toBeInTheDocument();
-        expect(replaceMock).toHaveBeenCalledWith('/dashboard/schedules?tab=calendar');
+        expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/schedules?tab=calendar');
         fireEvent.click(screen.getByRole('tab', {name: 'Canal'}));
         expect(screen.getByText('Channel content')).toBeInTheDocument();
-        expect(replaceMock).toHaveBeenCalledWith('/dashboard/schedules?tab=channel');
+        expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/schedules?tab=channel');
         fireEvent.click(screen.getByRole('tab', {name: 'Programmations'}));
-        expect(replaceMock).toHaveBeenCalledWith('/dashboard/schedules?tab=schedules');
-        expect(replaceMock).toHaveBeenCalledTimes(3);
+        expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/schedules?tab=schedules');
+        expect(routerMock.replace).toHaveBeenCalledTimes(3);
     });
 });

@@ -3,122 +3,200 @@
 import * as React from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
+import { DisplayWidget } from '@/components/screens/display-widget-registry';
+import { DisplayPlaylistCarousel } from '@/components/screens/display-playlist-carousel';
+import { DisplaySequenceMedia } from '@/components/screens/display-sequence-media';
+import { ZoneType } from '@/generated/prisma/enums';
 import {
     type DisplayResolvedState,
     type DisplayRuntimeSnapshot,
     type DisplaySyncStatus,
+    type DisplayTemplateZone,
 } from '@/lib/display-runtime/types';
-import { isTemplateSupportedForV1 } from '@/lib/display-runtime/runtime';
+import { getRequiredStringConfig } from '@/lib/config/json-config';
+import { isTransparentBackground } from '@/lib/display-runtime/color-contrast';
+import { getZoneAppearanceStyle } from '@/lib/display-runtime/template-style';
 
 export type TemplateRendererProps = {
     snapshot: DisplayRuntimeSnapshot;
     resolvedState: DisplayResolvedState;
     syncStatus: DisplaySyncStatus;
     assetSrc: string | null;
-};
-
-export type TemplateRenderer = {
-    canRender: (snapshot: DisplayRuntimeSnapshot) => boolean;
-    render: (props: TemplateRendererProps) => React.ReactNode;
+    deviceId?: string | null;
+    playlistAssetSrcByCacheKey?: Record<string, string>;
+    staticAssetSrcByCacheKey?: Record<string, string>;
 };
 
 function DisplayMediaViewport(props: TemplateRendererProps) {
-    const videoRef = React.useRef<HTMLVideoElement | null>(null);
-    const activeVideoItemId = props.resolvedState.status === 'PLAYING' && props.resolvedState.currentItem.mediaKind === 'video'
-        ? props.resolvedState.currentItem.id
-        : null;
-
-    React.useEffect(() => {
-        const videoElement = videoRef.current;
-        if (!videoElement || props.resolvedState.status !== 'PLAYING' || props.resolvedState.currentItem.mediaKind !== 'video') {
-            return;
-        }
-
-        const targetTime = props.resolvedState.itemOffsetSeconds;
-        const syncVideo = () => {
-            if (Math.abs(videoElement.currentTime - targetTime) > 0.75) {
-                videoElement.currentTime = targetTime;
-            }
-        };
-
-        syncVideo();
-        videoElement.addEventListener('loadedmetadata', syncVideo);
-
-        return () => {
-            videoElement.removeEventListener('loadedmetadata', syncVideo);
-        };
-    }, [
-        activeVideoItemId,
-        props.assetSrc,
-        props.resolvedState.currentItem?.mediaKind,
-        props.resolvedState.itemOffsetSeconds,
-        props.resolvedState.status,
-    ]);
-
     if (props.resolvedState.status !== 'PLAYING') {
         return null;
     }
 
-    if (!props.assetSrc) {
-        return <Skeleton className="h-full w-full rounded-none" />;
-    }
+    return (
+        <DisplaySequenceMedia
+            item={props.resolvedState.currentItem}
+            src={props.assetSrc}
+            playing
+            itemOffsetSeconds={props.resolvedState.itemOffsetSeconds}
+        />
+    );
+}
 
-    if (props.resolvedState.currentItem.mediaKind === 'video') {
-        return (
-            <div className="flex h-full w-full items-center justify-center overflow-hidden">
-                <video
-                    ref={videoRef}
-                    key={props.resolvedState.currentItem.id}
-                    src={props.assetSrc}
-                    autoPlay
-                    muted
-                    playsInline
-                    preload="auto"
-                    className="h-full w-full object-contain"
-                />
-            </div>
-        );
-    }
+function getZoneStyle(zone: DisplayTemplateZone, snapshot: DisplayRuntimeSnapshot): React.CSSProperties {
+    const {resolutionX, resolutionY} = snapshot.channel.template;
+
+    return {
+        left: `${(zone.positionX / resolutionX) * 100}%`,
+        top: `${(zone.positionY / resolutionY) * 100}%`,
+        width: `${(zone.width / resolutionX) * 100}%`,
+        height: `${(zone.height / resolutionY) * 100}%`,
+        zIndex: zone.orderIndex,
+    };
+}
+
+function StaticZone({
+                        zone,
+                        staticAssetSrcByCacheKey,
+                    }: {
+    zone: DisplayTemplateZone;
+    staticAssetSrcByCacheKey?: Record<string, string>;
+}) {
+    const configurationJson = zone.configurationJson ?? {};
+    const text = getRequiredStringConfig(configurationJson, 'text', '');
+    const color = getRequiredStringConfig(configurationJson, 'color', '#ffffff');
+    const fit = getRequiredStringConfig(configurationJson, 'fit', 'contain');
+    const imageUrl = zone.staticMediaAsset
+        ? staticAssetSrcByCacheKey?.[zone.staticMediaAsset.cacheKey] ?? zone.staticMediaAsset.signedUrl
+        : '';
 
     return (
-        <div className="flex h-full w-full items-center justify-center overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-                src={props.assetSrc}
-                alt={props.resolvedState.currentItem.mediaTitle}
-                className="h-full w-full object-contain"
-                draggable={false}
-            />
+        <div
+            className="flex h-full w-full items-center justify-center overflow-hidden"
+            style={getZoneAppearanceStyle(configurationJson, zone.zoneType)}
+        >
+            {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={imageUrl}
+                    alt={zone.name}
+                    className="h-full w-full"
+                    style={{objectFit: fit === 'cover' ? 'cover' : 'contain'}}
+                    draggable={false}
+                />
+            ) : text ? (
+                <p className="text-center text-[clamp(1rem,3vw,4rem)] font-semibold wrap-break-word" style={{color}}>
+                    {text}
+                </p>
+            ) : null}
         </div>
     );
 }
 
-function SinglePlaylistRenderer(props: TemplateRendererProps) {
+function resolveWidgetZoneConfiguration(
+    zoneConfiguration: Record<string, unknown>,
+    templateBackgroundColor: string,
+) {
+    if (!isTransparentBackground(zoneConfiguration.backgroundColor)) {
+        return zoneConfiguration;
+    }
+
+    return {
+        ...zoneConfiguration,
+        backgroundColor: templateBackgroundColor,
+    };
+}
+
+function WidgetZone({
+                        zone,
+                        deviceId,
+                        templateBackgroundColor,
+                    }: {
+    zone: DisplayTemplateZone;
+    deviceId?: string | null;
+    templateBackgroundColor: string;
+}) {
+    const configurationJson = zone.configurationJson ?? {};
+    const widgetConfiguration = resolveWidgetZoneConfiguration(configurationJson, templateBackgroundColor);
+    const widget = zone.widgetInstance ?? null;
+    const gap = typeof configurationJson.gap === 'number' ? configurationJson.gap : 12;
+
+    return (
+        <div
+            className="flex h-full w-full flex-col overflow-hidden"
+            style={{...getZoneAppearanceStyle(configurationJson, zone.zoneType), gap}}
+        >
+            {widget ? (
+                <div className="min-h-0 flex-1 overflow-hidden">
+                    <DisplayWidget widget={widget} deviceId={deviceId} zoneConfiguration={widgetConfiguration} />
+                </div>
+            ) : (
+                <div className="flex h-full w-full items-center justify-center text-center text-white/70">
+                    Aucun widget
+                </div>
+            )}
+        </div>
+    );
+}
+
+function DisplayPlaylistZone(props: TemplateRendererProps & { zone: DisplayTemplateZone }) {
+    const configurationJson = props.zone.configurationJson ?? {};
+    const displayMode = getRequiredStringConfig(configurationJson, 'displayMode', 'fullscreen');
+
+    return (
+        <div
+            className="h-full w-full overflow-hidden"
+            style={getZoneAppearanceStyle(configurationJson, props.zone.zoneType)}
+        >
+            {displayMode === 'carousel' ? (
+                props.resolvedState.status === 'PLAYING' && props.resolvedState.playlist.items.length > 1 ? (
+                    <DisplayPlaylistCarousel {...props} configurationJson={configurationJson} />
+                ) : (
+                    <DisplayMediaViewport {...props} />
+                )
+            ) : (
+                <DisplayMediaViewport {...props} />
+            )}
+        </div>
+    );
+}
+
+function DisplayLayoutRenderer(props: TemplateRendererProps) {
     const overlayLabel = props.syncStatus === 'DEGRADED'
         ? 'Mode dégradé'
         : props.syncStatus === 'SYNCING'
             ? 'Synchronisation'
             : null;
+    const backgroundColor = getRequiredStringConfig(props.snapshot.channel.template.configurationJson ?? {}, 'backgroundColor', '#000000');
 
     return (
-        <div className="relative h-full w-full overflow-hidden bg-black">
-            <DisplayMediaViewport {...props} />
+        <div className="relative h-full w-full overflow-hidden" style={{backgroundColor}}>
+            {props.snapshot.channel.template.zones.map((zone) => (
+                <div
+                    key={zone.id}
+                    className="absolute overflow-hidden"
+                    style={getZoneStyle(zone, props.snapshot)}
+                >
+                    {zone.zoneType === ZoneType.PLAYLIST ? (
+                        <DisplayPlaylistZone {...props} zone={zone} />
+                    ) : zone.zoneType === ZoneType.WIDGET ? (
+                        <WidgetZone
+                            zone={zone}
+                            deviceId={props.deviceId}
+                            templateBackgroundColor={backgroundColor}
+                        />
+                    ) : zone.zoneType === ZoneType.STATIC ? (
+                        <StaticZone zone={zone} staticAssetSrcByCacheKey={props.staticAssetSrcByCacheKey} />
+                    ) : null}
+                </div>
+            ))}
             {overlayLabel ? (
-                <div className="absolute top-4 left-4 rounded-md bg-black/70 px-3 py-1 text-xs text-white">
+                <div className="absolute top-4 left-4 z-999 rounded-md bg-black/70 px-3 py-1 text-xs text-white">
                     {overlayLabel}
                 </div>
             ) : null}
         </div>
     );
 }
-
-const singlePlaylistRenderer: TemplateRenderer = {
-    canRender: (snapshot) => isTemplateSupportedForV1(snapshot.channel.template.zones),
-    render: (props) => <SinglePlaylistRenderer {...props} />,
-};
-
-const RENDERERS: TemplateRenderer[] = [singlePlaylistRenderer];
 
 function DisplayDiagnostic({title, description}: { title: string; description: string }) {
     return (
@@ -134,17 +212,6 @@ function DisplayDiagnostic({title, description}: { title: string; description: s
 }
 
 export function DisplayTemplateShell(props: TemplateRendererProps) {
-    const renderer = RENDERERS.find((candidate) => candidate.canRender(props.snapshot));
-
-    if (!renderer) {
-        return (
-            <DisplayDiagnostic
-                title="Modèle d’affichage incompatible"
-                description="La V1 du player prend en charge uniquement un modèle avec une unique zone PLAYLIST plein écran."
-            />
-        );
-    }
-
     if (props.resolvedState.status !== 'PLAYING') {
         return (
             <DisplayDiagnostic
@@ -154,5 +221,5 @@ export function DisplayTemplateShell(props: TemplateRendererProps) {
         );
     }
 
-    return <>{renderer.render(props)}</>;
+    return <DisplayLayoutRenderer {...props} />;
 }

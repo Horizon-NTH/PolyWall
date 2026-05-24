@@ -1,4 +1,3 @@
-import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
@@ -7,11 +6,6 @@ import { SchedulesCalendar } from '@/components/schedules/schedules-calendar';
 type CreateCalendarEventsForRange = typeof import('@/lib/schedules/schedule-view-model')['createCalendarEventsForRange'];
 
 const createCalendarEventsForRangeMock = vi.fn<CreateCalendarEventsForRange>(() => []);
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/hooks/use-current-return-to', () => ({
     useCurrentReturnTo: () => '/dashboard/schedules',

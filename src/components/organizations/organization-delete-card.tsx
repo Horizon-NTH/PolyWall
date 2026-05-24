@@ -34,7 +34,6 @@ type OrganizationDeleteCardProps = {
         channels: number;
         playlists: number;
         displayTemplates: number;
-        widgetInstances: number;
     };
 };
 
@@ -74,8 +73,7 @@ export function OrganizationDeleteCard({
                 {hasLinkedData ? (
                     <p className="text-muted-foreground text-sm">
                         Cette organisation contient encore des données.<br />Supprimez d&apos;abord les
-                        éléments liés (utilisateurs, écrans, canaux, playlists, templates,
-                        widgets).
+                        éléments liés (utilisateurs, écrans, canaux, playlists, modèles).
                     </p>
                 ) : (
                     <p className="text-muted-foreground text-sm">

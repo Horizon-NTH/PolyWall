@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { UserRole } from '@/generated/prisma/enums';
+import { buildSession } from '@/test/mocks/auth';
 
 const mocks = vi.hoisted(() => {
     const logger = {
@@ -90,22 +90,6 @@ vi.mock('file-type', () => ({
 vi.mock('@/actions/action-logging', () => ({
     createActionLogger: mocks.createActionLogger,
 }));
-
-function buildSession(overrides?: {
-    role?: UserRole;
-    organizationId?: string | null;
-}) {
-    return {
-        user: {
-            id: 'user-1',
-            email: 'user@example.com',
-            name: 'User Example',
-            role: overrides?.role ?? UserRole.ORGANIZATION_ADMIN,
-            organizationId: overrides?.organizationId ?? 'org-1',
-        },
-        expires: new Date().toISOString(),
-    };
-}
 
 describe('media API routes', () => {
     beforeEach(() => {
@@ -319,7 +303,7 @@ describe('media API routes', () => {
 
     describe('DELETE /api/media/:mediaFileId', () => {
         it('returns 403 when organization does not match', async () => {
-            mocks.auth.mockResolvedValueOnce(buildSession({organizationId: 'org-2'}));
+            mocks.auth.mockResolvedValueOnce(buildSession({user: {organizationId: 'org-2'}}));
             mocks.prisma.mediaFile.findUnique.mockResolvedValueOnce({
                 id: 'mf-1',
                 storageBucket: 'polywall-dev',

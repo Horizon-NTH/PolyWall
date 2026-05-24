@@ -169,7 +169,6 @@ describe('display API routes', () => {
                         zones: [{
                             id: 'zone-1',
                             name: 'Main',
-                            slotName: 'main',
                             zoneType: 'PLAYLIST',
                             orderIndex: 0,
                             positionX: 0,

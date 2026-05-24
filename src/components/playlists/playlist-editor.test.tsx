@@ -8,25 +8,11 @@ import {
     type TimelineMediaItem,
 } from '@/components/playlists/playlist-editor';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { routerMock, setMockPathname } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const refreshMock = vi.fn();
 const replacePlaylistTimelineMock = vi.fn();
 const toggleMediaItemActiveMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-    }),
-    usePathname: () => '/dashboard/playlists/playlist-1',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/playlist-actions', () => ({
     replacePlaylistTimeline: (...args: unknown[]) => replacePlaylistTimelineMock(...args),
@@ -34,13 +20,6 @@ vi.mock('@/actions/playlist-actions', () => ({
 
 vi.mock('@/actions/media-actions', () => ({
     toggleMediaItemActive: (...args: unknown[]) => toggleMediaItemActiveMock(...args),
-}));
-
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
 }));
 
 vi.mock('@dnd-kit/core', () => ({
@@ -141,11 +120,9 @@ describe('PlaylistEditor', () => {
     }
 
     beforeEach(() => {
-        refreshMock.mockReset();
+        setMockPathname('/dashboard/playlists/playlist-1');
         replacePlaylistTimelineMock.mockReset();
         toggleMediaItemActiveMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     afterEach(() => {
@@ -192,8 +169,8 @@ describe('PlaylistEditor', () => {
 
         await waitFor(() => {
             expect(toggleMediaItemActiveMock).toHaveBeenCalledWith('media-2');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Média activé.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Média activé.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -210,7 +187,7 @@ describe('PlaylistEditor', () => {
             await vi.advanceTimersByTimeAsync(1300);
         });
 
-        expect(toastErrorMock).toHaveBeenCalledWith('Sauvegarde impossible.');
+        expect(toastMock.error).toHaveBeenCalledWith('Sauvegarde impossible.');
         expect(screen.getByText('Erreur de sauvegarde')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', {name: 'Réessayer'}));

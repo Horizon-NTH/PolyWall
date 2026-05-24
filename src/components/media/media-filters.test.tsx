@@ -1,14 +1,8 @@
-import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { MediaFilters } from '@/components/media/media-filters';
 import { mediaListFilterSchema } from '@/schemas/media-schema';
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 describe('MediaFilters', () => {
     const baseFilters = mediaListFilterSchema.parse({});

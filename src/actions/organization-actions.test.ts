@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildSession, getAuthMocks, mockAuthModule } from '@/test/mocks/auth';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
+import { buildSession, getAuthMocks, mockAuthModule, resetAuthMocks } from '@/test/mocks/auth';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
+import { getCaslMocks, mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
 
 mockAuthModule();
 mockPrismaModule();
@@ -10,17 +10,9 @@ mockCaslModule();
 
 describe('switchOrganization', () => {
     beforeEach(async () => {
-        const { auth, unstable_update } = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const { defineAbilityFor } = await getCaslMocks();
-
-        auth.mockReset();
-        unstable_update.mockReset();
-        prisma.organization.findUnique.mockReset();
-        prisma.organization.create.mockReset();
-        prisma.organization.update.mockReset();
-        prisma.organization.delete.mockReset();
-        defineAbilityFor.mockReset();
+        await resetAuthMocks();
+        await resetPrismaMock();
+        await resetCaslMocks(false);
     });
 
     it('rejects invalid organizationId', async () => {
@@ -99,13 +91,9 @@ describe('switchOrganization', () => {
 
 describe('createOrganization', () => {
     beforeEach(async () => {
-        const { auth } = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const { defineAbilityFor } = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.organization.create.mockReset();
-        defineAbilityFor.mockReset();
+        await resetAuthMocks();
+        await resetPrismaMock();
+        await resetCaslMocks(false);
     });
 
     it('rejects unauthenticated users', async () => {
@@ -198,13 +186,9 @@ describe('createOrganization', () => {
 
 describe('updateOrganization', () => {
     beforeEach(async () => {
-        const { auth } = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const { defineAbilityFor } = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.organization.update.mockReset();
-        defineAbilityFor.mockReset();
+        await resetAuthMocks();
+        await resetPrismaMock();
+        await resetCaslMocks(false);
     });
 
     it('rejects unauthenticated users', async () => {
@@ -318,14 +302,9 @@ describe('updateOrganization', () => {
 
 describe('deleteOrganization', () => {
     beforeEach(async () => {
-        const { auth } = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const { defineAbilityFor } = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.organization.findUnique.mockReset();
-        prisma.organization.delete.mockReset();
-        defineAbilityFor.mockReset();
+        await resetAuthMocks();
+        await resetPrismaMock();
+        await resetCaslMocks(false);
     });
 
     it('rejects invalid organization ids', async () => {
@@ -405,7 +384,6 @@ describe('deleteOrganization', () => {
                 channels: 0,
                 playlists: 0,
                 displayTemplates: 0,
-                widgetInstances: 0,
             },
         });
         const { deleteOrganization } = await import('@/actions/organization-actions');
@@ -434,7 +412,6 @@ describe('deleteOrganization', () => {
                 channels: 0,
                 playlists: 0,
                 displayTemplates: 0,
-                widgetInstances: 0,
             },
         });
         const { deleteOrganization } = await import('@/actions/organization-actions');

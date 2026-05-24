@@ -18,3 +18,19 @@ export async function safeGoto(page: Page, pathname: string) {
         }
     }
 }
+
+export async function ensureDashboardPath(page: Page, pathname: string | RegExp) {
+    const matcher = typeof pathname === 'string'
+        ? new RegExp(`${pathname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)
+        : pathname;
+
+    if (matcher.test(new URL(page.url(), 'http://localhost').pathname)) {
+        await page.waitForLoadState('domcontentloaded');
+        return;
+    }
+
+    const target = typeof pathname === 'string' ? pathname : page.url();
+    await safeGoto(page, target);
+    await page.waitForURL(matcher, {timeout: 15000});
+    await page.waitForLoadState('domcontentloaded');
+}

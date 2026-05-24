@@ -1,0 +1,138 @@
+import { notFound, redirect } from 'next/navigation';
+
+import { auth } from '@/auth';
+import { DashboardHeader } from '@/components/dashboard/dashboard-header';
+import { DisplayTemplateForm } from '@/components/display-templates/display-template-form';
+import { UserRole } from '@/generated/prisma/enums';
+import { defineAbilityFor } from '@/lib/casl/ability';
+import { asConfigurationRecord } from '@/lib/config/json-config';
+import { findStaticImageMediaOptions } from '@/lib/display-templates/static-media-options';
+import { prisma } from '@/lib/prisma';
+import { appendReturnTo } from '@/lib/return-to';
+import { findSupportedWidgetTypeOptions } from '@/lib/widgets/widget-type-queries';
+import { type DisplayTemplateCreateValues } from '@/schemas/display-template-schema';
+
+type DisplayTemplateEditPageProps = {
+    params: Promise<{ templateId: string }>;
+    searchParams: Promise<{ returnTo?: string }>;
+};
+
+export default async function Page({params, searchParams}: DisplayTemplateEditPageProps) {
+    const session = await auth();
+    if (!session?.user) redirect('/login');
+
+    const ability = defineAbilityFor(session.user);
+    if (!ability.can('update', 'DisplayTemplate')) redirect('/dashboard');
+
+    const [{templateId}, query] = await Promise.all([params, searchParams]);
+    if (!templateId) notFound();
+
+    const organizationId = session.user.organizationId;
+    const isPlatformSuperAdmin = session.user.role === UserRole.PLATFORM_SUPER_ADMIN;
+    if (!organizationId && !isPlatformSuperAdmin) {
+        throw new Error('Session invalide: un utilisateur non super-admin doit être rattaché à une organisation.');
+    }
+
+    const [template, widgetTypes, staticImageMediaOptions] = await Promise.all([
+        prisma.displayTemplate.findFirst({
+            where: {
+                id: templateId,
+                OR: [
+                    {organizationId: null},
+                    ...(organizationId ? [{organizationId}] : []),
+                ],
+            },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                organizationId: true,
+                resolutionX: true,
+                resolutionY: true,
+                configurationJson: true,
+                zones: {
+                    orderBy: {orderIndex: 'asc'},
+                    select: {
+                        id: true,
+                        name: true,
+                        zoneType: true,
+                        orderIndex: true,
+                        positionX: true,
+                        positionY: true,
+                        width: true,
+                        height: true,
+                        configurationJson: true,
+                        widgetInstance: {
+                            select: {
+                                id: true,
+                                widgetTypeId: true,
+                                active: true,
+                                refreshPeriodSeconds: true,
+                                configurationJson: true,
+                            },
+                        },
+                    },
+                },
+            },
+        }),
+        findSupportedWidgetTypeOptions(),
+        findStaticImageMediaOptions(organizationId),
+    ]);
+
+    if (!template) notFound();
+    if (template.organizationId === null && !isPlatformSuperAdmin) redirect('/dashboard');
+
+    const detailHref = appendReturnTo(`/dashboard/display-templates/${template.id}`, query.returnTo);
+    const defaultValues: DisplayTemplateCreateValues = {
+        scope: template.organizationId === null ? 'global' : 'organization',
+        name: template.name,
+        description: template.description,
+        resolutionX: template.resolutionX,
+        resolutionY: template.resolutionY,
+        configurationJson: asConfigurationRecord(template.configurationJson),
+        zones: template.zones.map((zone) => ({
+            id: zone.id,
+            name: zone.name,
+            zoneType: zone.zoneType,
+            orderIndex: zone.orderIndex,
+            positionX: zone.positionX,
+            positionY: zone.positionY,
+            width: zone.width,
+            height: zone.height,
+            configurationJson: asConfigurationRecord(zone.configurationJson),
+            widgetInstance: zone.widgetInstance
+                ? {
+                    id: zone.widgetInstance.id,
+                    widgetTypeId: zone.widgetInstance.widgetTypeId,
+                    active: zone.widgetInstance.active,
+                    refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
+                    configurationJson: asConfigurationRecord(zone.widgetInstance.configurationJson),
+                }
+                : null,
+        })),
+    };
+
+    return (
+        <>
+            <DashboardHeader
+                items={[
+                    {label: 'Tableau de bord', href: '/dashboard'},
+                    {label: 'Modèles d\'affichage', href: '/dashboard/display-templates'},
+                    {label: template.name, href: detailHref},
+                    {label: 'Modifier'},
+                ]}
+            />
+            <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+                <DisplayTemplateForm
+                    mode="edit"
+                    templateId={template.id}
+                    defaultValues={defaultValues}
+                    widgetTypes={widgetTypes}
+                    staticImageMediaOptions={staticImageMediaOptions}
+                    cancelHref={detailHref}
+                    canCreateGlobalTemplates={isPlatformSuperAdmin}
+                />
+            </div>
+        </>
+    );
+}

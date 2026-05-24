@@ -2,41 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { AdminActionsCard } from '@/components/admins/admin-actions-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const refreshMock = vi.fn();
-const replaceMock = vi.fn();
 const toggleAdminActiveMock = vi.fn();
 const deleteAdminMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-        replace: replaceMock,
-    }),
-}));
 
 vi.mock('@/actions/admin-actions', () => ({
     toggleAdminActive: (...args: unknown[]) => toggleAdminActiveMock(...args),
     deleteAdmin: (...args: unknown[]) => deleteAdminMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('AdminActionsCard', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
-        replaceMock.mockReset();
         toggleAdminActiveMock.mockReset();
         deleteAdminMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('toggles the admin status and refreshes', async () => {
@@ -54,8 +34,8 @@ describe('AdminActionsCard', () => {
 
         await waitFor(() => {
             expect(toggleAdminActiveMock).toHaveBeenCalledWith('admin-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Administrateur désactivé.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Administrateur désactivé.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -76,8 +56,8 @@ describe('AdminActionsCard', () => {
 
         await waitFor(() => {
             expect(deleteAdminMock).toHaveBeenCalledWith('admin-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Administrateur supprimé.');
-            expect(replaceMock).toHaveBeenCalledWith('/dashboard/administrators');
+            expect(toastMock.success).toHaveBeenCalledWith('Administrateur supprimé.');
+            expect(routerMock.replace).toHaveBeenCalledWith('/dashboard/administrators');
         });
     });
 
@@ -98,8 +78,8 @@ describe('AdminActionsCard', () => {
 
         await waitFor(() => {
             expect(deleteAdminMock).toHaveBeenCalledWith('admin-1');
-            expect(toastErrorMock).toHaveBeenCalledWith('Erreur serveur');
+            expect(toastMock.error).toHaveBeenCalledWith('Erreur serveur');
         });
-        expect(replaceMock).not.toHaveBeenCalled();
+        expect(routerMock.replace).not.toHaveBeenCalled();
     });
 });

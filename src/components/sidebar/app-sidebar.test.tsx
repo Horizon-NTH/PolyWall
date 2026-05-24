@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildSession, getAuthMocks, mockAuthModule } from '@/test/mocks/auth';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
+import { buildSession, getAuthMocks, mockAuthModule, resetAuthMocks } from '@/test/mocks/auth';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
+import { getCaslMocks, mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
 import { UserRole } from '@/generated/prisma/enums';
 
 vi.mock('@/components/sidebar/app-sidebar-client', () => ({
@@ -17,13 +17,9 @@ mockCaslModule();
 
 describe('AppSidebar (server)', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.organization.findMany.mockReset();
-        defineAbilityFor.mockReset();
+        await resetAuthMocks();
+        await resetPrismaMock();
+        await resetCaslMocks(false);
     });
 
     it('returns null when unauthenticated', async () => {

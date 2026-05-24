@@ -7,23 +7,13 @@ import { OrganizationSwitcher } from '@/components/sidebar/organization-switcher
 import type { AppAbility } from '@/lib/casl/ability';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { UserRole } from '@/generated/prisma/enums';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const refreshMock = vi.fn();
 const switchOrganizationMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({refresh: refreshMock}),
-}));
 
 vi.mock('@/actions/organization-actions', () => ({
     switchOrganization: (...args: unknown[]) => switchOrganizationMock(...args),
-}));
-
-vi.mock('sonner', () => ({
-    toast: {
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
 }));
 
 vi.mock('next/image', () => ({
@@ -62,9 +52,7 @@ function renderSwitcher({
 }
 
 beforeEach(() => {
-    refreshMock.mockReset();
     switchOrganizationMock.mockReset();
-    toastErrorMock.mockReset();
 });
 
 describe('OrganizationSwitcher', () => {
@@ -107,7 +95,7 @@ describe('OrganizationSwitcher', () => {
 
         await waitFor(() => {
             expect(switchOrganizationMock).toHaveBeenCalledWith('org-2');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -119,7 +107,7 @@ describe('OrganizationSwitcher', () => {
         fireEvent.click(await screen.findByRole('menuitem', {name: 'Org Two'}));
 
         await waitFor(() => {
-            expect(toastErrorMock).toHaveBeenCalledWith(
+            expect(toastMock.error).toHaveBeenCalledWith(
                 'Impossible de changer d\'organisation.',
             );
         });

@@ -25,6 +25,7 @@ vi.mock('@/components/screens/display-template-shell', () => ({
         syncStatus: string;
         assetSrc: string | null;
         resolvedState: DisplayResolvedState;
+        playlistAssetSrcByCacheKey?: Record<string, string>;
     }) => {
         mocks.displayTemplateShell(props);
         return (
@@ -59,7 +60,6 @@ function buildSnapshot(): DisplayRuntimeSnapshot {
                 zones: [{
                     id: 'zone-1',
                     name: 'Main',
-                    slotName: 'main',
                     zoneType: ZoneType.PLAYLIST,
                     orderIndex: 0,
                     positionX: 0,
@@ -130,6 +130,64 @@ function buildResolvedState(assetUrl = 'https://example.com/image.png'): Display
         slotEndsAt: '2026-05-02T11:00:00.000Z',
         loopOffsetSeconds: 0,
         itemOffsetSeconds: 0,
+        isFallbackToDefault: false,
+        reason: null,
+    };
+}
+
+function buildResolvedStateWithThreeItems(): DisplayResolvedState {
+    const snapshot = buildSnapshot();
+    const items = [
+        snapshot.playlists[0]!.items[0]!,
+        {
+            ...snapshot.playlists[0]!.items[0]!,
+            id: 'item-2',
+            playlistItemId: 'playlist-item-2',
+            mediaItemId: 'media-2',
+            mediaTitle: 'Video',
+            mediaKind: 'video' as const,
+            orderIndex: 1,
+            asset: {
+                ...snapshot.playlists[0]!.items[0]!.asset,
+                assetId: 'asset-2',
+                mediaFileId: 'asset-2',
+                cacheKey: 'asset-2',
+                signedUrl: 'https://example.com/video.mp4',
+                mimeType: 'video/mp4',
+            },
+        },
+        {
+            ...snapshot.playlists[0]!.items[0]!,
+            id: 'item-3',
+            playlistItemId: 'playlist-item-3',
+            mediaItemId: 'media-3',
+            mediaTitle: 'Image suivante',
+            orderIndex: 2,
+            asset: {
+                ...snapshot.playlists[0]!.items[0]!.asset,
+                assetId: 'asset-3',
+                mediaFileId: 'asset-3',
+                cacheKey: 'asset-3',
+                signedUrl: 'https://example.com/next.png',
+            },
+        },
+    ];
+    const playlist = {
+        ...snapshot.playlists[0]!,
+        totalDurationSeconds: 90,
+        items,
+    };
+
+    return {
+        status: 'PLAYING',
+        schedule: snapshot.schedules[0]!,
+        playlist,
+        currentItem: items[1]!,
+        nextTransitionAt: '2026-05-02T10:01:00.000Z',
+        slotStartedAt: '2026-05-02T10:00:00.000Z',
+        slotEndsAt: '2026-05-02T11:00:00.000Z',
+        loopOffsetSeconds: 35,
+        itemOffsetSeconds: 5,
         isFallbackToDefault: false,
         reason: null,
     };
@@ -224,5 +282,35 @@ describe('DisplayPlaybackSurface', () => {
 
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:first');
         expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:second');
+    });
+
+    it('loads the previous, current and next playlist assets for carousel playback', async () => {
+        mocks.resolveDisplayState.mockReturnValue(buildResolvedStateWithThreeItems());
+        mocks.getCachedAssetObjectUrl
+            .mockResolvedValueOnce('blob:previous')
+            .mockResolvedValueOnce('blob:current')
+            .mockResolvedValueOnce('blob:next');
+
+        await act(async () => {
+            render(
+                <DisplayPlaybackSurface
+                    snapshot={buildSnapshot()}
+                    syncStatus="PLAYING"
+                    serverOffsetMs={0}
+                />,
+            );
+        });
+
+        await waitFor(() => {
+            expect(mocks.displayTemplateShell).toHaveBeenLastCalledWith(expect.objectContaining({
+                assetSrc: 'blob:current',
+                playlistAssetSrcByCacheKey: {
+                    'asset-1': 'blob:previous',
+                    'asset-2': 'blob:current',
+                    'asset-3': 'blob:next',
+                },
+            }));
+        });
+        expect(mocks.getCachedAssetObjectUrl).toHaveBeenCalledTimes(3);
     });
 });

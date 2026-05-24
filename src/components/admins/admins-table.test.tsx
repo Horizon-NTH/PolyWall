@@ -1,63 +1,27 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { AdminsTable } from '@/components/admins/admins-table';
-import { UserRole } from '@/generated/prisma/enums';
+import { routerMock, setMockPathname } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
+import { buildAdminRow } from '@/test/fixtures/builders';
 
-const refreshMock = vi.fn();
 const toggleAdminActiveMock = vi.fn();
 const deleteAdminMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-    }),
-    usePathname: () => '/dashboard/administrators',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/admin-actions', () => ({
     toggleAdminActive: (...args: unknown[]) => toggleAdminActiveMock(...args),
     deleteAdmin: (...args: unknown[]) => deleteAdminMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('AdminsTable', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
+        setMockPathname('/dashboard/administrators');
         toggleAdminActiveMock.mockReset();
         deleteAdminMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
-    const data = [
-        {
-            id: 'admin-1',
-            fullName: 'Jean Dupont',
-            email: 'jean@example.com',
-            description: 'Admin principal',
-            role: UserRole.ORGANIZATION_ADMIN,
-            organizationId: 'org-1',
-            organizationName: 'Org One',
-            active: true,
-            createdAt: '2024-01-01T10:00:00.000Z',
-        },
-    ];
+    const data = [buildAdminRow()];
 
     const organizations = [
         {id: 'org-1', name: 'Org One'},
@@ -87,8 +51,8 @@ describe('AdminsTable', () => {
 
         await waitFor(() => {
             expect(toggleAdminActiveMock).toHaveBeenCalledWith('admin-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Administrateur désactivé.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Administrateur désactivé.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 
@@ -105,8 +69,8 @@ describe('AdminsTable', () => {
 
         await waitFor(() => {
             expect(deleteAdminMock).toHaveBeenCalledWith('admin-1');
-            expect(toastErrorMock).toHaveBeenCalledWith('Erreur serveur');
+            expect(toastMock.error).toHaveBeenCalledWith('Erreur serveur');
         });
-        expect(refreshMock).not.toHaveBeenCalled();
+        expect(routerMock.refresh).not.toHaveBeenCalled();
     });
 });

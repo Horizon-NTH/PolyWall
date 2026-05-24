@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { Prisma } from '@/generated/prisma/client';
-import { ScreenStatus } from '@/generated/prisma/enums';
+import { MediaFileStatus, MediaFileVariant, ScreenStatus } from '@/generated/prisma/enums';
 import { buildDisplaySequencePlan, getDisplaySequenceDurationSeconds } from '@/lib/display-runtime/media';
 import {
     type DisplayPlaylistSequence,
@@ -9,6 +9,7 @@ import {
     type DisplayRuntimeSnapshot,
 } from '@/lib/display-runtime/types';
 import { env } from '@/env';
+import { asConfigurationRecord } from '@/lib/config/json-config';
 import { formatDateOnlyUTC } from '@/lib/date';
 import { prisma } from '@/lib/prisma';
 import { presignStorageObjectGetUrl } from '@/lib/storage/presigned-url';
@@ -17,6 +18,7 @@ import { isEndOfDayTime, timeToMinutes } from '@/lib/schedules/schedule-utils';
 const displayRuntimeChannelSelect = {
     id: true,
     name: true,
+    organizationId: true,
     timezone: true,
     updatedAt: true,
     displayTemplate: {
@@ -26,28 +28,35 @@ const displayRuntimeChannelSelect = {
             templateKey: true,
             resolutionX: true,
             resolutionY: true,
+            configurationJson: true,
             updatedAt: true,
             zones: {
                 orderBy: {orderIndex: 'asc'},
                 select: {
                     id: true,
                     name: true,
-                    slotName: true,
                     zoneType: true,
                     orderIndex: true,
                     positionX: true,
                     positionY: true,
                     width: true,
                     height: true,
+                    configurationJson: true,
                     updatedAt: true,
-                    widgetInstances: {
+                    widgetInstance: {
                         select: {
                             id: true,
                             active: true,
+                            refreshPeriodSeconds: true,
+                            configurationJson: true,
                             updatedAt: true,
                             widgetTypeId: true,
+                            widgetType: {
+                                select: {
+                                    technicalKey: true,
+                                },
+                            },
                         },
-                        orderBy: {updatedAt: 'desc'},
                     },
                 },
             },
@@ -123,6 +132,7 @@ const displayRuntimeChannelSelect = {
 type RuntimeQueryResult = NonNullable<Awaited<ReturnType<typeof getDisplayRuntimeSourceByDeviceId>>>;
 type RuntimeChannel = Prisma.ChannelGetPayload<{ select: typeof displayRuntimeChannelSelect }>;
 type RuntimeFile = RuntimeChannel['schedules'][number]['playlist']['items'][number]['mediaItem']['files'][number];
+type StaticImageMediaFile = NonNullable<Awaited<ReturnType<typeof findStaticImageMediaFiles>>>[number]['files'][number];
 
 function toEndMinutes(value: Date) {
     return isEndOfDayTime(value) ? 24 * 60 : timeToMinutes(value);
@@ -168,19 +178,25 @@ function buildChannelRevisionPayload(channel: RuntimeChannel) {
         updatedAt: channel.updatedAt.toISOString(),
         template: {
             id: channel.displayTemplate.id,
+            configurationJson: channel.displayTemplate.configurationJson,
             updatedAt: channel.displayTemplate.updatedAt.toISOString(),
             zones: channel.displayTemplate.zones.map((zone) => ({
                 id: zone.id,
-                slotName: zone.slotName,
                 zoneType: zone.zoneType,
                 orderIndex: zone.orderIndex,
+                configurationJson: zone.configurationJson,
                 updatedAt: zone.updatedAt.toISOString(),
-                widgetInstances: zone.widgetInstances.map((widget) => ({
-                    id: widget.id,
-                    active: widget.active,
-                    widgetTypeId: widget.widgetTypeId,
-                    updatedAt: widget.updatedAt.toISOString(),
-                })),
+                widgetInstance: zone.widgetInstance?.active
+                    ? {
+                        id: zone.widgetInstance.id,
+                        active: zone.widgetInstance.active,
+                        widgetTypeId: zone.widgetInstance.widgetTypeId,
+                        technicalKey: zone.widgetInstance.widgetType.technicalKey,
+                        refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
+                        configurationJson: zone.widgetInstance.configurationJson,
+                        updatedAt: zone.widgetInstance.updatedAt.toISOString(),
+                    }
+                    : null,
             })),
         },
         schedules: channel.schedules.map((schedule) => ({
@@ -276,6 +292,82 @@ async function buildAssetDescriptor(file: RuntimeFile, width: number | null, hei
     };
 }
 
+async function buildStaticAssetDescriptor(file: StaticImageMediaFile) {
+    return buildAssetDescriptor(file, null, null);
+}
+
+function collectStaticImageMediaIds(channel: RuntimeChannel) {
+    const ids = new Set<string>();
+
+    for (const zone of channel.displayTemplate.zones) {
+        const configurationJson = asConfigurationRecord(zone.configurationJson);
+        if (configurationJson.contentType !== 'image') continue;
+
+        const mediaItemId = configurationJson.mediaItemId;
+        if (typeof mediaItemId === 'string' && mediaItemId) {
+            ids.add(mediaItemId);
+        }
+    }
+
+    return Array.from(ids);
+}
+
+async function findStaticImageMediaFiles(channel: RuntimeChannel, mediaItemIds: string[]) {
+    if (mediaItemIds.length === 0) return [];
+
+    return prisma.mediaItem.findMany({
+        where: {
+            id: {in: mediaItemIds},
+            organizationId: channel.organizationId,
+            active: true,
+        },
+        select: {
+            id: true,
+            files: {
+                where: {
+                    status: MediaFileStatus.READY,
+                    variant: MediaFileVariant.ORIGINAL,
+                    mimeType: {
+                        startsWith: 'image/',
+                    },
+                },
+                orderBy: [
+                    {variantIndex: 'asc'},
+                    {updatedAt: 'desc'},
+                ],
+                take: 1,
+                select: {
+                    id: true,
+                    status: true,
+                    variant: true,
+                    variantIndex: true,
+                    sourceMediaFileId: true,
+                    mimeType: true,
+                    storageBucket: true,
+                    objectKey: true,
+                    metaJson: true,
+                    updatedAt: true,
+                },
+            },
+        },
+    });
+}
+
+async function buildStaticAssetMap(channel: RuntimeChannel) {
+    const mediaItemIds = collectStaticImageMediaIds(channel);
+    const mediaItems = await findStaticImageMediaFiles(channel, mediaItemIds);
+    const assets = new Map<string, Awaited<ReturnType<typeof buildStaticAssetDescriptor>>>();
+
+    for (const mediaItem of mediaItems) {
+        const file = mediaItem.files[0];
+        if (!file) continue;
+
+        assets.set(mediaItem.id, await buildStaticAssetDescriptor(file));
+    }
+
+    return assets;
+}
+
 async function buildPlaylistSequences(channel: RuntimeChannel): Promise<DisplayPlaylistSequence[]> {
     const playlistMap = new Map<string, RuntimeChannel['schedules'][number]['playlist']>();
     for (const schedule of channel.schedules) {
@@ -319,7 +411,10 @@ async function buildRuntimeSnapshot(params: {
     revision: string;
     screen: DisplayRuntimeSnapshot['screen'];
 }) {
-    const playlists = await buildPlaylistSequences(params.channel);
+    const [playlists, staticAssetMap] = await Promise.all([
+        buildPlaylistSequences(params.channel),
+        buildStaticAssetMap(params.channel),
+    ]);
 
     return {
         revision: params.revision,
@@ -335,17 +430,36 @@ async function buildRuntimeSnapshot(params: {
                 templateKey: params.channel.displayTemplate.templateKey,
                 resolutionX: params.channel.displayTemplate.resolutionX,
                 resolutionY: params.channel.displayTemplate.resolutionY,
-                zones: params.channel.displayTemplate.zones.map((zone) => ({
-                    id: zone.id,
-                    name: zone.name,
-                    slotName: zone.slotName,
-                    zoneType: zone.zoneType,
-                    orderIndex: zone.orderIndex,
-                    positionX: zone.positionX,
-                    positionY: zone.positionY,
-                    width: zone.width,
-                    height: zone.height,
-                })),
+                configurationJson: asConfigurationRecord(params.channel.displayTemplate.configurationJson),
+                zones: params.channel.displayTemplate.zones.map((zone) => {
+                    const configurationJson = asConfigurationRecord(zone.configurationJson);
+                    const mediaItemId = configurationJson.contentType === 'image' &&
+                        typeof configurationJson.mediaItemId === 'string'
+                        ? configurationJson.mediaItemId
+                        : null;
+
+                    return {
+                        id: zone.id,
+                        name: zone.name,
+                        zoneType: zone.zoneType,
+                        orderIndex: zone.orderIndex,
+                        positionX: zone.positionX,
+                        positionY: zone.positionY,
+                        width: zone.width,
+                        height: zone.height,
+                        configurationJson,
+                        staticMediaAsset: mediaItemId ? staticAssetMap.get(mediaItemId) ?? null : null,
+                        widgetInstance: zone.widgetInstance?.active
+                            ? {
+                                id: zone.widgetInstance.id,
+                                technicalKey: zone.widgetInstance.widgetType.technicalKey,
+                                active: zone.widgetInstance.active,
+                                refreshPeriodSeconds: zone.widgetInstance.refreshPeriodSeconds,
+                                configurationJson: asConfigurationRecord(zone.widgetInstance.configurationJson),
+                            }
+                            : null,
+                    };
+                }),
             },
         },
         schedules: buildDisplaySchedules(params.channel),

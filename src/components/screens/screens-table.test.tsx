@@ -1,24 +1,10 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ScreensTable } from '@/components/screens/screens-table';
 import { ScreenStatus } from '@/generated/prisma/enums';
-
-const refreshMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-    }),
-    usePathname: () => '/dashboard/screens',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
+import { buildScreenRow } from '@/test/fixtures/builders';
+import { routerMock, setMockPathname } from '@/test/mocks/next-navigation';
 
 vi.mock('@/actions/screen-actions', () => ({
     deleteScreen: vi.fn(),
@@ -28,12 +14,11 @@ vi.mock('@/actions/screen-actions', () => ({
 
 describe('ScreensTable', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
+        setMockPathname('/dashboard/screens');
     });
 
     const data = [
-        {
-            id: 'screen-1',
+        buildScreenRow({
             name: 'Écran attente',
             location: 'Entrée',
             channelId: null,
@@ -41,33 +26,19 @@ describe('ScreensTable', () => {
             status: ScreenStatus.PENDING,
             interactive: false,
             lastSeenAt: null,
-            createdAt: '2026-01-01T10:00:00.000Z',
-            updatedAt: '2026-01-02T10:00:00.000Z',
-        },
-        {
+        }),
+        buildScreenRow({
             id: 'screen-2',
             name: 'Écran actif',
-            location: 'Hall',
-            channelId: 'channel-1',
-            channelName: 'Hall principal',
-            status: ScreenStatus.ACTIVE,
-            interactive: true,
-            lastSeenAt: '2026-01-02T10:00:00.000Z',
-            createdAt: '2026-01-01T10:00:00.000Z',
-            updatedAt: '2026-01-02T10:00:00.000Z',
-        },
-        {
+        }),
+        buildScreenRow({
             id: 'screen-3',
             name: 'Écran révoqué',
             location: 'Salle 2',
-            channelId: 'channel-1',
-            channelName: 'Hall principal',
             status: ScreenStatus.REVOKED,
             interactive: false,
             lastSeenAt: '2026-01-01T09:00:00.000Z',
-            createdAt: '2026-01-01T10:00:00.000Z',
-            updatedAt: '2026-01-02T10:00:00.000Z',
-        },
+        }),
     ];
 
     const channels = [{id: 'channel-1', name: 'Hall principal'}];
@@ -104,7 +75,7 @@ describe('ScreensTable', () => {
 
         fireEvent.click(screen.getByRole('tab', {name: /En attente/}));
 
-        expect(refreshMock).toHaveBeenCalledTimes(1);
+        expect(routerMock.refresh).toHaveBeenCalledTimes(1);
     });
 
     it('does not show reset button on initial load and shows pending badge count', () => {

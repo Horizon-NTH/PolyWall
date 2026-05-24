@@ -1,31 +1,14 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ScheduleActionsCard } from '@/components/schedules/schedule-actions-card';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
-const refreshMock = vi.fn();
 const deleteScheduleMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-        refresh: refreshMock,
-    }),
-}));
 
 vi.mock('@/actions/schedule-actions', () => ({
     deleteSchedule: (...args: unknown[]) => deleteScheduleMock(...args),
-}));
-
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
 }));
 
 vi.mock('@/components/schedules/schedule-delete-dialog', () => ({
@@ -36,11 +19,7 @@ vi.mock('@/components/schedules/schedule-delete-dialog', () => ({
 
 describe('ScheduleActionsCard', () => {
     beforeEach(() => {
-        pushMock.mockReset();
-        refreshMock.mockReset();
         deleteScheduleMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     it('deletes schedule and redirects on success', async () => {
@@ -58,9 +37,9 @@ describe('ScheduleActionsCard', () => {
 
         await waitFor(() => {
             expect(deleteScheduleMock).toHaveBeenCalledWith('schedule-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Programmation supprimée.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/schedules?channelId=channel-1');
-            expect(refreshMock).toHaveBeenCalledTimes(1);
+            expect(toastMock.success).toHaveBeenCalledWith('Programmation supprimée.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/schedules?channelId=channel-1');
+            expect(routerMock.refresh).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -78,9 +57,9 @@ describe('ScheduleActionsCard', () => {
         fireEvent.click(screen.getByRole('button', {name: 'Confirmer suppression'}));
 
         await waitFor(() => {
-            expect(toastErrorMock).toHaveBeenCalledWith('Suppression impossible');
+            expect(toastMock.error).toHaveBeenCalledWith('Suppression impossible');
         });
-        expect(pushMock).not.toHaveBeenCalled();
-        expect(refreshMock).not.toHaveBeenCalled();
+        expect(routerMock.push).not.toHaveBeenCalled();
+        expect(routerMock.refresh).not.toHaveBeenCalled();
     });
 });

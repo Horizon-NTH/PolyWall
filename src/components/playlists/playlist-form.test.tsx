@@ -1,44 +1,22 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { PlaylistForm } from '@/components/playlists/playlist-form';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
 const createPlaylistMock = vi.fn();
 const updatePlaylistMock = vi.fn();
-const toastSuccessMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-        refresh: vi.fn(),
-    }),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/playlist-actions', () => ({
     createPlaylist: (...args: unknown[]) => createPlaylistMock(...args),
     updatePlaylist: (...args: unknown[]) => updatePlaylistMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: vi.fn(),
-    },
-}));
-
 describe('PlaylistForm', () => {
     beforeEach(() => {
-        pushMock.mockReset();
         createPlaylistMock.mockReset();
         updatePlaylistMock.mockReset();
-        toastSuccessMock.mockReset();
     });
 
     it('creates a playlist and redirects on success', async () => {
@@ -60,8 +38,8 @@ describe('PlaylistForm', () => {
                 name: 'Default',
                 description: 'Playlist principale',
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Playlist créée.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/playlists/playlist-1');
+            expect(toastMock.success).toHaveBeenCalledWith('Playlist créée.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/playlists/playlist-1');
         });
     });
 
@@ -88,8 +66,8 @@ describe('PlaylistForm', () => {
                 name: 'Actus',
                 description: 'Playlist principale',
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Playlist mise à jour.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/playlists/playlist-2');
+            expect(toastMock.success).toHaveBeenCalledWith('Playlist mise à jour.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/playlists/playlist-2');
         });
     });
 });

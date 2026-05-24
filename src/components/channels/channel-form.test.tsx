@@ -1,25 +1,13 @@
-import React, { type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ChannelForm } from '@/components/channels/channel-form';
+import { routerMock } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
 
-const pushMock = vi.fn();
 const createChannelMock = vi.fn();
 const updateChannelMock = vi.fn();
-const toastSuccessMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: pushMock,
-        refresh: vi.fn(),
-    }),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/components/ui/select', () => ({
     Select: ({children, value, onValueChange}: {
@@ -50,13 +38,6 @@ vi.mock('@/actions/channel-actions', () => ({
     updateChannel: (...args: unknown[]) => updateChannelMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: vi.fn(),
-    },
-}));
-
 describe('ChannelForm', () => {
     const templates = [
         {id: 'template-1', name: 'Template global', organizationId: null},
@@ -64,10 +45,8 @@ describe('ChannelForm', () => {
     ];
 
     beforeEach(() => {
-        pushMock.mockReset();
         createChannelMock.mockReset();
         updateChannelMock.mockReset();
-        toastSuccessMock.mockReset();
     });
 
     it('creates a channel and redirects on success', async () => {
@@ -92,8 +71,8 @@ describe('ChannelForm', () => {
                 description: 'Canal du hall',
                 displayTemplateId: 'template-1',
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Canal créé.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/channels/channel-1');
+            expect(toastMock.success).toHaveBeenCalledWith('Canal créé.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/channels/channel-1');
         });
     });
 
@@ -124,8 +103,8 @@ describe('ChannelForm', () => {
                 description: 'Canal du hall',
                 displayTemplateId: 'template-2',
             });
-            expect(toastSuccessMock).toHaveBeenCalledWith('Canal mis à jour.');
-            expect(pushMock).toHaveBeenCalledWith('/dashboard/channels/channel-2');
+            expect(toastMock.success).toHaveBeenCalledWith('Canal mis à jour.');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/channels/channel-2');
         });
     });
 

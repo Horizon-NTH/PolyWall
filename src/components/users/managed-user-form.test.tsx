@@ -1,19 +1,12 @@
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { ManagedUserForm, ManagedUserFormValues } from '@/components/users/managed-user-form';
 import { Resolver } from 'react-hook-form';
-
-const toastSuccessMock = vi.fn();
-
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-    },
-}));
+import { toastMock } from '@/test/mocks/sonner';
 
 const schema = z.object({
     fullName: z.string().min(2),
@@ -25,10 +18,6 @@ const schema = z.object({
 });
 
 describe('ManagedUserForm', () => {
-    beforeEach(() => {
-        toastSuccessMock.mockReset();
-    });
-
     const fillCreateForm = () => {
         fireEvent.change(screen.getByLabelText('Nom complet'), {
             target: {value: 'Jean Dupont'},
@@ -69,7 +58,7 @@ describe('ManagedUserForm', () => {
 
         await waitFor(() => {
             expect(onSubmit).toHaveBeenCalled();
-            expect(toastSuccessMock).toHaveBeenCalledWith('Utilisateur créé.');
+            expect(toastMock.success).toHaveBeenCalledWith('Utilisateur créé.');
             expect(onSuccess).toHaveBeenCalled();
         });
     });

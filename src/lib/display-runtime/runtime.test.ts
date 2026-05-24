@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildDisplaySequencePlan, getDisplaySequenceDurationSeconds } from '@/lib/display-runtime/media';
-import { getCurrentSequenceItem, resolveDisplayState } from '@/lib/display-runtime/runtime';
+import { getCurrentSequenceItem, getPriorityAssetDescriptors, resolveDisplayState } from '@/lib/display-runtime/runtime';
 import { DayOfWeek, ScheduleType, ZoneType } from '@/generated/prisma/enums';
 import { type DisplayRuntimeSnapshot } from '@/lib/display-runtime/types';
 
@@ -29,7 +29,6 @@ function buildSnapshot(overrides?: Partial<DisplayRuntimeSnapshot>): DisplayRunt
                 zones: [{
                     id: 'zone-1',
                     name: 'Main',
-                    slotName: 'main',
                     zoneType: ZoneType.PLAYLIST,
                     orderIndex: 0,
                     positionX: 0,
@@ -359,5 +358,45 @@ describe('display runtime', () => {
         const resolvedItem = getCurrentSequenceItem(sequence, 35);
         expect(resolvedItem?.item.id).toBe('item-2');
         expect(resolvedItem?.itemOffsetSeconds).toBe(5);
+    });
+
+    it('includes static template media in priority assets', () => {
+        const snapshot = buildSnapshot({
+            channel: {
+                ...buildSnapshot().channel,
+                template: {
+                    ...buildSnapshot().channel.template,
+                    zones: [{
+                        ...buildSnapshot().channel.template.zones[0]!,
+                        staticMediaAsset: {
+                            assetId: 'asset-logo',
+                            mediaFileId: 'asset-logo',
+                            cacheKey: 'logo',
+                            signedUrl: 'https://example.com/logo.png',
+                            expiresAt: '2026-04-20T11:00:00.000Z',
+                            mimeType: 'image/png',
+                            width: null,
+                            height: null,
+                        },
+                    }],
+                },
+            },
+        });
+
+        const assets = getPriorityAssetDescriptors(snapshot, {
+            status: 'NO_ACTIVE_SCHEDULE',
+            schedule: null,
+            playlist: null,
+            currentItem: null,
+            nextTransitionAt: null,
+            slotStartedAt: null,
+            slotEndsAt: null,
+            loopOffsetSeconds: 0,
+            itemOffsetSeconds: 0,
+            isFallbackToDefault: false,
+            reason: 'Aucune programmation active.',
+        });
+
+        expect(assets.map((asset) => asset.cacheKey)).toEqual(['logo']);
     });
 });

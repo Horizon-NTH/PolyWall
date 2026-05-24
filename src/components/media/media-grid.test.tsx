@@ -1,82 +1,42 @@
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { MediaGrid } from '@/components/media/media-grid';
+import { buildMediaGridItem } from '@/test/fixtures/builders';
+import { routerMock, setMockPathname } from '@/test/mocks/next-navigation';
+import { toastMock } from '@/test/mocks/sonner';
+import { MediaFileStatus } from '@/generated/prisma/enums';
 
-const refreshMock = vi.fn();
 const toggleMediaItemActiveMock = vi.fn();
 const deleteMediaItemMock = vi.fn();
-const toastSuccessMock = vi.fn();
-const toastErrorMock = vi.fn();
-
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        refresh: refreshMock,
-    }),
-    usePathname: () => '/dashboard/administrators',
-    useSearchParams: () => new URLSearchParams(),
-}));
-
-vi.mock('next/link', () => ({
-    __esModule: true,
-    default: (props: React.ComponentProps<'a'>) => <a {...props} />,
-}));
 
 vi.mock('@/actions/media-actions', () => ({
     toggleMediaItemActive: (...args: unknown[]) => toggleMediaItemActiveMock(...args),
     deleteMediaItem: (...args: unknown[]) => deleteMediaItemMock(...args),
 }));
 
-vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccessMock(...args),
-        error: (...args: unknown[]) => toastErrorMock(...args),
-    },
-}));
-
 describe('MediaGrid', () => {
     beforeEach(() => {
-        refreshMock.mockReset();
+        setMockPathname('/dashboard/media');
         toggleMediaItemActiveMock.mockReset();
         deleteMediaItemMock.mockReset();
-        toastSuccessMock.mockReset();
-        toastErrorMock.mockReset();
     });
 
     const data = [
-        {
-            id: 'media-1',
-            title: 'Affiche Hall',
-            description: 'Visuel principal',
-            active: true,
-            createdAt: '2026-01-01T10:00:00.000Z',
-            updatedAt: '2026-01-01T10:00:00.000Z',
-            kind: 'image' as const,
-            status: 'READY' as const,
-            thumbUrl: null,
-            sizeBytes: 1024,
-            playlistUsage: {
-                count: 0,
-                playlistNames: [],
-            },
-        },
-        {
+        buildMediaGridItem(),
+        buildMediaGridItem({
             id: 'media-2',
             title: 'Vidéo Event',
             description: 'Clip promo',
             active: false,
-            createdAt: '2026-01-02T10:00:00.000Z',
-            updatedAt: '2026-01-02T10:00:00.000Z',
-            kind: 'video' as const,
-            status: 'PROCESSING' as const,
-            thumbUrl: null,
+            kind: 'video',
+            status: MediaFileStatus.PROCESSING,
             sizeBytes: 2048,
             playlistUsage: {
                 count: 2,
                 playlistNames: ['Actus', 'Événements'],
             },
-        },
+        }),
     ];
 
     it('filters by search text', () => {
@@ -105,8 +65,8 @@ describe('MediaGrid', () => {
 
         await waitFor(() => {
             expect(toggleMediaItemActiveMock).toHaveBeenCalledWith('media-1');
-            expect(toastSuccessMock).toHaveBeenCalledWith('Média désactivé.');
-            expect(refreshMock).toHaveBeenCalled();
+            expect(toastMock.success).toHaveBeenCalledWith('Média désactivé.');
+            expect(routerMock.refresh).toHaveBeenCalled();
         });
     });
 

@@ -43,7 +43,6 @@ export default async function Page({params, searchParams}: OrganizationDetailsPa
                     channels: true,
                     playlists: true,
                     displayTemplates: true,
-                    widgetInstances: true,
                 },
             },
         },
@@ -90,7 +89,6 @@ export default async function Page({params, searchParams}: OrganizationDetailsPa
                         channels: organization._count.channels,
                         playlists: organization._count.playlists,
                         displayTemplates: organization._count.displayTemplates,
-                        widgetInstances: organization._count.widgetInstances,
                     }}
                 />
             </div>

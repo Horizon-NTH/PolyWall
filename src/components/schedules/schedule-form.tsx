@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { ReadonlyURLSearchParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Controller, type Resolver, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Select as SelectPrimitive } from 'radix-ui';
-import { AlertTriangleIcon, CheckIcon } from 'lucide-react';
+import { AlertTriangleIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createSchedule, updateSchedule, upsertDefaultSchedule } from '@/actions/schedule-actions';
@@ -33,6 +32,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { SelectPreviewItem } from '@/components/ui/select-preview-item';
 import { TimePicker } from '@/components/ui/time-picker';
 import { ScheduleType } from '@/generated/prisma/enums';
 import { parseDateOnlyString } from '@/lib/date';
@@ -669,14 +669,7 @@ function PlaylistSelectPreview({
 
 function PlaylistPreviewSelectItem({playlist}: { playlist: ScheduleFormOption }) {
     return (
-        <SelectPrimitive.Item
-            value={playlist.id}
-            textValue={playlist.name}
-            className="focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-3 rounded-sm py-2 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50"
-        >
-            <SelectPrimitive.ItemText>
-                <span className="sr-only">{playlist.name}</span>
-            </SelectPrimitive.ItemText>
+        <SelectPreviewItem value={playlist.id} textValue={playlist.name}>
             <PlaylistPreviewSummary
                 name={playlist.name}
                 mediaCount={playlist.mediaCount ?? 0}
@@ -685,11 +678,6 @@ function PlaylistPreviewSelectItem({playlist}: { playlist: ScheduleFormOption })
                 size="sm"
                 className="min-w-0 flex-1"
             />
-            <span className="absolute right-2 flex size-3.5 items-center justify-center">
-                <SelectPrimitive.ItemIndicator>
-                    <CheckIcon className="size-4" />
-                </SelectPrimitive.ItemIndicator>
-            </span>
-        </SelectPrimitive.Item>
+        </SelectPreviewItem>
     );
 }

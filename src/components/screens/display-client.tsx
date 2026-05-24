@@ -249,7 +249,7 @@ export function DisplayClient(props: DisplayClientProps) {
             }
 
             const data = await response.json().catch(() => ({}));
-            setErrorMessage(data.error ?? 'Impossible de récupérer l’état écran.');
+            setErrorMessage(data.error ?? 'Impossible de récupérer l\'état écran.');
             setSyncStatus('ERROR');
             return;
         }
@@ -342,7 +342,7 @@ export function DisplayClient(props: DisplayClientProps) {
                 setSyncStatus('DEGRADED');
                 return;
             }
-            setErrorMessage('Erreur réseau pendant la connexion de l’écran.');
+            setErrorMessage('Erreur réseau pendant la connexion de l\'écran.');
             setSyncStatus('ERROR');
         } finally {
             setIsSubmittingOtp(false);
@@ -369,7 +369,7 @@ export function DisplayClient(props: DisplayClientProps) {
                     setSyncStatus('DEGRADED');
                     return;
                 }
-                setErrorMessage('Erreur réseau pendant la synchronisation de l’écran.');
+                setErrorMessage('Erreur réseau pendant la synchronisation de l\'écran.');
                 setSyncStatus('ERROR');
             } finally {
                 syncInFlightRef.current = false;
@@ -429,6 +429,7 @@ export function DisplayClient(props: DisplayClientProps) {
                     snapshot={effectiveSnapshot}
                     syncStatus={effectiveSyncStatus}
                     serverOffsetMs={serverOffsetMs}
+                    deviceId={isDebugMode ? null : deviceId}
                     onPointerDown={() => interruptionController.notifyUserInteraction()}
                 />
             </main>
@@ -437,7 +438,7 @@ export function DisplayClient(props: DisplayClientProps) {
         content = (
             <StatusCard
                 title="Affichage Polywall"
-                description="Connexion de l’écran au canal de diffusion."
+                description="Connexion de l'écran au canal de diffusion."
                 deviceId={deviceId}
             >
                 <div className="grid gap-3">
@@ -478,7 +479,7 @@ export function DisplayClient(props: DisplayClientProps) {
         content = (
             <StatusCard
                 title="Écran en attente"
-                description="L’écran a été appairé mais doit encore être validé par un administrateur."
+                description="L'écran a été appairé mais doit encore être validé par un administrateur."
                 deviceId={deviceId}
             />
         );
@@ -486,7 +487,7 @@ export function DisplayClient(props: DisplayClientProps) {
         content = (
             <StatusCard
                 title="Écran révoqué"
-                description="Cet écran n’est plus autorisé à diffuser ce canal."
+                description="Cet écran n'est plus autorisé à diffuser ce canal."
                 deviceId={deviceId}
             />
         );

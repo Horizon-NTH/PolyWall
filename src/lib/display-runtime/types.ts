@@ -52,13 +52,23 @@ export type DisplayRuntimeSchedule = {
 export type DisplayTemplateZone = {
     id: string;
     name: string;
-    slotName: string;
     zoneType: ZoneType;
     orderIndex: number;
     positionX: number;
     positionY: number;
     width: number;
     height: number;
+    configurationJson?: Record<string, unknown>;
+    staticMediaAsset?: DisplayAssetDescriptor | null;
+    widgetInstance?: DisplayWidgetInstance | null;
+};
+
+export type DisplayWidgetInstance = {
+    id: string;
+    technicalKey: string;
+    active: boolean;
+    refreshPeriodSeconds: number;
+    configurationJson: Record<string, unknown>;
 };
 
 export type DisplayRuntimeSnapshot = {
@@ -81,6 +91,7 @@ export type DisplayRuntimeSnapshot = {
             templateKey: string;
             resolutionX: number;
             resolutionY: number;
+            configurationJson?: Record<string, unknown>;
             zones: DisplayTemplateZone[];
         };
     };
@@ -103,7 +114,7 @@ export type DisplayResolvedState =
     reason: string | null;
 }
     | {
-    status: 'UNSUPPORTED_TEMPLATE' | 'NO_ACTIVE_SCHEDULE' | 'NO_DIFFUSABLE_PLAYLIST';
+    status: 'NO_ACTIVE_SCHEDULE' | 'NO_DIFFUSABLE_PLAYLIST';
     schedule: DisplayRuntimeSchedule | null;
     playlist: DisplayPlaylistSequence | null;
     currentItem: null;

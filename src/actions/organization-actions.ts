@@ -293,7 +293,6 @@ export async function deleteOrganization(
                     channels: true,
                     playlists: true,
                     displayTemplates: true,
-                    widgetInstances: true,
                 },
             },
         },

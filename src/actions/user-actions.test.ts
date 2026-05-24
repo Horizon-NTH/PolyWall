@@ -1,36 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildSession, getArgon2Mock, getAuthMocks, mockArgon2Module, mockAuthModule } from '@/test/mocks/auth';
-import { getPrismaMock, mockPrismaModule } from '@/test/mocks/prisma';
-import { getCaslMocks, mockCaslModule } from '@/test/mocks/casl';
+import {
+    buildSession,
+    getArgon2Mock,
+    getAuthMocks,
+    mockArgon2Module,
+    mockAuthModule,
+    resetArgon2Mock,
+    resetAuthMocks,
+} from '@/test/mocks/auth';
+import { getPrismaMock, mockPrismaModule, resetPrismaMock } from '@/test/mocks/prisma';
+import { getCaslMocks, mockCaslModule, resetCaslMocks } from '@/test/mocks/casl';
 import { UserRole } from '@/generated/prisma/enums';
+import { buildUserCreatePayload, buildUserUpdatePayload } from '@/test/fixtures/builders';
 
 mockAuthModule();
 mockPrismaModule();
 mockCaslModule();
 mockArgon2Module();
 
-const baseUserPayload = {
-    fullName: 'Jane Doe',
-    email: 'jane.doe@example.com',
-    description: 'Gestionnaire principal',
-    password: 'Password123!',
-    confirmPassword: 'Password123!',
-    active: true,
-};
+const baseUserPayload = buildUserCreatePayload();
 
 describe('createUser', () => {
     beforeEach(async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const argon2 = await getArgon2Mock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.user.create.mockReset();
-        argon2.hash.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
+        await resetAuthMocks();
+        await resetCaslMocks();
+        await resetPrismaMock();
+        await resetArgon2Mock();
     });
 
     it('rejects unauthenticated users', async () => {
@@ -151,39 +147,20 @@ describe('createUser', () => {
 });
 
 const setupDeps = async () => {
-    const {auth} = await getAuthMocks();
-    const prisma = await getPrismaMock();
-    const {defineAbilityFor} = await getCaslMocks();
-
-    auth.mockReset();
-    prisma.user.findUnique.mockReset();
-    prisma.user.update.mockReset();
-    defineAbilityFor.mockReset();
-    defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
+    const {auth} = await resetAuthMocks();
+    const prisma = await resetPrismaMock();
+    const {defineAbilityFor} = await resetCaslMocks();
 
     return {auth, prisma, defineAbilityFor};
 };
 
 describe('updateUser', () => {
-    const buildUpdatePayload = (overrides?: Partial<{
-        fullName: string;
-        email: string;
-        description: string;
-        active: boolean;
-    }>) => ({
-        fullName: 'User',
-        email: 'user@example.com',
-        description: 'Desc',
-        active: true,
-        ...(overrides ?? {}),
-    });
-
     it('rejects unauthenticated users', async () => {
         const {auth} = await setupDeps();
         auth.mockResolvedValueOnce(null);
         const {updateUser} = await import('@/actions/user-actions');
 
-        const result = await updateUser('user-1', buildUpdatePayload());
+        const result = await updateUser('user-1', buildUserUpdatePayload());
 
         expect(result).toEqual({
             ok: false,
@@ -199,7 +176,7 @@ describe('updateUser', () => {
         defineAbilityFor.mockReturnValue({can: vi.fn(() => false)});
         const {updateUser} = await import('@/actions/user-actions');
 
-        const result = await updateUser('user-1', buildUpdatePayload());
+        const result = await updateUser('user-1', buildUserUpdatePayload());
 
         expect(result).toEqual({
             ok: false,
@@ -215,7 +192,7 @@ describe('updateUser', () => {
         defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
         const {updateUser} = await import('@/actions/user-actions');
 
-        const result = await updateUser('user-1', buildUpdatePayload());
+        const result = await updateUser('user-1', buildUserUpdatePayload());
 
         expect(result).toEqual({
             ok: false,
@@ -229,7 +206,7 @@ describe('updateUser', () => {
         auth.mockResolvedValueOnce(buildSession());
         const {updateUser} = await import('@/actions/user-actions');
 
-        const result = await updateUser('user-1', buildUpdatePayload({fullName: 'A'}));
+        const result = await updateUser('user-1', buildUserUpdatePayload({fullName: 'A'}));
 
         expect(result).toEqual({
             ok: false,
@@ -244,7 +221,7 @@ describe('updateUser', () => {
         prisma.user.findUnique.mockResolvedValueOnce(null);
         const {updateUser} = await import('@/actions/user-actions');
 
-        const result = await updateUser('user-1', buildUpdatePayload());
+        const result = await updateUser('user-1', buildUserUpdatePayload());
 
         expect(result).toEqual({
             ok: false,
@@ -265,7 +242,7 @@ describe('updateUser', () => {
         prisma.user.update.mockResolvedValueOnce({id: 'user-1'});
         const {updateUser} = await import('@/actions/user-actions');
 
-        const result = await updateUser('user-1', buildUpdatePayload());
+        const result = await updateUser('user-1', buildUserUpdatePayload());
 
         expect(result).toEqual({ok: true, userId: 'user-1'});
         expect(prisma.user.update).toHaveBeenCalledWith({
@@ -349,15 +326,9 @@ describe('toggleUserActive', () => {
 
 describe('deleteUser', () => {
     const setupDeleteDeps = async () => {
-        const {auth} = await getAuthMocks();
-        const prisma = await getPrismaMock();
-        const {defineAbilityFor} = await getCaslMocks();
-
-        auth.mockReset();
-        prisma.user.findUnique.mockReset();
-        prisma.user.delete.mockReset();
-        defineAbilityFor.mockReset();
-        defineAbilityFor.mockReturnValue({can: vi.fn(() => true)});
+        const {auth} = await resetAuthMocks();
+        const prisma = await resetPrismaMock();
+        const {defineAbilityFor} = await resetCaslMocks();
 
         return {auth, prisma, defineAbilityFor};
     };
