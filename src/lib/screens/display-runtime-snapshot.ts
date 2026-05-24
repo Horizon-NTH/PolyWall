@@ -153,7 +153,6 @@ async function getDisplayRuntimeSourceByDeviceId(deviceId: string) {
             channelId: true,
             interactive: true,
             interactiveUrl: true,
-            inactivityTimeoutSeconds: true,
             channel: {
                 select: displayRuntimeChannelSelect,
             },
@@ -248,7 +247,6 @@ function buildRevisionPayload(source: RuntimeQueryResult) {
             channelId: source.channelId,
             interactive: source.interactive,
             interactiveUrl: source.interactiveUrl,
-            inactivityTimeoutSeconds: source.inactivityTimeoutSeconds,
         },
         channel: source.channel ? buildChannelRevisionPayload(source.channel) : null,
     };
@@ -491,7 +489,6 @@ export async function getDisplayRuntimeSnapshotByDeviceId(deviceId: string): Pro
                 channelId: source.channel.id,
                 interactive: source.interactive,
                 interactiveUrl: source.interactiveUrl,
-                inactivityTimeoutSeconds: source.inactivityTimeoutSeconds,
             },
         }),
     };
@@ -511,7 +508,6 @@ export async function getDisplayRuntimeSnapshotByChannelId(channelId: string, or
             channelId: channel.id,
             interactive: false,
             interactiveUrl: null,
-            inactivityTimeoutSeconds: null,
         },
     });
 }
@@ -532,7 +528,6 @@ export async function getDisplayStateByDeviceId(deviceId: string) {
         channelId: source.channelId,
         interactive: source.interactive,
         interactiveUrl: source.interactiveUrl,
-        inactivityTimeoutSeconds: source.inactivityTimeoutSeconds,
         serverNow: new Date().toISOString(),
         revision,
     };

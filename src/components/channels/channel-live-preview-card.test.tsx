@@ -35,7 +35,6 @@ function buildSnapshot(): DisplayRuntimeSnapshot {
             channelId: 'channel-1',
             interactive: false,
             interactiveUrl: null,
-            inactivityTimeoutSeconds: null,
         },
         channel: {
             id: 'channel-1',

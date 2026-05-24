@@ -5,7 +5,6 @@ import {
     screenListFilterSchema,
     screenPairingRequestSchema,
     screenStateQuerySchema,
-    screenUpdateSchema,
 } from '@/schemas/screen-schema';
 
 describe('screenApproveSchema', () => {
@@ -16,7 +15,6 @@ describe('screenApproveSchema', () => {
             channelId: 'channel-1',
             interactive: true,
             interactiveUrl: 'https://example.com/interactive',
-            inactivityTimeoutSeconds: 60,
         });
 
         expect(parsed.success).toBe(true);
@@ -29,19 +27,6 @@ describe('screenApproveSchema', () => {
             channelId: 'channel-1',
             interactive: false,
             interactiveUrl: 'https://example.com/interactive',
-        });
-
-        expect(parsed.success).toBe(false);
-    });
-});
-
-describe('screenUpdateSchema', () => {
-    it('rejects invalid timeout', () => {
-        const parsed = screenUpdateSchema.safeParse({
-            name: 'Hall A',
-            location: 'Entrée',
-            channelId: 'channel-1',
-            inactivityTimeoutSeconds: 0,
         });
 
         expect(parsed.success).toBe(false);

@@ -15,7 +15,6 @@ type ScreenSummaryCardProps = {
     channelName: string | null;
     interactive: boolean;
     interactiveUrl: string | null;
-    inactivityTimeoutSeconds: number | null;
     createdAt: string;
     updatedAt: string;
     approvedAt: string | null;
@@ -56,10 +55,6 @@ export function ScreenSummaryCard(props: ScreenSummaryCardProps) {
 
                 <div className="grid gap-4 md:grid-cols-2">
                     <SummaryItem label="Interactif" value={props.interactive ? 'Oui' : 'Non'} />
-                    <SummaryItem
-                        label="Timeout inactivité"
-                        value={props.inactivityTimeoutSeconds ? `${props.inactivityTimeoutSeconds}s` : 'Non défini'}
-                    />
                     <SummaryItem
                         label="URL interactive"
                         value={props.interactiveUrl ?? 'Aucune'}

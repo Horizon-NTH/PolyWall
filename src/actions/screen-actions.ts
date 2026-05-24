@@ -258,7 +258,6 @@ export async function approvePendingScreen(
                 revokedByUserId: null,
                 interactive: parsed.data.interactive,
                 interactiveUrl: parsed.data.interactiveUrl?.trim() ? parsed.data.interactiveUrl.trim() : null,
-                inactivityTimeoutSeconds: parsed.data.inactivityTimeoutSeconds ?? null,
             },
             select: {id: true},
         });
@@ -342,7 +341,6 @@ export async function updateScreen(
                 channelId: channel.id,
                 interactive: parsed.data.interactive,
                 interactiveUrl: parsed.data.interactiveUrl?.trim() ? parsed.data.interactiveUrl.trim() : null,
-                inactivityTimeoutSeconds: parsed.data.inactivityTimeoutSeconds ?? null,
             },
             select: {id: true},
         });

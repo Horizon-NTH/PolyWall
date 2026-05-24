@@ -60,7 +60,6 @@ export default async function Page({params, searchParams}: ScreenEditPageProps) 
                 channelId: true,
                 interactive: true,
                 interactiveUrl: true,
-                inactivityTimeoutSeconds: true,
             },
         }),
         prisma.channel.findMany({
@@ -95,7 +94,6 @@ export default async function Page({params, searchParams}: ScreenEditPageProps) 
                         channelId: screen.channelId ?? '',
                         interactive: screen.interactive,
                         interactiveUrl: screen.interactiveUrl ?? '',
-                        inactivityTimeoutSeconds: screen.inactivityTimeoutSeconds ?? undefined,
                     }}
                 />
             </div>

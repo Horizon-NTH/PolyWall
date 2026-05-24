@@ -62,7 +62,6 @@ export default async function Page({params, searchParams}: ScreenDetailsPageProp
             deviceId: true,
             interactive: true,
             interactiveUrl: true,
-            inactivityTimeoutSeconds: true,
             approvedAt: true,
             revokedAt: true,
             lastSeenAt: true,
@@ -131,7 +130,6 @@ export default async function Page({params, searchParams}: ScreenDetailsPageProp
                             channelName={screen.channel?.name ?? null}
                             interactive={screen.interactive}
                             interactiveUrl={screen.interactiveUrl}
-                            inactivityTimeoutSeconds={screen.inactivityTimeoutSeconds}
                             createdAt={screen.createdAt.toISOString()}
                             updatedAt={screen.updatedAt.toISOString()}
                             approvedAt={screen.approvedAt?.toISOString() ?? null}

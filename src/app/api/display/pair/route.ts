@@ -62,7 +62,6 @@ export async function POST(request: Request) {
                 channelId: true,
                 interactive: true,
                 interactiveUrl: true,
-                inactivityTimeoutSeconds: true,
             },
         });
 
@@ -84,7 +83,6 @@ export async function POST(request: Request) {
                     channelId: true,
                     interactive: true,
                     interactiveUrl: true,
-                    inactivityTimeoutSeconds: true,
                 },
             });
 
@@ -113,7 +111,6 @@ export async function POST(request: Request) {
                 channelId: screen.channelId,
                 interactive: screen.interactive,
                 interactiveUrl: screen.interactiveUrl,
-                inactivityTimeoutSeconds: screen.inactivityTimeoutSeconds,
             });
         }
 

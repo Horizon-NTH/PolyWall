@@ -57,7 +57,6 @@ export async function GET(request: Request) {
                 channelId: screen.channelId,
                 interactive: screen.interactive,
                 interactiveUrl: screen.interactiveUrl,
-                inactivityTimeoutSeconds: screen.inactivityTimeoutSeconds,
                 revision: screen.revision,
                 serverNow: screen.serverNow,
             });
