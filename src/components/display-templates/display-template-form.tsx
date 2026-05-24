@@ -880,7 +880,8 @@ function WidgetEditor({
                                 <FieldGroup
                                     className={widgetType?.technicalKey === 'clock' ||
                                     widgetType?.technicalKey === 'rss' ||
-                                    widgetType?.technicalKey === 'transit'
+                                    widgetType?.technicalKey === 'transit' ||
+                                    widgetType?.technicalKey === 'weather'
                                         ? 'gap-3'
                                         : 'grid gap-3 md:grid-cols-2'}>
                                     {widgetType?.technicalKey !== 'clock' ? (
@@ -1010,6 +1011,55 @@ function WidgetConfigurationEditor({
                         onChange={(event) => onChange({...configurationJson, maxItems: Number(event.target.value)})}
                     />
                 </Field>
+            </FieldGroup>
+        );
+    }
+
+    if (technicalKey === 'weather') {
+        const displayMode = getStringConfig(configurationJson, 'displayMode', 'compact');
+
+        return (
+            <FieldGroup className="gap-3">
+                <Field>
+                    <HelpLabel help="Ville utilisée pour récupérer la météo via Open-Meteo.">
+                        Ville
+                    </HelpLabel>
+                    <Input
+                        placeholder="Dijon"
+                        value={getStringConfig(configurationJson, 'city', 'Dijon')}
+                        onChange={(event) => onChange({...configurationJson, city: event.target.value})}
+                    />
+                </Field>
+                <Field>
+                    <FieldLabel>Affichage</FieldLabel>
+                    <Select
+                        value={displayMode}
+                        onValueChange={(value) => onChange({...configurationJson, displayMode: value})}
+                    >
+                        <SelectTrigger className="w-full">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent align="start">
+                            <SelectGroup>
+                                <SelectItem value="compact">Compact</SelectItem>
+                                <SelectItem value="current">Détaillé</SelectItem>
+                                <SelectItem value="forecast">Prévisions</SelectItem>
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
+                </Field>
+                {displayMode === 'forecast' ? (
+                    <Field>
+                        <FieldLabel>Nombre de jours</FieldLabel>
+                        <Input
+                            type="number"
+                            min={1}
+                            max={7}
+                            value={getNumberConfig(configurationJson, 'forecastDays', 3)}
+                            onChange={(event) => onChange({...configurationJson, forecastDays: Number(event.target.value)})}
+                        />
+                    </Field>
+                ) : null}
             </FieldGroup>
         );
     }

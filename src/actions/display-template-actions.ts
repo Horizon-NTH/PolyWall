@@ -11,6 +11,7 @@ import { defineAbilityFor } from '@/lib/casl/ability';
 import { createDisplayTemplateKey } from '@/lib/display-templates/template-key';
 import { prisma } from '@/lib/prisma';
 import { isValidRssSource, parseRssWidgetConfig } from '@/lib/rss/rss-config';
+import { isValidWeatherCity, parseWeatherWidgetConfig } from '@/lib/weather/weather-config';
 import { areSupportedWidgetTypeIds } from '@/lib/widgets/widget-type-queries';
 import {
     displayTemplateCreateSchema,
@@ -136,15 +137,26 @@ async function validateWidgetConfigurations(
         if (!zone.widgetInstance) continue;
 
         const technicalKey = widgetTypeById.get(zone.widgetInstance.widgetTypeId);
-        if (technicalKey !== 'rss') continue;
+        if (technicalKey === 'rss') {
+            const config = parseRssWidgetConfig(zone.widgetInstance.configurationJson);
+            if (!config.source || !isValidRssSource(config.source)) {
+                return {
+                    ok: false,
+                    field: 'zones',
+                    message: 'Le widget RSS doit utiliser une URL publique http ou https.',
+                };
+            }
+        }
 
-        const config = parseRssWidgetConfig(zone.widgetInstance.configurationJson);
-        if (!config.source || !isValidRssSource(config.source)) {
-            return {
-                ok: false,
-                field: 'zones',
-                message: 'Le widget RSS doit utiliser une URL publique http ou https.',
-            };
+        if (technicalKey === 'weather') {
+            const config = parseWeatherWidgetConfig(zone.widgetInstance.configurationJson);
+            if (!isValidWeatherCity(config.city)) {
+                return {
+                    ok: false,
+                    field: 'zones',
+                    message: 'Le widget météo doit utiliser une ville valide.',
+                };
+            }
         }
     }
 

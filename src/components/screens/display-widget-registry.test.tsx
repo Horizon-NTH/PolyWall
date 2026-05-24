@@ -23,11 +23,14 @@ describe('DisplayWidget', () => {
         expect(screen.getByText('10:15')).toBeInTheDocument();
     });
 
-    it('renders placeholders for supported dynamic widgets without an implementation yet', () => {
-        render(<DisplayWidget widget={buildDisplayWidgetInstance({technicalKey: 'weather'})} />);
+    it('routes weather widgets to the weather component', () => {
+        render(<DisplayWidget widget={buildDisplayWidgetInstance({
+            technicalKey: 'weather',
+            configurationJson: {city: '', displayMode: 'current', forecastDays: 3},
+        })} deviceId="device-1" />);
 
         expect(screen.getByText('Météo')).toBeInTheDocument();
-        expect(screen.getByText('Source dynamique à connecter')).toBeInTheDocument();
+        expect(screen.getByText('Ville à configurer.')).toBeInTheDocument();
     });
 
     it('routes RSS widgets to the RSS component', () => {
