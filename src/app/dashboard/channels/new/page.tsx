@@ -6,14 +6,21 @@ import { ChannelForm } from '@/components/channels/channel-form';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { resolveReturnTo } from '@/lib/return-to';
 
-export default async function Page() {
+type ChannelNewPageProps = {
+    searchParams: Promise<{ returnTo?: string }>;
+};
+
+export default async function Page({searchParams}: ChannelNewPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('create', 'Channel')) redirect('/dashboard');
 
+    const query = await searchParams;
+    const cancelHref = resolveReturnTo(query.returnTo, '/dashboard/channels');
     const organizationId = session.user.organizationId;
     if (!organizationId) {
         const organizations = await prisma.organization.findMany({
@@ -62,7 +69,7 @@ export default async function Page() {
                 <ChannelForm
                     mode="create"
                     templates={templates}
-                    cancelHref="/dashboard/channels"
+                    cancelHref={cancelHref}
                 />
             </div>
         </>

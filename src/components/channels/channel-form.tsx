@@ -22,6 +22,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { appendReturnTo } from '@/lib/return-to';
 import {
     channelCreateSchema,
     type ChannelCreateValues,
@@ -104,7 +105,7 @@ export function ChannelForm({
 
         toast.success('Canal créé.');
         startTransition(() => {
-            router.push(`/dashboard/channels/${result.channelId}`);
+            router.push(appendReturnTo(`/dashboard/channels/${result.channelId}`, cancelHref));
         });
     }
 

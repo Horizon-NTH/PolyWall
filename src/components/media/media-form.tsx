@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { isUploadMediaError, uploadMediaWithIntent } from '@/lib/media/media-upload-client';
 import type { MediaKind } from '@/lib/media/media-view-model';
+import { appendReturnTo } from '@/lib/return-to';
 import {
     MAX_MEDIA_DURATION_SECONDS,
     mediaCreateSchema,
@@ -125,7 +126,7 @@ export function MediaForm({
 
             toast.success('Média créé.');
             startTransition(() => {
-                router.push(`/dashboard/media/${uploaded.mediaItemId}`);
+                router.push(appendReturnTo(`/dashboard/media/${uploaded.mediaItemId}`, cancelHref));
             });
         } catch (error) {
             if (isUploadMediaError(error) && error.mediaItemId) {

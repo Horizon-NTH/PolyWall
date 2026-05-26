@@ -312,7 +312,7 @@ export function ScheduleForm({
                 ? `/dashboard/schedules?channelId=${values.channelId}`
                 : isEdit
                     ? cancelHref
-                    : `/dashboard/schedules/${result.scheduleId}`);
+                    : appendReturnTo(`/dashboard/schedules/${result.scheduleId}`, cancelHref));
         });
     }
 

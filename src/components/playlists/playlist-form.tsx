@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { appendReturnTo } from '@/lib/return-to';
 import {
     playlistCreateSchema,
     type PlaylistCreateValues,
@@ -76,7 +77,7 @@ export function PlaylistForm({mode, playlistId, defaultValues, cancelHref}: Play
 
         toast.success('Playlist créée.');
         startTransition(() => {
-            router.push(`/dashboard/playlists/${result.playlistId}`);
+            router.push(appendReturnTo(`/dashboard/playlists/${result.playlistId}`, cancelHref));
         });
     }
 

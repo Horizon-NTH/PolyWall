@@ -6,8 +6,15 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
+import { extractDashboardEntityId } from './helpers/data';
 import { safeGoto } from './helpers/navigation';
-import { confirmAlertDialog } from './helpers/ui';
+import {
+    clearDisplayStorage,
+    deleteScreenById,
+    generateScreenPairingOtpCode,
+    openPendingScreenApproval,
+    pairDisplayPage,
+} from './helpers/screens';
 
 test.describe('screens', () => {
     test('super admin must select an organization before accessing screens page', async ({page}) => {
@@ -39,60 +46,12 @@ test.describe('screens', () => {
 
     test('admin can pair and approve a screen', async ({page, context}) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
-        await safeGoto(page, '/dashboard/screens');
-
-        const otpInput = page.getByPlaceholder('Aucun code généré');
-        const generateOtpButton = page.getByRole('button', {name: 'Générer code OTP'});
-
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-            await generateOtpButton.click();
-
-            try {
-                await expect(otpInput).toHaveValue(/^\d{6}$/, {timeout: 5_000});
-                break;
-            } catch (error) {
-                if (attempt === 2) throw error;
-            }
-        }
-
-        const otpCode = (await otpInput.inputValue()).replace(/\s+/g, '');
+        const otpCode = await generateScreenPairingOtpCode(page);
 
         const displayPage = await context.newPage();
-        await displayPage.addInitScript(() => {
-            window.localStorage.removeItem('polywall.screen.deviceId');
-            window.localStorage.removeItem('polywall.display.asset-meta');
-            Object.keys(window.localStorage)
-                .filter((key) => key.startsWith('polywall.display.snapshot.'))
-                .forEach((key) => window.localStorage.removeItem(key));
-            window.sessionStorage.clear();
-        });
-        await displayPage.goto('/display', {waitUntil: 'domcontentloaded'});
-        await expect(displayPage.locator('[data-slot="input-otp"]')).toBeVisible();
-        await displayPage.locator('[data-slot="input-otp"]').fill(otpCode);
-        await displayPage.getByRole('button', {name: 'Valider le code'}).click();
-        await expect(displayPage.getByText('Écran en attente', {exact: true})).toBeVisible();
-        await expect(
-            displayPage.getByText(/L'écran a été appairé mais doit encore être validé par un administrateur\./),
-        ).toBeVisible();
-        const deviceIdText = await displayPage.getByText(/^ID appareil:/).textContent();
-        const deviceId = deviceIdText?.split(':').at(1)?.trim() ?? '';
-        const pendingScreenName = `Écran en attente ${deviceId.slice(0, 8).toUpperCase()}`;
-
-        const pendingTab = page.getByRole('tab', {name: /En attente/});
-        await expect(pendingTab).toBeVisible();
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-            await pendingTab.click();
-            try {
-                await expect(pendingTab).toHaveAttribute('aria-selected', 'true', {timeout: 2_000});
-                break;
-            } catch (error) {
-                if (attempt === 2) throw error;
-            }
-        }
-        const pendingScreenLink = page.getByRole('link', {name: pendingScreenName});
-        await expect(pendingScreenLink).toBeVisible({timeout: 10_000});
-        const pendingRow = page.locator('tr', {has: pendingScreenLink});
-        await pendingRow.getByRole('link', {name: 'Valider l\'écran'}).click();
+        await clearDisplayStorage(displayPage);
+        const {pendingScreenName} = await pairDisplayPage(displayPage, otpCode);
+        await openPendingScreenApproval(page, pendingScreenName);
 
         await page.getByLabel('Nom').fill(`E2E écran ${Date.now()}`);
         await page.getByLabel('Localisation').fill('E2E - Hall');
@@ -106,13 +65,61 @@ test.describe('screens', () => {
         await expect(page.getByText('Écran validé.')).toBeVisible();
         await expect(page).toHaveURL(/\/dashboard\/screens\/[^/]+$/);
 
+        const screenId = extractDashboardEntityId(page.url(), 'screens');
         await displayPage.close();
-        await page.reload({waitUntil: 'domcontentloaded'});
-
-        await page.getByRole('button', {name: 'Supprimer'}).click();
-        await confirmAlertDialog(page);
-        await expect(page.getByText('Écran supprimé.')).toBeVisible();
+        await deleteScreenById(page, screenId);
         await safeGoto(page, '/dashboard/screens');
         await expect(page).toHaveURL(/\/dashboard\/screens$/);
+    });
+
+    test('admin can enable tactile interruption on a paired screen', async ({page, context}) => {
+        await context.clearCookies();
+        await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
+
+        const displayPage = await context.newPage();
+        await clearDisplayStorage(displayPage);
+
+        let screenId: string | null = null;
+
+        try {
+            const otpCode = await generateScreenPairingOtpCode(page);
+            const {pendingScreenName} = await pairDisplayPage(displayPage, otpCode);
+            await openPendingScreenApproval(page, pendingScreenName);
+
+            const screenName = `E2E interruption tactile ${Date.now()}`;
+            const interactiveUrl = new URL('/login', page.url()).toString();
+
+            await page.getByLabel('Nom').fill(screenName);
+            await page.getByLabel('Localisation').fill('E2E - borne tactile');
+
+            const channelSelect = page.getByLabel('Canal');
+            await channelSelect.click();
+            await page.getByRole('option').first().click();
+
+            await page.getByRole('checkbox', {name: 'Écran interactif'}).check();
+            await expect(page.getByLabel('URL interactive')).toBeEnabled();
+            await page.getByLabel('URL interactive').fill(interactiveUrl);
+
+            await page.getByRole('button', {name: 'Valider'}).click();
+
+            await expect(page.getByText('Écran validé.')).toBeVisible();
+            await expect(page).toHaveURL(/\/dashboard\/screens\/[^/]+$/);
+            screenId = extractDashboardEntityId(page.url(), 'screens');
+
+            await displayPage.reload({waitUntil: 'domcontentloaded'});
+            await expect(displayPage.locator('main.fixed.inset-0')).toBeVisible({timeout: 20_000});
+            await displayPage.mouse.click(160, 160);
+
+            await expect(displayPage.getByRole('dialog', {name: 'Site interactif'})).toBeVisible();
+            await expect(displayPage.locator('iframe[title="Site interactif"]')).toHaveAttribute('src', interactiveUrl);
+
+            await displayPage.getByRole('button', {name: 'Fermer le site interactif'}).click();
+            await expect(displayPage.getByRole('dialog', {name: 'Site interactif'})).toHaveCount(0);
+        } finally {
+            await displayPage.close();
+            if (screenId) {
+                await deleteScreenById(page, screenId);
+            }
+        }
     });
 });

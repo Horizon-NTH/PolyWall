@@ -72,7 +72,7 @@ describe('ChannelForm', () => {
                 displayTemplateId: 'template-1',
             });
             expect(toastMock.success).toHaveBeenCalledWith('Canal créé.');
-            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/channels/channel-1');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/channels/channel-1?returnTo=%2Fdashboard%2Fchannels');
         });
     });
 
