@@ -20,7 +20,7 @@ test.describe('sidebar visibility', () => {
         const switcherButton = page.getByRole('button', {name: /Logo PolyWall/i});
         await expect(switcherButton).toBeVisible();
         await switcherButton.click();
-        await expect(page.getByText('Organisations')).toBeVisible();
+        await expect(page.getByText('Organisations', {exact: true})).toBeVisible();
     });
 
     test('organization admin sees Organisation section only', async ({page}) => {

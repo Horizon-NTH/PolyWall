@@ -11,6 +11,7 @@ export async function fillSearchByPlaceholder(page: Page, placeholder: string, q
 
     const modifierKey = process.platform === 'darwin' ? 'Meta' : 'Control';
     for (let attempt = 0; attempt < 3; attempt += 1) {
+        await search.click();
         await search.fill(query);
         await page.waitForTimeout(50);
         if ((await search.inputValue()) === query) return;
@@ -19,4 +20,12 @@ export async function fillSearchByPlaceholder(page: Page, placeholder: string, q
     }
 
     await expect(search).toHaveValue(query);
+}
+
+export async function expectCardToBeVisible(page: Page, text: string | RegExp) {
+    const card = page.locator('[data-slot="card"]').filter({
+        has: page.getByText(text, typeof text === 'string' ? {exact: true} : undefined),
+    });
+
+    await expect(card.first()).toBeVisible();
 }

@@ -6,6 +6,7 @@ import {
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
 import { safeGoto } from './helpers/navigation';
+import { expectCardToBeVisible } from './helpers/ui';
 
 test.describe('dashboard overview', () => {
     test.beforeEach(async ({context}) => {
@@ -17,7 +18,7 @@ test.describe('dashboard overview', () => {
         await safeGoto(page, '/dashboard');
 
         await expect(page).toHaveURL(/\/dashboard$/);
-        await expect(page.getByText('Tableau de bord', {exact: true})).toBeVisible();
+        await expect(page.getByTitle('Tableau de bord')).toBeVisible();
         await expect(page.getByText('Écrans actifs')).toBeVisible();
         await expect(page.getByText('Canaux', {exact: true}).first()).toBeVisible();
         await expect(page.getByText('Médias prêts')).toBeVisible();
@@ -35,10 +36,10 @@ test.describe('dashboard overview', () => {
         await safeGoto(page, '/dashboard');
 
         await expect(page).toHaveURL(/\/dashboard$/);
-        await expect(page.getByText('Tableau de bord', {exact: true})).toBeVisible();
-        await expect(page.getByText('Entités').first()).toBeVisible();
-        await expect(page.getByText('Utilisateurs')).toBeVisible();
-        await expect(page.getByText('Entités récentes')).toBeVisible();
-        await expect(page.getByText('Plateforme')).toBeVisible();
+        await expect(page.getByTitle('Tableau de bord')).toBeVisible();
+        await expectCardToBeVisible(page, 'Entités');
+        await expectCardToBeVisible(page, 'Utilisateurs');
+        await expectCardToBeVisible(page, 'Entités récentes');
+        await expectCardToBeVisible(page, 'Plateforme');
     });
 });

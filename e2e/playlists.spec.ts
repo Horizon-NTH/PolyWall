@@ -16,6 +16,7 @@ async function filterPlaylists(page: Parameters<typeof login>[0], query: string)
     await ensureDashboardPath(page, '/dashboard/playlists');
     const search = page.getByPlaceholder('Rechercher une playlist...');
     await expect(search).toBeVisible();
+    await search.click();
     await search.fill(query);
     await expect(search).toHaveValue(query);
 }
@@ -176,14 +177,14 @@ test.describe('playlists', () => {
         createdPlaylistIds.add(playlistId);
 
         await page.getByRole('link', {name: 'Modifier infos'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/playlists/${playlistId}/edit$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/playlists/${playlistId}/edit`);
 
         const updatedName = `${playlistName} Modifiée`;
         await page.getByLabel('Nom').fill(updatedName);
         await page.getByLabel('Description').fill('Description playlist mise à jour.');
         await page.getByRole('button', {name: 'Enregistrer'}).click();
 
-        await expect(page).toHaveURL(new RegExp(`/dashboard/playlists/${playlistId}$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/playlists/${playlistId}`);
         await expect(page.getByRole('heading', {name: updatedName})).toBeVisible();
         await expect(page.getByText('Description playlist mise à jour.')).toBeVisible();
 

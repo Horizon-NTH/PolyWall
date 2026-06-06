@@ -213,7 +213,7 @@ test.describe('media', () => {
         createdMediaIds.add(mediaId);
 
         await page.getByRole('link', {name: 'Modifier'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}/edit$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/media/${mediaId}/edit`);
 
         const updatedTitle = `${mediaTitle} Modifié`;
         await page.getByLabel('Titre').fill(updatedTitle);
@@ -222,7 +222,7 @@ test.describe('media', () => {
         await page.getByRole('button', {name: 'Enregistrer'}).click();
 
         await expect(page.getByText('Média mis à jour.')).toBeVisible();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/media/${mediaId}`);
         await expect(page.getByRole('heading', {name: updatedTitle})).toBeVisible();
         await expect(page.getByRole('button', {name: 'Activer'})).toBeVisible();
 

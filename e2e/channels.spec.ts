@@ -15,7 +15,8 @@ const createdChannelIds = createCleanupTracker<string>();
 async function filterChannels(page: Parameters<typeof login>[0], query: string) {
     await ensureDashboardPath(page, '/dashboard/channels');
     const search = page.getByRole('textbox', {name: /Rechercher un canal/i});
-    await expect(search).toBeVisible();
+    await expect(search).toBeEnabled();
+    await search.click();
     await search.fill(query);
     await expect(page.getByRole('link', {name: new RegExp(query, 'i')}).first()).toBeVisible();
 }
@@ -142,7 +143,7 @@ test.describe('channels', () => {
         createdChannelIds.add(channelId);
 
         await page.getByRole('link', {name: 'Modifier infos'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/channels/${channelId}/edit$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/channels/${channelId}/edit`);
 
         const updatedName = `${channelName} Modifié`;
         await page.getByLabel('Nom').fill(updatedName);
@@ -153,7 +154,7 @@ test.describe('channels', () => {
 
         await page.getByRole('button', {name: 'Enregistrer'}).click();
 
-        await expect(page).toHaveURL(new RegExp(`/dashboard/channels/${channelId}$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/channels/${channelId}`);
         await expect(page.getByRole('heading', {name: updatedName})).toBeVisible();
         await expect(page.getByText('Canal mis à jour.')).toBeVisible();
         await expect(page.getByText('Aperçu de diffusion', {exact: true})).toHaveCount(0);

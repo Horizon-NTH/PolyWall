@@ -11,6 +11,7 @@ const createdOrgNames = createCleanupTracker<string>();
 
 async function filterOrganizations(page: Parameters<typeof login>[0], query: string) {
     const search = page.getByPlaceholder('Rechercher une organisation...');
+    await search.click();
     await search.fill(query);
 }
 

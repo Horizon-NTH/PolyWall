@@ -99,7 +99,7 @@ async function createDisplayTemplate(
 
     if (params.carousel) {
         const playlistCard = zoneCard(page, 'PLAYLIST');
-        await playlistCard.getByRole('tab', {name: 'Carousel'}).click();
+        await playlistCard.getByRole('tab', {name: 'Carousel'}).click({timeout: 200});
         await fillNumberField(playlistCard, 'Arrondi médias', params.carousel.mediaBorderRadius);
         await fillNumberField(playlistCard, 'Espacement', params.carousel.itemGap);
         await fillNumberField(playlistCard, 'Assombrissement', params.carousel.sideDimOpacity);
@@ -122,7 +122,7 @@ async function createDisplayTemplate(
     if (params.includeStatic) {
         await page.getByRole('button', {name: /Zone statique/}).click();
         const staticCard = zoneCard(page, 'STATIC');
-        await expect(staticCard).toBeVisible();
+        await expect(staticCard).toBeVisible({timeout: 200});
         await fillTextField(staticCard, 'Nom', 'Bandeau info');
         await fillNumberField(staticCard, 'Position horizontale', 0);
         await fillNumberField(staticCard, 'Position verticale', 930);
@@ -144,30 +144,16 @@ async function createDisplayTemplate(
 }
 
 async function deleteDisplayTemplateById(page: Page, templateId: string) {
-    if (page.isClosed()) return;
-
     await safeGoto(page, `/dashboard/display-templates/${templateId}`);
-    if (!new RegExp(`/dashboard/display-templates/${templateId}$`).test(new URL(page.url()).pathname)) return;
-
-    const deleteButton = page.getByRole('button', {name: 'Supprimer'}).first();
-    if ((await deleteButton.count()) === 0) return;
-
+    const deleteButton = page.getByRole('button', {name: 'Supprimer'});
     await deleteButton.click();
-    const dialog = page.getByRole('alertdialog');
-    if ((await dialog.getByRole('button', {name: 'Supprimer'}).count()) === 0) return;
     await confirmAlertDialog(page);
     await page.waitForURL(/\/dashboard\/display-templates$/, {timeout: 15000});
 }
 
 async function deleteChannelById(page: Page, channelId: string) {
-    if (page.isClosed()) return;
-
     await safeGoto(page, `/dashboard/channels/${channelId}`);
-    if (!new RegExp(`/dashboard/channels/${channelId}$`).test(new URL(page.url()).pathname)) return;
-
-    const deleteButton = page.getByRole('button', {name: 'Supprimer'}).first();
-    if ((await deleteButton.count()) === 0) return;
-
+    const deleteButton = page.getByRole('button', {name: 'Supprimer'});
     await deleteButton.click();
     await confirmAlertDialog(page);
     await page.waitForURL(/\/dashboard\/channels$/, {timeout: 15000});
