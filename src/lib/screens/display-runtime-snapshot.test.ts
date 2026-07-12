@@ -213,7 +213,6 @@ describe('display-runtime-snapshot', () => {
             channelId: null,
             interactive: false,
             interactiveUrl: null,
-            inactivityTimeoutSeconds: null,
             channel: null,
         });
 
@@ -233,7 +232,6 @@ describe('display-runtime-snapshot', () => {
             channelId: 'channel-1',
             interactive: true,
             interactiveUrl: 'https://example.com/interactive',
-            inactivityTimeoutSeconds: 60,
             channel: buildChannelSource(),
         });
 

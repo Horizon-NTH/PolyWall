@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { NumberStepperInput } from '@/components/ui/number-stepper-input';
 import {
     Select,
     SelectContent,
@@ -43,8 +42,6 @@ type ScreenFormProps = {
     cancelHref: string;
 };
 
-const MAX_SCREEN_INACTIVITY_TIMEOUT_SECONDS = 24 * 3600;
-
 export function ScreenForm({
                                mode,
                                screenId,
@@ -68,7 +65,6 @@ export function ScreenForm({
             channelId: '',
             interactive: false,
             interactiveUrl: '',
-            inactivityTimeoutSeconds: undefined,
             ...defaultValues,
         },
     });
@@ -77,7 +73,6 @@ export function ScreenForm({
     useEffect(() => {
         if (!isInteractive) {
             form.setValue('interactiveUrl', '', {shouldDirty: true, shouldValidate: true});
-            form.setValue('inactivityTimeoutSeconds', undefined, {shouldDirty: true, shouldValidate: true});
         }
     }, [form, isInteractive]);
 
@@ -194,31 +189,6 @@ export function ScreenForm({
                                         aria-invalid={fieldState.invalid}
                                         disabled={!isInteractive}
                                         placeholder={isInteractive ? 'https://...' : 'Activez "Écran interactif"'}
-                                    />
-                                    {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
-                                </Field>
-                            )}
-                        />
-
-                        <Controller
-                            name="inactivityTimeoutSeconds"
-                            control={form.control}
-                            render={({field, fieldState}) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel htmlFor="inactivityTimeoutSeconds">Timeout inactivité
-                                        (secondes)</FieldLabel>
-                                    <NumberStepperInput
-                                        id="inactivityTimeoutSeconds"
-                                        value={Number.isFinite(field.value) ? field.value : undefined}
-                                        onValueChange={field.onChange}
-                                        min={1}
-                                        max={MAX_SCREEN_INACTIVITY_TIMEOUT_SECONDS}
-                                        disabled={!isInteractive}
-                                        ariaInvalid={fieldState.invalid}
-                                        placeholder={isInteractive ? 'Ex: 120' : 'Activez "Écran interactif"'}
-                                        allowEmpty
-                                        decrementAriaLabel="Décrément timeout"
-                                        incrementAriaLabel="Incrément timeout"
                                     />
                                     {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
                                 </Field>

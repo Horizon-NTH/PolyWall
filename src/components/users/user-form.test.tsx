@@ -64,7 +64,7 @@ describe('UserForm', () => {
                 active: true,
             });
             expect(toastMock.success).toHaveBeenCalledWith('Utilisateur créé.');
-            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/users');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/users/user-1?returnTo=%2Fdashboard%2Fusers');
         });
     });
 

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { X } from 'lucide-react';
 
 import { DisplayPlaybackSurface } from '@/components/screens/display-playback-surface';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,6 @@ import {
 } from '@/lib/screens/display-cache';
 import { computeServerOffsetMs } from '@/lib/screens/display-clock';
 import { type DisplayDebugScenario } from '@/lib/screens/display-debug';
-import { createInteractiveInterruptionController } from '@/lib/screens/interactive-interruption-controller';
 
 type DisplayStateResponse =
     | {
@@ -24,7 +24,6 @@ type DisplayStateResponse =
     channelId: string;
     interactive: boolean;
     interactiveUrl: string | null;
-    inactivityTimeoutSeconds: number | null;
     revision: string | null;
     serverNow: string;
 }
@@ -97,6 +96,47 @@ type DisplayClientProps = {
     debugScenario?: DisplayDebugScenario | null;
 };
 
+type InteractiveInterruptionOverlayProps = {
+    interactiveUrl: string;
+    onClose: () => void;
+};
+
+function InteractiveInterruptionOverlay({
+                                            interactiveUrl,
+                                            onClose,
+                                        }: InteractiveInterruptionOverlayProps) {
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-[4vmin] backdrop-blur-[2px]"
+            role="dialog"
+            aria-label="Site interactif"
+            aria-modal="true"
+        >
+            <div
+                className="relative h-[86vh] w-[86vw] max-w-375 overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-black/15">
+                <iframe
+                    src={interactiveUrl}
+                    title="Site interactif"
+                    className="h-full w-full border-0 bg-white"
+                    referrerPolicy="no-referrer"
+                    sandbox="allow-downloads allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+                    allow="fullscreen"
+                />
+            </div>
+            <Button
+                type="button"
+                size="icon"
+                variant="secondary"
+                className="absolute right-[calc(2vmin+12px)] top-[calc(2vmin+12px)] size-16 rounded-full bg-white/95 text-slate-700 shadow-lg hover:bg-white"
+                aria-label="Fermer le site interactif"
+                onClick={onClose}
+            >
+                <X className="size-8" aria-hidden="true" />
+            </Button>
+        </div>
+    );
+}
+
 export function DisplayClient(props: DisplayClientProps) {
     const [deviceId, setDeviceId] = React.useState<string | null>(null);
     const [syncStatus, setSyncStatus] = React.useState<DisplaySyncStatus>('SYNCING');
@@ -107,6 +147,7 @@ export function DisplayClient(props: DisplayClientProps) {
     const [isSubmittingOtp, setIsSubmittingOtp] = React.useState(false);
     const [serverOffsetMs, setServerOffsetMs] = React.useState(0);
     const [renderNowMs, setRenderNowMs] = React.useState(() => Date.now());
+    const [interactivePeekOpenKey, setInteractivePeekOpenKey] = React.useState<string | null>(null);
     const snapshotRef = React.useRef<DisplayRuntimeSnapshot | null>(null);
     const syncInFlightRef = React.useRef(false);
     const runtimeLoadPromiseRef = React.useRef<Promise<boolean> | null>(null);
@@ -405,18 +446,24 @@ export function DisplayClient(props: DisplayClientProps) {
         };
     }, [deviceId, isDebugMode]);
 
-    const interruptionController = React.useMemo(
-        () => createInteractiveInterruptionController({
-            enabled: effectiveSyncStatus === 'PLAYING' && Boolean(effectiveSnapshot?.screen.interactive),
-            interactiveUrl: effectiveSnapshot?.screen.interactiveUrl ?? null,
-            inactivityTimeoutSeconds: effectiveSnapshot?.screen.inactivityTimeoutSeconds ?? null,
-        }),
-        [effectiveSnapshot, effectiveSyncStatus],
-    );
+    const isInteractivePeekEnabled =
+        !isDebugMode &&
+        effectiveSyncStatus === 'PLAYING' &&
+        Boolean(effectiveSnapshot?.screen.interactive && effectiveSnapshot.screen.interactiveUrl);
+    const interactivePeekUrl = isInteractivePeekEnabled ? effectiveSnapshot?.screen.interactiveUrl ?? null : null;
+    const interactivePeekKey = isInteractivePeekEnabled && effectiveSnapshot && interactivePeekUrl
+        ? `${effectiveSnapshot.revision}:${interactivePeekUrl}`
+        : null;
 
-    React.useEffect(() => () => {
-        interruptionController.dispose();
-    }, [interruptionController]);
+    const openInteractivePeek = React.useCallback(() => {
+        if (interactivePeekKey) {
+            setInteractivePeekOpenKey(interactivePeekKey);
+        }
+    }, [interactivePeekKey]);
+
+    const closeInteractivePeek = React.useCallback(() => {
+        setInteractivePeekOpenKey(null);
+    }, []);
 
     let content: React.ReactNode;
 
@@ -430,8 +477,14 @@ export function DisplayClient(props: DisplayClientProps) {
                     syncStatus={effectiveSyncStatus}
                     serverOffsetMs={serverOffsetMs}
                     deviceId={isDebugMode ? null : deviceId}
-                    onPointerDown={() => interruptionController.notifyUserInteraction()}
+                    onPointerDown={openInteractivePeek}
                 />
+                {interactivePeekOpenKey === interactivePeekKey && interactivePeekUrl ? (
+                    <InteractiveInterruptionOverlay
+                        interactiveUrl={interactivePeekUrl}
+                        onClose={closeInteractivePeek}
+                    />
+                ) : null}
             </main>
         );
     } else if (effectiveSyncStatus === 'PAIRING') {

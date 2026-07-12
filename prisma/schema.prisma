@@ -251,7 +251,6 @@ model Screen {
   status                   ScreenStatus @default(PENDING)
   interactive              Boolean      @default(false)
   interactiveUrl           String?
-  inactivityTimeoutSeconds Int?
   approvedAt               DateTime?
   approvedByUserId         String?
   lastSeenAt               DateTime?

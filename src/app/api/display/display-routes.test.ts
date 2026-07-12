@@ -54,7 +54,6 @@ describe('display API routes', () => {
             channelId: null,
             interactive: false,
             interactiveUrl: null,
-            inactivityTimeoutSeconds: null,
         });
         mocks.prisma.screen.update.mockResolvedValueOnce({id: 'screen-1'});
 
@@ -103,7 +102,6 @@ describe('display API routes', () => {
             channelId: 'channel-1',
             interactive: true,
             interactiveUrl: 'https://example.com',
-            inactivityTimeoutSeconds: 60,
             revision: 'rev-1',
             serverNow: '2026-04-23T10:00:00.000Z',
         });
@@ -129,7 +127,6 @@ describe('display API routes', () => {
             channelId: null,
             interactive: false,
             interactiveUrl: null,
-            inactivityTimeoutSeconds: null,
             revision: null,
             serverNow: '2026-04-23T10:00:00.000Z',
         });
@@ -154,7 +151,6 @@ describe('display API routes', () => {
                     channelId: 'channel-1',
                     interactive: false,
                     interactiveUrl: null,
-                    inactivityTimeoutSeconds: null,
                 },
                 channel: {
                     id: 'channel-1',

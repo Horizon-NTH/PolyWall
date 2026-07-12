@@ -118,7 +118,6 @@ describe('screen-actions', () => {
             channelId: 'channel-1',
             interactive: true,
             interactiveUrl: 'https://example.com',
-            inactivityTimeoutSeconds: 60,
         });
 
         expect(result).toEqual({ok: true, screenId: 'screen-1'});

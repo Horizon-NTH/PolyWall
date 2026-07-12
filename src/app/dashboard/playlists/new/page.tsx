@@ -6,14 +6,21 @@ import { OrganizationEmptyState } from '@/components/organizations/organization-
 import { PlaylistForm } from '@/components/playlists/playlist-form';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { resolveReturnTo } from '@/lib/return-to';
 
-export default async function Page() {
+type PlaylistNewPageProps = {
+    searchParams: Promise<{ returnTo?: string }>;
+};
+
+export default async function Page({searchParams}: PlaylistNewPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('create', 'Playlist')) redirect('/dashboard');
 
+    const query = await searchParams;
+    const cancelHref = resolveReturnTo(query.returnTo, '/dashboard/playlists');
     const organizationId = session.user.organizationId;
     if (!organizationId) {
         const organizations = await prisma.organization.findMany({
@@ -47,7 +54,7 @@ export default async function Page() {
                 ]}
             />
             <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-                <PlaylistForm mode="create" cancelHref="/dashboard/playlists" />
+                <PlaylistForm mode="create" cancelHref={cancelHref} />
             </div>
         </>
     );

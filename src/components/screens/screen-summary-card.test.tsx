@@ -21,7 +21,6 @@ describe('ScreenSummaryCard', () => {
                 channelName="Accueil"
                 interactive={true}
                 interactiveUrl="https://example.com/interactive"
-                inactivityTimeoutSeconds={120}
                 createdAt={createdAt}
                 updatedAt={updatedAt}
                 approvedAt={approvedAt}
@@ -37,7 +36,6 @@ describe('ScreenSummaryCard', () => {
         expect(screen.getByText('Hall principal')).toBeInTheDocument();
         expect(screen.getByText('device-123')).toBeInTheDocument();
         expect(screen.getByText('Oui')).toBeInTheDocument();
-        expect(screen.getByText('120s')).toBeInTheDocument();
         expect(screen.getByText('https://example.com/interactive')).toBeInTheDocument();
         expect(screen.getByText(formatDate(new Date(lastSeenAt)))).toBeInTheDocument();
         expect(screen.getByText(formatDate(new Date(approvedAt)))).toBeInTheDocument();
@@ -55,7 +53,6 @@ describe('ScreenSummaryCard', () => {
                 channelName={null}
                 interactive={false}
                 interactiveUrl={null}
-                inactivityTimeoutSeconds={null}
                 createdAt="2026-02-01T12:00:00.000Z"
                 updatedAt="2026-02-03T12:00:00.000Z"
                 approvedAt={null}
@@ -67,7 +64,6 @@ describe('ScreenSummaryCard', () => {
         expect(screen.getByText('En attente')).toBeInTheDocument();
         expect(screen.getByText('Aucun')).toBeInTheDocument();
         expect(screen.getAllByText('Non')).toHaveLength(2);
-        expect(screen.getByText('Non défini')).toBeInTheDocument();
         expect(screen.getByText('Aucune')).toBeInTheDocument();
         expect(screen.getByText('Inconnue')).toBeInTheDocument();
         expect(screen.getByText('Non validé')).toBeInTheDocument();

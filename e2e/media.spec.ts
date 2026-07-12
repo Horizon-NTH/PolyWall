@@ -1,5 +1,5 @@
 import path from 'path';
-import { expect, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 
 import {
     ADMIN_CREDENTIALS,
@@ -8,21 +8,18 @@ import {
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
 import { createCleanupTracker, extractDashboardEntityId, uniqueE2eName } from './helpers/data';
-import { ensureDashboardPath } from './helpers/navigation';
 import { confirmAlertDialog } from './helpers/ui';
 
 const createdMediaIds = createCleanupTracker<string>();
 
-async function filterMedia(page: Parameters<typeof login>[0], query: string) {
-    await ensureDashboardPath(page, '/dashboard/media');
+async function filterMedia(page: Page, query: string) {
     const search = page.getByPlaceholder('Rechercher un média...');
-    await expect(search).toBeVisible();
+    await search.click();
     await search.fill(query);
-    await expect(search).toHaveValue(query);
 }
 
 async function createMedia(
-    page: Parameters<typeof login>[0],
+    page: Page,
     params: {
         title: string;
         description: string;
@@ -54,10 +51,7 @@ async function createMedia(
     }
     await page.getByLabel('Fichier média').setInputFiles(params.file);
     await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
-    await page.waitForURL(
-        (url) => /^\/dashboard\/media\/[^/]+$/.test(url.pathname) && !url.pathname.endsWith('/new'),
-        {timeout: 25000},
-    );
+    await page.waitForURL(url => /^\/dashboard\/media\/[^/]+$/.test(url.pathname) && !url.pathname.endsWith('/new'));
 
     const mediaId = extractDashboardEntityId(page.url(), 'media');
     await expect(page.getByRole('heading', {name: params.title})).toBeVisible();
@@ -68,16 +62,11 @@ async function createMedia(
     return mediaId;
 }
 
-async function deleteMediaById(page: Parameters<typeof login>[0], mediaId: string) {
-    if (page.isClosed()) return;
-
+async function deleteMediaById(page: Page, mediaId: string) {
     await page.goto(`/dashboard/media/${mediaId}`);
-    const deleteButton = page.getByRole('button', {name: 'Supprimer'});
-    if ((await deleteButton.count()) === 0) return;
-
-    await deleteButton.click();
+    await page.getByRole('button', {name: 'Supprimer'}).click();
     await confirmAlertDialog(page);
-    await page.waitForURL(/\/dashboard\/media$/, {timeout: 15000});
+    await page.waitForURL(/\/dashboard\/media$/);
 }
 
 test.describe('media', () => {
@@ -105,14 +94,9 @@ test.describe('media', () => {
         createdMediaIds.clear();
     });
 
-    test('super admin must select an organization before accessing media page', async ({
-                                                                                           page,
-                                                                                       }) => {
-        await login(
-            page,
-            SUPER_ADMIN_CREDENTIALS.email,
-            SUPER_ADMIN_CREDENTIALS.password,
-        );
+    test('super admin must select an organization before accessing media page', async ({page}) => {
+        await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
+
         await page.goto('/dashboard/media');
         await expect(page).toHaveURL(/\/dashboard\/media$/);
         await expect(
@@ -124,9 +108,7 @@ test.describe('media', () => {
         await expect(page.getByPlaceholder('Rechercher un média...')).toBeVisible();
     });
 
-    test('list page supports search, filter controls, reset, and row actions', async ({
-                                                                                          page,
-                                                                                      }, testInfo) => {
+    test('list page supports search, filter controls, reset, and row actions', async ({page}, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
         const mediaTitle = uniqueE2eName(testInfo.project.name, 'Media', 'List');
@@ -137,7 +119,8 @@ test.describe('media', () => {
         });
         createdMediaIds.add(mediaId);
 
-        await ensureDashboardPath(page, '/dashboard/media');
+        await page.getByRole('link', {name: 'Retour'}).click();
+
         await filterMedia(page, mediaTitle);
         await expect(
             page.getByRole('main').locator('[data-slot="card-title"]', {hasText: mediaTitle}),
@@ -170,17 +153,13 @@ test.describe('media', () => {
 
         await filterMedia(page, mediaTitle);
         await page.getByRole('button', {name: 'Ouvrir le menu'}).first().click();
-        await Promise.all([
-            page.waitForURL(new RegExp(`/dashboard/media/${mediaId}/edit(\\?.*)?$`)),
-            page.getByRole('menuitem', {name: 'Modifier'}).click(),
-        ]);
+        await page.getByRole('menuitem', {name: 'Modifier'}).click();
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/media/${mediaId}/edit`);
         await page.getByRole('link', {name: 'Annuler'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}(\\?.*)?$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/media/${mediaId}`);
     });
 
-    test('create form validates required fields and rejects unsupported mime', async ({
-                                                                                          page,
-                                                                                      }, testInfo) => {
+    test('create form validates required fields and rejects unsupported mime', async ({page}, testInfo) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
         await page.goto('/dashboard/media/new');
 
@@ -213,7 +192,7 @@ test.describe('media', () => {
         createdMediaIds.add(mediaId);
 
         await page.getByRole('link', {name: 'Modifier'}).click();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}/edit$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/media/${mediaId}/edit`);
 
         const updatedTitle = `${mediaTitle} Modifié`;
         await page.getByLabel('Titre').fill(updatedTitle);
@@ -222,7 +201,7 @@ test.describe('media', () => {
         await page.getByRole('button', {name: 'Enregistrer'}).click();
 
         await expect(page.getByText('Média mis à jour.')).toBeVisible();
-        await expect(page).toHaveURL(new RegExp(`/dashboard/media/${mediaId}$`));
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/media/${mediaId}`);
         await expect(page.getByRole('heading', {name: updatedTitle})).toBeVisible();
         await expect(page.getByRole('button', {name: 'Activer'})).toBeVisible();
 

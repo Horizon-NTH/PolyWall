@@ -29,8 +29,7 @@ test.describe('auth', () => {
     });
 
     test('redirects when authenticated', async ({page}) => {
-        await page.goto('/login');
-        await page.waitForLoadState('networkidle');
+        await page.goto('/login', {waitUntil: 'networkidle'});
         await page.getByLabel('Email').fill(ADMIN_CREDENTIALS.email);
         await page.getByRole('textbox', {name: 'Mot de passe'}).fill(ADMIN_CREDENTIALS.password);
         await page.getByRole('button', {name: 'Se connecter'}).click();
@@ -38,12 +37,12 @@ test.describe('auth', () => {
         await expect(page.getByLabel('breadcrumb').getByRole('link', {name: 'Tableau de bord'})).toBeVisible();
 
         await page.goto('/login');
-        await expect(page.getByLabel('breadcrumb').getByRole('link', {name: 'Tableau de bord'})).toBeVisible();
+        await expect(page).toHaveURL(/\/dashboard$/);
     });
 
     test('redirects unauthenticated users to login from dashboard', async ({page}) => {
         await page.goto('/dashboard');
-        await page.waitForURL('**/login', {waitUntil: 'commit'});
+        await expect(page).toHaveURL(/\/login/);
         await expect(page.getByText('Bon retour')).toBeVisible();
     });
 

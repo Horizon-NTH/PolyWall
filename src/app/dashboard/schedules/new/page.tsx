@@ -16,12 +16,14 @@ import { Button } from '@/components/ui/button';
 import { ScheduleType } from '@/generated/prisma/enums';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { resolveReturnTo } from '@/lib/return-to';
 import { getScheduleFormOptions } from '@/lib/schedules/schedule-queries';
 
 type ScheduleNewPageProps = {
     searchParams: Promise<{
         channelId?: string;
         type?: ScheduleType;
+        returnTo?: string;
     }>;
 };
 
@@ -32,6 +34,7 @@ export default async function Page({searchParams}: ScheduleNewPageProps) {
     const ability = defineAbilityFor(session.user);
     if (!ability.can('create', 'PlaylistSchedule')) redirect('/dashboard');
 
+    const resolvedSearchParams = await searchParams;
     const organizationId = session.user.organizationId;
     if (!organizationId) {
         const organizations = await prisma.organization.findMany({
@@ -89,7 +92,10 @@ export default async function Page({searchParams}: ScheduleNewPageProps) {
         );
     }
 
-    const resolvedSearchParams = await searchParams;
+    const fallbackCancelHref = resolvedSearchParams.channelId
+        ? `/dashboard/schedules?channelId=${resolvedSearchParams.channelId}`
+        : '/dashboard/schedules';
+    const cancelHref = resolveReturnTo(resolvedSearchParams.returnTo, fallbackCancelHref);
 
     return (
         <>
@@ -105,9 +111,7 @@ export default async function Page({searchParams}: ScheduleNewPageProps) {
                     mode="create"
                     channels={channels}
                     playlists={playlists}
-                    cancelHref={resolvedSearchParams.channelId
-                        ? `/dashboard/schedules?channelId=${resolvedSearchParams.channelId}`
-                        : '/dashboard/schedules'}
+                    cancelHref={cancelHref}
                     defaultValues={{
                         channelId: resolvedSearchParams.channelId ?? channels[0]?.id ?? '',
                         type: resolvedSearchParams.type ?? ScheduleType.RECURRING,

@@ -50,7 +50,6 @@ function buildBaseSnapshot(): DisplayRuntimeSnapshot {
             channelId: 'debug-channel',
             interactive: false,
             interactiveUrl: null,
-            inactivityTimeoutSeconds: null,
         },
         channel: {
             id: 'debug-channel',

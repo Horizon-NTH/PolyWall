@@ -39,7 +39,7 @@ describe('PlaylistForm', () => {
                 description: 'Playlist principale',
             });
             expect(toastMock.success).toHaveBeenCalledWith('Playlist créée.');
-            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/playlists/playlist-1');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/playlists/playlist-1?returnTo=%2Fdashboard%2Fplaylists');
         });
     });
 

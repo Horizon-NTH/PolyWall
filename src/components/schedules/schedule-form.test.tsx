@@ -148,7 +148,7 @@ describe('ScheduleForm', () => {
                 daysOfWeek: [DayOfWeek.MONDAY],
             }));
             expect(toastMock.success).toHaveBeenCalledWith('Programmation créée.');
-            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/schedules/schedule-1');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/schedules/schedule-1?returnTo=%2Fdashboard%2Fschedules');
         });
     });
 

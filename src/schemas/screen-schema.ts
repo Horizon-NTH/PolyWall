@@ -18,19 +18,12 @@ const screenBaseSchema = z.object({
         .max(2048, 'URL interactive trop longue.')
         .optional()
         .or(z.literal('')),
-    inactivityTimeoutSeconds: z
-        .number()
-        .int('Le délai doit être un entier.')
-        .positive('Le délai doit être supérieur à 0.')
-        .max(24 * 3600, 'Le délai doit être inférieur à 24h.')
-        .optional(),
 });
 
 const validateInteractiveFields = (
     values: {
         interactive?: boolean;
         interactiveUrl?: string;
-        inactivityTimeoutSeconds?: number;
     },
     ctx: z.RefinementCtx,
 ) => {
@@ -40,14 +33,6 @@ const validateInteractiveFields = (
             code: 'custom',
             message: 'URL interactive autorisée uniquement si l\'écran est interactif.',
             path: ['interactiveUrl'],
-        });
-    }
-    const hasInactivityTimeout = typeof values.inactivityTimeoutSeconds === 'number';
-    if (!values.interactive && hasInactivityTimeout) {
-        ctx.addIssue({
-            code: 'custom',
-            message: 'Le délai d\'inactivité est autorisé uniquement si l\'écran est interactif.',
-            path: ['inactivityTimeoutSeconds'],
         });
     }
 };

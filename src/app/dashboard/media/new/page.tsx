@@ -6,14 +6,21 @@ import { MediaForm } from '@/components/media/media-form';
 import { OrganizationEmptyState } from '@/components/organizations/organization-empty-state';
 import { defineAbilityFor } from '@/lib/casl/ability';
 import { prisma } from '@/lib/prisma';
+import { resolveReturnTo } from '@/lib/return-to';
 
-export default async function Page() {
+type MediaNewPageProps = {
+    searchParams: Promise<{ returnTo?: string }>;
+};
+
+export default async function Page({searchParams}: MediaNewPageProps) {
     const session = await auth();
     if (!session?.user) redirect('/login');
 
     const ability = defineAbilityFor(session.user);
     if (!ability.can('create', 'MediaItem')) redirect('/dashboard');
 
+    const query = await searchParams;
+    const cancelHref = resolveReturnTo(query.returnTo, '/dashboard/media');
     const organizationId = session.user.organizationId;
     if (!organizationId) {
         const organizations = await prisma.organization.findMany({
@@ -50,7 +57,7 @@ export default async function Page() {
                 <MediaForm
                     mode="create"
                     organizationId={organizationId}
-                    cancelHref="/dashboard/media"
+                    cancelHref={cancelHref}
                 />
             </div>
         </>

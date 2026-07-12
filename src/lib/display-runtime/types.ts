@@ -79,7 +79,6 @@ export type DisplayRuntimeSnapshot = {
         channelId: string;
         interactive: boolean;
         interactiveUrl: string | null;
-        inactivityTimeoutSeconds: number | null;
     };
     channel: {
         id: string;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { DisplayClient } from '@/components/screens/display-client';
@@ -36,7 +36,6 @@ function buildSnapshot(): DisplayRuntimeSnapshot {
             channelId: 'channel-1',
             interactive: false,
             interactiveUrl: null,
-            inactivityTimeoutSeconds: null,
         },
         channel: {
             id: 'channel-1',
@@ -165,6 +164,32 @@ function buildTwoItemSnapshot(overrides?: Partial<DisplayRuntimeSnapshot>): Disp
     };
 }
 
+function buildInteractiveSnapshot(screenOverrides?: Partial<DisplayRuntimeSnapshot['screen']>): DisplayRuntimeSnapshot {
+    const snapshot = buildSnapshot();
+
+    return {
+        ...snapshot,
+        screen: {
+            ...snapshot.screen,
+            interactive: true,
+            interactiveUrl: 'https://example.com/interactive',
+            ...screenOverrides,
+        },
+    };
+}
+
+function mockActiveState(snapshot: DisplayRuntimeSnapshot) {
+    return {
+        status: 'ACTIVE',
+        screenId: snapshot.screen.screenId,
+        channelId: snapshot.screen.channelId,
+        interactive: snapshot.screen.interactive,
+        interactiveUrl: snapshot.screen.interactiveUrl,
+        revision: snapshot.revision,
+        serverNow: snapshot.serverNow,
+    };
+}
+
 describe('DisplayClient', () => {
     beforeEach(() => {
         vi.restoreAllMocks();
@@ -206,6 +231,10 @@ describe('DisplayClient', () => {
             writable: true,
             value: vi.fn(),
         });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('disables submit while OTP is incomplete', async () => {
@@ -265,7 +294,6 @@ describe('DisplayClient', () => {
                     channelId: 'channel-1',
                     interactive: false,
                     interactiveUrl: null,
-                    inactivityTimeoutSeconds: null,
                     revision: 'rev-2',
                     serverNow: '2026-04-20T08:01:00.000Z',
                 }), {status: 200});
@@ -310,7 +338,6 @@ describe('DisplayClient', () => {
                     channelId: 'channel-1',
                     interactive: false,
                     interactiveUrl: null,
-                    inactivityTimeoutSeconds: null,
                     revision: 'rev-1',
                     serverNow: '2026-04-20T08:00:45.000Z',
                 }), {status: 200});
@@ -328,5 +355,139 @@ describe('DisplayClient', () => {
         });
 
         expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/display/runtime'))).toBe(false);
+    });
+
+    it('does not open an interactive iframe when the screen is not interactive', async () => {
+        const snapshot = buildSnapshot();
+        window.localStorage.setItem(
+            'polywall.display.snapshot.test-device',
+            JSON.stringify(snapshot),
+        );
+        window.localStorage.setItem('polywall.screen.deviceId', 'test-device');
+
+        vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+            const url = String(input);
+            if (url.includes('/api/display/state')) {
+                return new Response(JSON.stringify(mockActiveState(snapshot)), {status: 200});
+            }
+
+            return new Response(JSON.stringify({error: 'Unexpected runtime call'}), {status: 500});
+        });
+
+        await act(async () => {
+            render(<DisplayClient />);
+        });
+
+        const image = await screen.findByAltText('Image principale');
+        fireEvent.pointerDown(image);
+
+        expect(screen.queryByTitle('Site interactif')).not.toBeInTheDocument();
+    });
+
+    it('opens an interactive iframe when an interactive screen is touched', async () => {
+        const snapshot = buildInteractiveSnapshot();
+        window.localStorage.setItem(
+            'polywall.display.snapshot.test-device',
+            JSON.stringify(snapshot),
+        );
+        window.localStorage.setItem('polywall.screen.deviceId', 'test-device');
+
+        vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+            const url = String(input);
+            if (url.includes('/api/display/state')) {
+                return new Response(JSON.stringify(mockActiveState(snapshot)), {status: 200});
+            }
+
+            return new Response(JSON.stringify({error: 'Unexpected runtime call'}), {status: 500});
+        });
+
+        await act(async () => {
+            render(<DisplayClient />);
+        });
+
+        const image = await screen.findByAltText('Image principale');
+        fireEvent.pointerDown(image);
+
+        const iframe = await screen.findByTitle('Site interactif');
+        expect(iframe).toHaveAttribute('src', 'https://example.com/interactive');
+        expect(iframe).toHaveAttribute('referrerpolicy', 'no-referrer');
+        expect(iframe).toHaveAttribute('sandbox');
+    });
+
+    it('closes the interactive iframe when the close button is pressed', async () => {
+        const snapshot = buildInteractiveSnapshot();
+        window.localStorage.setItem(
+            'polywall.display.snapshot.test-device',
+            JSON.stringify(snapshot),
+        );
+        window.localStorage.setItem('polywall.screen.deviceId', 'test-device');
+
+        vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+            const url = String(input);
+            if (url.includes('/api/display/state')) {
+                return new Response(JSON.stringify(mockActiveState(snapshot)), {status: 200});
+            }
+
+            return new Response(JSON.stringify({error: 'Unexpected runtime call'}), {status: 500});
+        });
+
+        await act(async () => {
+            render(<DisplayClient />);
+        });
+
+        const image = await screen.findByAltText('Image principale');
+        fireEvent.pointerDown(image);
+        expect(await screen.findByTitle('Site interactif')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', {name: 'Fermer le site interactif'}));
+
+        expect(screen.queryByTitle('Site interactif')).not.toBeInTheDocument();
+        expect(screen.getByAltText('Image principale')).toBeInTheDocument();
+    });
+
+    it('closes the interactive iframe when the runtime snapshot becomes non-interactive', async () => {
+        const interactiveSnapshot = buildInteractiveSnapshot();
+        const nonInteractiveSnapshot = {
+            ...buildSnapshot(),
+            revision: 'rev-2',
+            serverNow: '2026-04-20T08:01:00.000Z',
+        };
+        let currentSnapshot = interactiveSnapshot;
+
+        window.localStorage.setItem(
+            'polywall.display.snapshot.test-device',
+            JSON.stringify(interactiveSnapshot),
+        );
+        window.localStorage.setItem('polywall.screen.deviceId', 'test-device');
+
+        vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+            const url = String(input);
+            if (url.includes('/api/display/state')) {
+                return new Response(JSON.stringify(mockActiveState(currentSnapshot)), {status: 200});
+            }
+
+            if (url.includes('/api/display/runtime')) {
+                return new Response(JSON.stringify(currentSnapshot), {status: 200});
+            }
+
+            return new Response(JSON.stringify({error: 'Unexpected'}), {status: 500});
+        });
+
+        await act(async () => {
+            render(<DisplayClient />);
+        });
+
+        const image = await screen.findByAltText('Image principale');
+        fireEvent.pointerDown(image);
+        expect(await screen.findByTitle('Site interactif')).toBeInTheDocument();
+
+        currentSnapshot = nonInteractiveSnapshot;
+        act(() => {
+            window.dispatchEvent(new Event('online'));
+        });
+
+        await waitFor(() => {
+            expect(screen.queryByTitle('Site interactif')).not.toBeInTheDocument();
+        });
     });
 });

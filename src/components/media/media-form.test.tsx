@@ -58,7 +58,7 @@ describe('MediaForm', () => {
                 }),
             );
             expect(toastMock.success).toHaveBeenCalledWith('Média créé.');
-            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/media/media-1');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/media/media-1?returnTo=%2Fdashboard%2Fmedia');
         });
     });
 

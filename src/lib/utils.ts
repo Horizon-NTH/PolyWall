@@ -6,7 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(value: Date, dateStyle: 'medium' | 'full' | 'long' | 'short' | undefined = 'medium') {
-    return new Intl.DateTimeFormat('fr-FR', {dateStyle: dateStyle}).format(value);
+    return new Intl.DateTimeFormat('fr-FR', {
+        dateStyle: dateStyle,
+        timeZone: 'Europe/Paris',
+    }).format(value);
 }
 
 export function timeStringToMinutes(value: string) {

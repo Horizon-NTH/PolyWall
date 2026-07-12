@@ -51,28 +51,6 @@ vi.mock('@/components/ui/checkbox', () => ({
     ),
 }));
 
-vi.mock('@/components/ui/number-stepper-input', () => ({
-    NumberStepperInput: ({id, value, onValueChange, disabled, placeholder}: {
-        id: string;
-        value?: number;
-        onValueChange: (value: number | undefined) => void;
-        disabled?: boolean;
-        placeholder?: string;
-    }) => (
-        <input
-            id={id}
-            type="number"
-            disabled={disabled}
-            placeholder={placeholder}
-            value={value ?? ''}
-            onChange={(event) => {
-                const nextValue = event.target.value === '' ? undefined : Number(event.target.value);
-                onValueChange(nextValue);
-            }}
-        />
-    ),
-}));
-
 describe('ScreenForm', () => {
     const channels = [
         {id: 'channel-1', name: 'Accueil'},
@@ -108,7 +86,6 @@ describe('ScreenForm', () => {
                 channelId: 'channel-1',
                 interactive: false,
                 interactiveUrl: '',
-                inactivityTimeoutSeconds: undefined,
             });
             expect(toastMock.success).toHaveBeenCalledWith('Écran validé.');
             expect(routerMock.push).toHaveBeenCalledWith('/dashboard/screens/screen-1');
@@ -144,7 +121,6 @@ describe('ScreenForm', () => {
                 channelId: 'channel-2',
                 interactive: false,
                 interactiveUrl: '',
-                inactivityTimeoutSeconds: undefined,
             });
             expect(toastMock.success).toHaveBeenCalledWith('Écran mis à jour.');
             expect(routerMock.push).toHaveBeenCalledWith('/dashboard/screens/screen-2');
@@ -166,7 +142,6 @@ describe('ScreenForm', () => {
                     channelId: 'channel-1',
                     interactive: true,
                     interactiveUrl: 'https://example.com/kiosk',
-                    inactivityTimeoutSeconds: 300,
                 }}
             />,
         );
@@ -181,7 +156,6 @@ describe('ScreenForm', () => {
                 channelId: 'channel-1',
                 interactive: false,
                 interactiveUrl: '',
-                inactivityTimeoutSeconds: undefined,
             });
         });
     });

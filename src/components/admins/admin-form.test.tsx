@@ -93,7 +93,7 @@ describe('AdminForm', () => {
                 active: true,
             });
             expect(toastMock.success).toHaveBeenCalledWith('Administrateur créé.');
-            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/administrators');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/administrators/admin-1?returnTo=%2Fdashboard%2Fadministrators');
         });
     });
 
