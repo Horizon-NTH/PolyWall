@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 
-import { safeGoto } from './navigation';
+import { extractDashboardEntityId } from './data';
 import { confirmAlertDialog } from './ui';
 
 export async function clearDisplayStorage(page: Page) {
@@ -18,22 +18,12 @@ export async function clearDisplayStorage(page: Page) {
 }
 
 export async function generateScreenPairingOtpCode(page: Page) {
-    await safeGoto(page, '/dashboard/screens');
+    await page.goto('/dashboard/screens');
 
     const otpInput = page.getByPlaceholder('Aucun code généré');
     const generateOtpButton = page.getByRole('button', {name: 'Générer code OTP'});
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        await generateOtpButton.click();
-
-        try {
-            await expect(otpInput).toHaveValue(/^\d{6}$/, {timeout: 5_000});
-            break;
-        } catch (error) {
-            if (attempt === 2) throw error;
-        }
-    }
-
+    await generateOtpButton.click();
+    await expect(otpInput).toHaveValue(/^\d{6}$/);
     return (await otpInput.inputValue()).replace(/\s+/g, '');
 }
 
@@ -57,30 +47,21 @@ export async function pairDisplayPage(displayPage: Page, otpCode: string) {
 
 export async function openPendingScreenApproval(page: Page, pendingScreenName: string) {
     const pendingTab = page.getByRole('tab', {name: /En attente/});
-    await expect(pendingTab).toBeVisible();
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        await pendingTab.click();
-        try {
-            await expect(pendingTab).toHaveAttribute('aria-selected', 'true', {timeout: 2_000});
-            break;
-        } catch (error) {
-            if (attempt === 2) throw error;
-        }
-    }
+    await pendingTab.click();
+    await expect(pendingTab).toHaveAttribute('aria-selected', 'true');
 
     const pendingScreenLink = page.getByRole('link', {name: pendingScreenName});
-    await expect(pendingScreenLink).toBeVisible({timeout: 10_000});
     await page.locator('tr', {has: pendingScreenLink}).getByRole('link', {name: 'Valider l\'écran'}).click();
+    await page.waitForURL((url) => /^\/dashboard\/screens\/[^/]+\/edit$/.test(url.pathname));
+    const editUrl = new URL(page.url());
+    editUrl.pathname = editUrl.pathname.replace(/\/edit$/, '');
+    editUrl.search = '';
+    return extractDashboardEntityId(editUrl.toString(), 'screens');
 }
 
 export async function deleteScreenById(page: Page, screenId: string) {
-    if (page.isClosed()) return;
-
-    await safeGoto(page, `/dashboard/screens/${screenId}`);
-    const deleteButton = page.getByRole('button', {name: 'Supprimer'}).first();
-    if ((await deleteButton.count()) === 0) return;
-
-    await deleteButton.click();
+    await page.goto(`/dashboard/screens/${screenId}`);
+    await page.getByRole('button', {name: 'Supprimer'}).click();
     await confirmAlertDialog(page);
     await expect(page.getByText('Écran supprimé.')).toBeVisible();
 }

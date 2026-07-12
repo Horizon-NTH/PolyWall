@@ -37,7 +37,7 @@ export type ManagedUserFormValues = {
 };
 
 export type ManagedUserFormResult =
-    | { ok: true }
+    | { ok: true; userId?: string; adminId?: string }
     | { ok: false; field?: keyof ManagedUserFormValues | 'root'; message: string };
 
 export type ManagedRoleOption = {
@@ -56,7 +56,10 @@ type ManagedUserFormProps = {
     defaultValues?: Partial<ManagedUserFormValues>;
     cancelHref: string;
     onSubmit: (values: ManagedUserFormValues) => Promise<ManagedUserFormResult>;
-    onSuccess: (values: ManagedUserFormValues, result: { ok: true }) => void;
+    onSuccess: (
+        values: ManagedUserFormValues,
+        result: Extract<ManagedUserFormResult, {ok: true}>,
+    ) => void;
     title: string;
     description: string;
     successMessage: string;

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import {
     ADMIN_CREDENTIALS,
@@ -6,122 +6,54 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
-import { safeGoto } from './helpers/navigation';
+import { createCleanupTracker, extractDashboardEntityId } from './helpers/data';
 import { confirmAlertDialog } from './helpers/ui';
 
+const createdScheduleIds = createCleanupTracker<string>();
+
 async function ensureSchedulesList(page: Page) {
-    await safeGoto(page, '/dashboard/schedules');
-    await expect
-        .poll(() => {
-            const url = new URL(page.url());
-            return url.pathname === '/dashboard/schedules' && url.searchParams.has('channelId');
-        }, {timeout: 15000})
-        .toBe(true);
-}
-
-async function findScheduleLink(page: Page, scheduleName?: string) {
-    const scheduleLinks = scheduleName
-        ? page.getByRole('link', {name: scheduleName})
-        : page.locator(
-            'main table a[href^="/dashboard/schedules/"]:not([href*="/edit"]):not([href*="/new"])',
-        );
-
-    const count = await scheduleLinks.count();
-    if (count === 0) return null;
-
-    const first = scheduleLinks.first();
-    const href = await first.getAttribute('href');
-    if (!href) return null;
-
-    return {
-        locator: first,
-        href,
-        name: (await first.textContent())?.trim() ?? '',
-    };
+    await page.goto('/dashboard/schedules');
+    await expect(page).toHaveURL((url) => url.pathname === '/dashboard/schedules' &&
+        url.searchParams.has('channelId'));
 }
 
 async function ensureChannelWithSchedules(page: Page) {
     await ensureSchedulesList(page);
+    const scheduleLink = page.locator(
+        'main table a[href^="/dashboard/schedules/"]:not([href*="/edit"]):not([href*="/new"])',
+    ).first();
+    await expect(scheduleLink).toBeVisible();
 
-    const existingScheduleLink = await findScheduleLink(page);
-    if (existingScheduleLink) {
-        const currentUrl = new URL(page.url());
-        const initialUrlWithTab = new URL(`${currentUrl.pathname}${currentUrl.search}`, 'http://localhost');
-        initialUrlWithTab.searchParams.set('tab', 'schedules');
-        return {
-            channelId: currentUrl.searchParams.get('channelId') ?? '',
-            initialSchedulesUrl: `${initialUrlWithTab.pathname}${initialUrlWithTab.search}`,
-            scheduleLink: existingScheduleLink,
-        };
-    }
+    const currentUrl = new URL(page.url());
+    const channelId = currentUrl.searchParams.get('channelId');
+    if (!channelId) throw new Error('Canal absent de l’URL des programmations.');
+    currentUrl.searchParams.set('tab', 'schedules');
 
-    const selector = page.getByRole('combobox').first();
-    await selector.click();
-
-    const optionLocators = page.getByRole('option');
-    const optionCount = await optionLocators.count();
-    const optionNames: string[] = [];
-
-    for (let index = 0; index < optionCount; index += 1) {
-        optionNames.push((await optionLocators.nth(index).textContent())?.trim() ?? '');
-    }
-
-    await page.keyboard.press('Escape');
-
-    for (const optionName of optionNames) {
-        await selector.click();
-        await page.getByRole('option', {name: optionName}).click();
-        await page.waitForLoadState('networkidle');
-
-        const scheduleLink = await findScheduleLink(page);
-        if (scheduleLink) {
-            const currentUrl = new URL(page.url());
-            const initialUrlWithTab = new URL(`${currentUrl.pathname}${currentUrl.search}`, 'http://localhost');
-            initialUrlWithTab.searchParams.set('tab', 'schedules');
-            return {
-                channelId: currentUrl.searchParams.get('channelId') ?? '',
-                initialSchedulesUrl: `${initialUrlWithTab.pathname}${initialUrlWithTab.search}`,
-                scheduleLink,
-            };
-        }
-    }
-
-    return null;
+    return {
+        channelId,
+        initialSchedulesUrl: `${currentUrl.pathname}${currentUrl.search}`,
+        scheduleLink,
+    };
 }
 
 async function selectFirstOption(page: Page, label: string) {
     const trigger = page.getByLabel(label);
     await trigger.click();
     const firstOption = page.getByRole('option').first();
-
-    if ((await firstOption.count()) > 0) {
-        await expect(firstOption).toBeVisible({timeout: 2000});
-        const optionText = (await firstOption.textContent())?.trim() ?? '';
-        await firstOption.click();
-        return optionText;
-    }
-
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('Enter');
-    return ((await trigger.textContent()) ?? '').trim();
+    await expect(firstOption).toBeVisible();
+    const optionText = (await firstOption.textContent())?.trim() ?? '';
+    await firstOption.click();
+    return optionText;
 }
 
 async function openScheduleEditFromDetail(page: Page) {
     const editLink = page.getByRole('main').getByRole('link', {name: 'Modifier'});
-    await expect(editLink).toBeVisible();
-
-    const href = await editLink.getAttribute('href');
-    if (!href) throw new Error('Lien de modification introuvable sur la fiche programmation.');
-    expect(href).toMatch(/^\/dashboard\/schedules\/[^/]+\/edit(\?.*)?$/);
-
-    await safeGoto(page, href);
+    await editLink.click();
     await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+\/edit(\?.*)?$/);
 }
 
-async function openScheduleDetail(page: Page, scheduleLink: Awaited<ReturnType<typeof findScheduleLink>>) {
-    if (!scheduleLink) throw new Error('Lien programmation introuvable.');
-
-    await safeGoto(page, scheduleLink.href);
+async function openScheduleDetail(page: Page, scheduleLink: Locator) {
+    await scheduleLink.click();
     await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
 }
 
@@ -142,7 +74,7 @@ async function selectDateByEnabledIndex(page: Page, label: string, enabledIndex:
     await fieldButton.click();
 
     const calendar = page.locator('[data-slot="calendar"]').last();
-    await expect(calendar).toBeVisible({timeout: 10_000});
+    await expect(calendar).toBeVisible();
     const enabledDayButtons = calendar.locator('button[data-day]:not([disabled])');
     await expect(enabledDayButtons.nth(enabledIndex)).toBeVisible();
     await enabledDayButtons.nth(enabledIndex).click();
@@ -175,118 +107,29 @@ async function fillEventScheduleForm(params: {
     await setTimeFromPreset(page, 'Heure de début', /Début de journée/);
 }
 
-async function createEventScheduleWithRetry(params: {
+async function createEventSchedule(params: {
     page: Page;
     baseNewScheduleUrl: string;
-    startDateIndex?: number;
-    attempts?: number;
+    dateIndex?: number;
 }) {
-    const {page, baseNewScheduleUrl, startDateIndex = 0, attempts = 10} = params;
+    const {page, baseNewScheduleUrl, dateIndex = 0} = params;
+    await page.goto(baseNewScheduleUrl);
+    await fillEventScheduleForm({page, dateIndex});
+    await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
+    await page.waitForURL((url) => /^\/dashboard\/schedules\/[^/]+$/.test(url.pathname) &&
+        url.pathname !== '/dashboard/schedules/new');
 
-    for (let dateIndex = startDateIndex; dateIndex < (startDateIndex + attempts); dateIndex += 1) {
-        await safeGoto(page, baseNewScheduleUrl);
-        await expect(page).toHaveURL(new RegExp('^.+/dashboard/schedules/new'));
-
-        await fillEventScheduleForm({page, dateIndex});
-        await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
-
-        try {
-            await expect.poll(() => {
-                const pathname = new URL(page.url()).pathname;
-                return /^\/dashboard\/schedules\/[^/]+$/.test(pathname) && pathname !== '/dashboard/schedules/new';
-            }, {timeout: 3500}).toBe(true);
-            const scheduleId = new URL(page.url()).pathname.match(/^\/dashboard\/schedules\/([^/]+)$/)![1];
-            return {dateIndex, scheduleId};
-        } catch {
-            // Keep trying with another date when submission does not land on schedule detail.
-        }
-    }
-
-    throw new Error('Impossible de créer une programmation événementielle sans conflit après 10 tentatives.');
+    return {
+        dateIndex,
+        scheduleId: extractDashboardEntityId(page.url(), 'schedules'),
+    };
 }
 
-async function deleteScheduleViaUi(params: {
-    page: Page;
-    scheduleId: string;
-    channelId: string;
-}) {
-    const {page, scheduleId, channelId} = params;
-
-    await safeGoto(
-        page,
-        `/dashboard/schedules/${scheduleId}?returnTo=${encodeURIComponent(`/dashboard/schedules?channelId=${channelId}&tab=calendar`)}`,
-    );
-
-    if (!new RegExp(`/dashboard/schedules/${scheduleId}(\\?.*)?$`).test(new URL(page.url()).pathname + new URL(page.url()).search)) {
-        return;
-    }
-
-    const deleteTriggers = page.getByRole('button', {name: 'Supprimer'});
-    const triggerCount = await deleteTriggers.count();
-    if (triggerCount === 0) {
-        return;
-    }
-
-    let hasDialog = false;
-    for (let index = 0; index < triggerCount; index += 1) {
-        await deleteTriggers.nth(index).click({force: true});
-        const dialog = page.getByRole('alertdialog');
-        if ((await dialog.count()) > 0) {
-            hasDialog = true;
-            await confirmAlertDialog(page);
-            break;
-        }
-    }
-
-    if (!hasDialog) {
-        return;
-    }
-
-    await page.waitForTimeout(250);
-}
-
-async function cleanupShortActusEventsViaUi(params: {
-    page: Page;
-    channelId: string;
-}) {
-    const {page, channelId} = params;
-    await safeGoto(page, `/dashboard/schedules?channelId=${channelId}&tab=schedules`);
-    await page.waitForLoadState('networkidle');
-
-    const search = page.getByPlaceholder('Rechercher une programmation...');
-    await search.fill('Actus');
-
-    for (let pass = 0; pass < 10; pass += 1) {
-        const rows = page.locator('main table tbody tr');
-        const rowCount = await rows.count();
-        let deletedOne = false;
-
-        for (let index = 0; index < rowCount; index += 1) {
-            const row = rows.nth(index);
-            const rowText = ((await row.textContent()) ?? '').replace(/\s+/g, ' ');
-            const isTarget = rowText.includes('Événementielle')
-                && rowText.includes('Actus')
-                && rowText.includes('00:00 - 00:02');
-
-            if (!isTarget) {
-                continue;
-            }
-
-            await row.getByRole('button', {name: 'Ouvrir le menu'}).click();
-            await page.getByRole('menuitem', {name: 'Supprimer'}).click();
-            const dialog = page.getByRole('alertdialog');
-            if ((await dialog.count()) > 0) {
-                await confirmAlertDialog(page);
-            }
-            await page.waitForTimeout(300);
-            deletedOne = true;
-            break;
-        }
-
-        if (!deletedOne) {
-            break;
-        }
-    }
+async function deleteScheduleById(page: Page, scheduleId: string) {
+    await page.goto(`/dashboard/schedules/${scheduleId}`);
+    await page.getByRole('button', {name: 'Supprimer'}).click();
+    await confirmAlertDialog(page);
+    await expect(page.getByText('Programmation supprimée.')).toBeVisible();
 }
 
 test.describe('schedules', () => {
@@ -294,11 +137,19 @@ test.describe('schedules', () => {
 
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
+        createdScheduleIds.clear();
+    });
+
+    test.afterEach(async ({page}) => {
+        for (const scheduleId of createdScheduleIds.unique()) {
+            await deleteScheduleById(page, scheduleId);
+        }
+        createdScheduleIds.clear();
     });
 
     test('super admin must select an organization before accessing schedules pages', async ({page}) => {
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
-        await safeGoto(page, '/dashboard/schedules');
+        await page.goto('/dashboard/schedules');
 
         await expect(page).toHaveURL(/\/dashboard\/schedules$/);
         await expect(
@@ -320,7 +171,7 @@ test.describe('schedules', () => {
         const channelId = currentUrl.searchParams.get('channelId');
         expect(channelId).toBeTruthy();
 
-        await safeGoto(page, `/dashboard/schedules/new?channelId=${channelId}`);
+        await page.goto(`/dashboard/schedules/new?channelId=${channelId}`);
         await expect(page).toHaveURL(new RegExp(`/dashboard/schedules/new\\?channelId=${channelId}`));
         await expect(page.getByLabel('Type')).toBeVisible();
         await expect(page.getByLabel('Playlist')).toBeVisible();
@@ -331,7 +182,7 @@ test.describe('schedules', () => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
         const scheduleContext = await ensureChannelWithSchedules(page);
-        const {channelId} = scheduleContext!;
+        const {channelId} = scheduleContext;
         const scheduleRow = page.locator('main table tbody tr').first();
         const firstCellText = ((await scheduleRow.getByRole('cell').nth(0).textContent()) ?? '').trim();
         const scheduleName = firstCellText
@@ -341,7 +192,8 @@ test.describe('schedules', () => {
 
         const search = page.getByPlaceholder('Rechercher une programmation...');
         await expect(search).toBeVisible();
-        await search.fill(scheduleName);
+        await search.click();
+        await search.pressSequentially(scheduleName);
         await expect(search).toHaveValue(scheduleName);
         await expect(scheduleRow).toBeVisible();
 
@@ -399,12 +251,11 @@ test.describe('schedules', () => {
     test('channel tab shows the live display preview without the legacy metadata banner', async ({page}) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
-        const scheduleContext = await ensureChannelWithSchedules(page);
-        expect(scheduleContext).toBeTruthy();
+        await ensureChannelWithSchedules(page);
 
         const currentUrl = new URL(page.url());
         currentUrl.searchParams.set('tab', 'channel');
-        await safeGoto(page, `${currentUrl.pathname}${currentUrl.search}`);
+        await page.goto(`${currentUrl.pathname}${currentUrl.search}`);
 
         await expect(page.getByRole('tab', {name: 'Canal'})).toHaveAttribute('aria-selected', 'true');
         const previewCard = page.locator('[data-slot="card"]').filter({
@@ -419,7 +270,7 @@ test.describe('schedules', () => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
         const scheduleContext = await ensureChannelWithSchedules(page);
-        const {scheduleLink} = scheduleContext!;
+        const {scheduleLink} = scheduleContext;
         await openScheduleDetail(page, scheduleLink);
         await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible();
         await expect(page.getByText('Informations')).toBeVisible();
@@ -438,7 +289,7 @@ test.describe('schedules', () => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
         const scheduleContext = await ensureChannelWithSchedules(page);
-        const {initialSchedulesUrl, scheduleLink} = scheduleContext!;
+        const {initialSchedulesUrl, scheduleLink} = scheduleContext;
         await openScheduleDetail(page, scheduleLink);
 
         const scheduleDetailUrl = new URL(page.url());
@@ -455,8 +306,10 @@ test.describe('schedules', () => {
         expect(playlistDetailUrl.pathname).toBe(new URL(playlistHref, 'http://localhost').pathname);
         expect(playlistDetailUrl.searchParams.get('returnTo')).toBe(`${scheduleDetailUrl.pathname}${scheduleDetailUrl.search}`);
 
-        await page.getByRole('link', {name: 'Modifier infos'}).click();
-        await expect(page).toHaveURL(/\/dashboard\/playlists\/[^/]+\/edit(\?.*)?$/);
+        const playlistEditLink = page.getByRole('link', {name: 'Modifier infos'});
+        const playlistEditHref = await playlistEditLink.getAttribute('href');
+        if (!playlistEditHref) throw new Error('Lien de modification de la playlist introuvable.');
+        await page.goto(playlistEditHref);
         const playlistEditUrl = new URL(page.url());
         expect(playlistEditUrl.pathname).toMatch(/^\/dashboard\/playlists\/[^/]+\/edit$/);
         expect(playlistEditUrl.searchParams.get('returnTo')).toBe(`${scheduleDetailUrl.pathname}${scheduleDetailUrl.search}`);
@@ -477,7 +330,7 @@ test.describe('schedules', () => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
         const scheduleContext = await ensureChannelWithSchedules(page);
-        const {initialSchedulesUrl, scheduleLink} = scheduleContext!;
+        const {initialSchedulesUrl, scheduleLink} = scheduleContext;
         await openScheduleDetail(page, scheduleLink);
 
         const scheduleDetailUrl = new URL(page.url());
@@ -494,8 +347,10 @@ test.describe('schedules', () => {
         expect(channelDetailUrl.pathname).toBe(new URL(channelHref, 'http://localhost').pathname);
         expect(channelDetailUrl.searchParams.get('returnTo')).toBe(`${scheduleDetailUrl.pathname}${scheduleDetailUrl.search}`);
 
-        await page.getByRole('link', {name: 'Modifier infos'}).click();
-        await expect(page).toHaveURL(/\/dashboard\/channels\/[^/]+\/edit(\?.*)?$/);
+        const channelEditLink = page.getByRole('link', {name: 'Modifier infos'});
+        const channelEditHref = await channelEditLink.getAttribute('href');
+        if (!channelEditHref) throw new Error('Lien de modification du canal introuvable.');
+        await page.goto(channelEditHref);
         const channelEditUrl = new URL(page.url());
         expect(channelEditUrl.pathname).toMatch(/^\/dashboard\/channels\/[^/]+\/edit$/);
         expect(channelEditUrl.searchParams.get('returnTo')).toBe(`${scheduleDetailUrl.pathname}${scheduleDetailUrl.search}`);
@@ -514,7 +369,7 @@ test.describe('schedules', () => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
 
         const scheduleContext = await ensureChannelWithSchedules(page);
-        const {initialSchedulesUrl, scheduleLink} = scheduleContext!;
+        const {initialSchedulesUrl, scheduleLink} = scheduleContext;
         await openScheduleDetail(page, scheduleLink);
 
         const scheduleDetailUrl = new URL(page.url());
@@ -542,49 +397,30 @@ test.describe('schedules', () => {
         const channelId = schedulesUrl.searchParams.get('channelId');
         expect(channelId).toBeTruthy();
         const baseNewScheduleUrl = `/dashboard/schedules/new?channelId=${channelId}&type=EVENT`;
-        let createdScheduleId: string | null = null;
-        await cleanupShortActusEventsViaUi({page, channelId: channelId!});
+        const created = await createEventSchedule({page, baseNewScheduleUrl});
+        createdScheduleIds.add(created.scheduleId);
 
-        try {
-            const created = await createEventScheduleWithRetry({
-                page,
-                baseNewScheduleUrl,
-            });
-            createdScheduleId = created.scheduleId;
-            expect(created.dateIndex).toBeGreaterThanOrEqual(0);
+        await page.goto(`/dashboard/schedules?channelId=${channelId}&tab=calendar`);
+        await expect(page.getByRole('tab', {name: 'Planning'})).toHaveAttribute('aria-selected', 'true');
 
-            await safeGoto(page, `/dashboard/schedules?channelId=${channelId}&tab=calendar`);
-            await expect(page.getByRole('tab', {name: 'Planning'})).toHaveAttribute('aria-selected', 'true');
+        const calendarEvent = page.locator('.sx__event').first();
+        await expect(calendarEvent).toBeVisible();
+        await calendarEvent.click();
 
-            const calendarEvent = page.locator('.sx__event').first();
-            await expect(calendarEvent).toBeVisible();
-            await calendarEvent.click({force: true});
+        const popover = page.getByRole('dialog');
+        await expect(popover).toBeVisible();
+        await expect(popover.getByText('Fenêtre:')).toBeVisible();
+        const scheduleLink = popover.getByRole('link', {name: 'Voir la programmation'});
+        await scheduleLink.click();
 
-            const popover = page.getByRole('dialog');
-            await expect(popover).toBeVisible();
-            await expect(popover.getByText('Fenêtre:')).toBeVisible();
-            const scheduleLink = popover.getByRole('link', {name: 'Voir la programmation'});
-            await expect(scheduleLink).toBeVisible();
-            await scheduleLink.click();
+        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+        const detailUrl = new URL(page.url());
+        expect(detailUrl.searchParams.get('returnTo'))
+            .toBe(`/dashboard/schedules?channelId=${channelId}&tab=calendar`);
 
-            await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
-            const detailUrl = new URL(page.url());
-            const returnTo = detailUrl.searchParams.get('returnTo');
-            expect(returnTo).toBe(`/dashboard/schedules?channelId=${channelId}&tab=calendar`);
-
-            await page.getByRole('link', {name: 'Retour'}).click();
-            await expect(page).toHaveURL(new RegExp(`/dashboard/schedules\\?channelId=${channelId}&tab=calendar`));
-            await expect(page.getByRole('tab', {name: 'Planning'})).toHaveAttribute('aria-selected', 'true');
-        } finally {
-            if (createdScheduleId) {
-                await deleteScheduleViaUi({
-                    page,
-                    scheduleId: createdScheduleId,
-                    channelId: channelId!,
-                });
-            }
-            await cleanupShortActusEventsViaUi({page, channelId: channelId!});
-        }
+        await page.getByRole('link', {name: 'Retour'}).click();
+        await expect(page).toHaveURL(new RegExp(`/dashboard/schedules\\?channelId=${channelId}&tab=calendar`));
+        await expect(page.getByRole('tab', {name: 'Planning'})).toHaveAttribute('aria-selected', 'true');
     });
 
     test('conflict link then app back restores schedule form state', async ({page}) => {
@@ -595,47 +431,30 @@ test.describe('schedules', () => {
         const channelId = schedulesUrl.searchParams.get('channelId');
         expect(channelId).toBeTruthy();
         const baseNewScheduleUrl = `/dashboard/schedules/new?channelId=${channelId}&type=EVENT`;
-        let baseScheduleId: string | null = null;
-        await cleanupShortActusEventsViaUi({page, channelId: channelId!});
+        const baseSchedule = await createEventSchedule({page, baseNewScheduleUrl});
+        createdScheduleIds.add(baseSchedule.scheduleId);
 
-        try {
-            const baseSchedule = await createEventScheduleWithRetry({
-                page,
-                baseNewScheduleUrl,
-            });
-            baseScheduleId = baseSchedule.scheduleId;
+        await page.goto(baseNewScheduleUrl);
+        await fillEventScheduleForm({page, dateIndex: baseSchedule.dateIndex});
+        const selectedStartDateLabel = ((await getFieldButton(page, 'Date de début').textContent()) ?? '').trim();
+        await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
 
-            await safeGoto(page, baseNewScheduleUrl);
-            await fillEventScheduleForm({page, dateIndex: baseSchedule.dateIndex});
-            const selectedStartDateLabel = ((await getFieldButton(page, 'Date de début').textContent()) ?? '').trim();
-            await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
+        await expect(page.getByText('Conflit détecté', {exact: true})).toBeVisible();
+        await expect(page.getByText('1 conflit détecté.')).toBeVisible();
 
-            await expect(page.getByText('Conflit détecté', {exact: true})).toBeVisible();
-            await expect(page.getByText('1 conflit détecté.')).toBeVisible();
+        await page.getByRole('link', {name: 'Voir la programmation en conflit'}).click();
+        await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
+        const backLink = page.getByRole('link', {name: 'Retour'});
+        await expect(backLink).toHaveAttribute('href', /\/dashboard\/schedules\/new\?/);
+        await expect(backLink).toHaveAttribute('href', /restoreConflictDraft=1/);
 
-            await page.getByRole('link', {name: 'Voir la programmation en conflit'}).first().click();
-            await expect(page).toHaveURL(/\/dashboard\/schedules\/[^/]+(\?.*)?$/);
-            const backLink = page.getByRole('link', {name: 'Retour'});
-            await expect(backLink).toHaveAttribute('href', /\/dashboard\/schedules\/new\?/);
-            await expect(backLink).toHaveAttribute('href', /restoreConflictDraft=1/);
-
-            await backLink.click();
-            await expect(page).toHaveURL(new RegExp(`/dashboard/schedules/new\\?channelId=${channelId}&type=EVENT`));
-            await expect(page.getByText('Conflit détecté', {exact: true})).toBeVisible();
-            await expect(page.getByText('1 conflit détecté.')).toBeVisible();
-            await expect(page.getByLabel('Type')).toContainText('Événementielle');
-            await expect(getFieldButton(page, 'Date de début')).toContainText(selectedStartDateLabel);
-            await expect(getFieldButton(page, 'Heure de début')).toContainText('00:00');
-            await expect(page.getByLabel('Fin de diffusion')).toContainText('Durée de la playlist');
-        } finally {
-            if (baseScheduleId) {
-                await deleteScheduleViaUi({
-                    page,
-                    scheduleId: baseScheduleId,
-                    channelId: channelId!,
-                });
-            }
-            await cleanupShortActusEventsViaUi({page, channelId: channelId!});
-        }
+        await backLink.click();
+        await expect(page).toHaveURL(new RegExp(`/dashboard/schedules/new\\?channelId=${channelId}&type=EVENT`));
+        await expect(page.getByText('Conflit détecté', {exact: true})).toBeVisible();
+        await expect(page.getByText('1 conflit détecté.')).toBeVisible();
+        await expect(page.getByLabel('Type')).toContainText('Événementielle');
+        await expect(getFieldButton(page, 'Date de début')).toContainText(selectedStartDateLabel);
+        await expect(getFieldButton(page, 'Heure de début')).toContainText('00:00');
+        await expect(page.getByLabel('Fin de diffusion')).toContainText('Durée de la playlist');
     });
 });

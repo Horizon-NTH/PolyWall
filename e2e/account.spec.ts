@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { ADMIN_CREDENTIALS } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
+import { expectCardToBeVisible } from './helpers/ui';
 
 test.describe('account page', () => {
     test.beforeEach(async ({context}) => {
@@ -12,9 +13,9 @@ test.describe('account page', () => {
         await page.goto('/dashboard/account');
 
         await expect(page.getByRole('heading', {name: 'Compte'})).toBeVisible();
-        await expect(page.locator('[data-slot="card-title"]', {hasText: 'Profil'})).toBeVisible();
-        await expect(page.locator('[data-slot="card-title"]', {hasText: 'Mot de passe'})).toBeVisible();
-        await expect(page.locator('[data-slot="card-title"]', {hasText: 'Organisation'})).toBeVisible();
+        await expectCardToBeVisible(page, 'Profil');
+        await expectCardToBeVisible(page, 'Mot de passe');
+        await expectCardToBeVisible(page, 'Organisation');
         await expect(page.getByLabel('breadcrumb').getByRole('link', {name: 'Tableau de bord'})).toBeVisible();
     });
 

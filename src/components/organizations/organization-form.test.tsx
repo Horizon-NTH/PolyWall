@@ -96,7 +96,7 @@ describe('OrganizationForm', () => {
                 description: 'Description',
             });
             expect(toastMock.success).toHaveBeenCalledWith('Organisation créée.');
-            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/organizations');
+            expect(routerMock.push).toHaveBeenCalledWith('/dashboard/organizations/org-1?returnTo=%2Fdashboard%2Forganizations');
         });
     });
 

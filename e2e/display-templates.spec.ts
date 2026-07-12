@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import {
     ADMIN_CREDENTIALS,
@@ -6,73 +6,16 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
-import { safeGoto } from './helpers/navigation';
+import { createChannel, deleteChannelById } from './helpers/channels';
 import { createCleanupTracker, extractDashboardEntityId, uniqueE2eName } from './helpers/data';
 import { confirmAlertDialog } from './helpers/ui';
-
-async function fieldByLabel(container: Page | Locator, label: string) {
-    const fields = await container.locator('[data-slot="field"]').all();
-
-    for (const field of fields) {
-        const directLabel = field.locator(':scope > [data-slot="field-label"]').first();
-        if ((await directLabel.count()) === 0) continue;
-
-        const labelText = ((await directLabel.textContent()) ?? '').replace(/\s+/g, ' ').trim();
-        if (labelText === label) return field;
-    }
-
-    throw new Error(`Champ introuvable: ${label}`);
-}
+import { fillNumberField, fillTextField, selectFieldOption } from './helpers/form';
 
 function zoneCard(page: Page, zoneType: 'WIDGET' | 'STATIC' | 'PLAYLIST') {
     return page
         .locator('[data-slot="card"]')
         .filter({has: page.locator('[data-slot="card-description"]', {hasText: zoneType})})
         .last();
-}
-
-function getPage(container: Page | Locator) {
-    return 'page' in container ? container.page() : container;
-}
-
-async function fillTextField(container: Page | Locator, label: string, value: string) {
-    await (await fieldByLabel(container, label)).getByRole('textbox').fill(value);
-}
-
-async function fillNumberField(container: Page | Locator, label: string, value: number) {
-    try {
-        await (await fieldByLabel(container, label)).getByRole('spinbutton').fill(String(value));
-    } catch (error) {
-        if (!(error instanceof Error) || !error.message.includes('Champ introuvable')) throw error;
-        await container.getByRole('spinbutton', {name: label}).fill(String(value));
-    }
-}
-
-async function selectFieldOption(container: Page | Locator, label: string, optionName: string | RegExp) {
-    const combobox = (await fieldByLabel(container, label)).getByRole('combobox').first();
-    const currentValue = ((await combobox.textContent()) ?? '').replace(/\s+/g, ' ').trim();
-
-    if (typeof optionName === 'string' && currentValue === optionName) return;
-
-    await combobox.click();
-    await getPage(container)
-        .getByRole('option', typeof optionName === 'string' ? {name: optionName, exact: true} : {name: optionName})
-        .click();
-}
-
-async function ensureTemplatesList(page: Page) {
-    await safeGoto(page, '/dashboard/display-templates');
-    await page.waitForURL(/\/dashboard\/display-templates$/, {timeout: 15000});
-    await page.waitForLoadState('domcontentloaded');
-}
-
-async function findTemplateIdFromList(page: Page, name: string) {
-    await ensureTemplatesList(page);
-    const link = page.getByRole('link', {name});
-    await expect(link).toBeVisible();
-    const href = await link.getAttribute('href');
-    if (!href) throw new Error(`Lien du modèle introuvable: ${name}`);
-    return extractDashboardEntityId(href, 'display-templates');
 }
 
 async function createDisplayTemplate(
@@ -90,7 +33,7 @@ async function createDisplayTemplate(
         };
     },
 ) {
-    await safeGoto(page, '/dashboard/display-templates/new');
+    await page.goto('/dashboard/display-templates/new');
     await expect(page.getByText('Nouveau modèle d\'affichage')).toBeVisible();
 
     if (params.scope) {
@@ -99,7 +42,7 @@ async function createDisplayTemplate(
 
     if (params.carousel) {
         const playlistCard = zoneCard(page, 'PLAYLIST');
-        await playlistCard.getByRole('tab', {name: 'Carousel'}).click({timeout: 200});
+        await playlistCard.getByRole('tab', {name: 'Carousel'}).click();
         await fillNumberField(playlistCard, 'Arrondi médias', params.carousel.mediaBorderRadius);
         await fillNumberField(playlistCard, 'Espacement', params.carousel.itemGap);
         await fillNumberField(playlistCard, 'Assombrissement', params.carousel.sideDimOpacity);
@@ -122,7 +65,7 @@ async function createDisplayTemplate(
     if (params.includeStatic) {
         await page.getByRole('button', {name: /Zone statique/}).click();
         const staticCard = zoneCard(page, 'STATIC');
-        await expect(staticCard).toBeVisible({timeout: 200});
+        await expect(staticCard).toBeVisible();
         await fillTextField(staticCard, 'Nom', 'Bandeau info');
         await fillNumberField(staticCard, 'Position horizontale', 0);
         await fillNumberField(staticCard, 'Position verticale', 930);
@@ -138,67 +81,34 @@ async function createDisplayTemplate(
     await page.getByRole('main').getByRole('textbox', {name: 'Fond global'}).fill('#111827');
 
     await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
-    await page.waitForURL(/\/dashboard\/display-templates\/[^/]+$/, {timeout: 15000});
+    await page.waitForURL(/\/dashboard\/display-templates\/[^/]+$/);
     await expect(page.getByRole('heading', {name: params.name})).toBeVisible();
     return extractDashboardEntityId(page.url(), 'display-templates');
 }
 
 async function deleteDisplayTemplateById(page: Page, templateId: string) {
-    await safeGoto(page, `/dashboard/display-templates/${templateId}`);
-    const deleteButton = page.getByRole('button', {name: 'Supprimer'});
-    await deleteButton.click();
+    await page.goto(`/dashboard/display-templates/${templateId}`);
+    await page.getByRole('button', {name: 'Supprimer'}).click();
     await confirmAlertDialog(page);
-    await page.waitForURL(/\/dashboard\/display-templates$/, {timeout: 15000});
-}
-
-async function deleteChannelById(page: Page, channelId: string) {
-    await safeGoto(page, `/dashboard/channels/${channelId}`);
-    const deleteButton = page.getByRole('button', {name: 'Supprimer'});
-    await deleteButton.click();
-    await confirmAlertDialog(page);
-    await page.waitForURL(/\/dashboard\/channels$/, {timeout: 15000});
-}
-
-async function createChannelWithTemplate(
-    page: Page,
-    params: {
-        name: string;
-        description: string;
-        templateName: string;
-    },
-) {
-    await safeGoto(page, '/dashboard/channels/new');
-    await page.getByRole('main').getByRole('textbox', {name: 'Nom'}).fill(params.name);
-    await page.getByRole('main').getByRole('textbox', {name: 'Description'}).fill(params.description);
-    await selectFieldOption(page, 'Modèle d\'affichage', params.templateName);
-    await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
-    await page.waitForURL(/\/dashboard\/channels\/[^/]+$/, {timeout: 15000});
-    await expect(page.getByRole('heading', {name: params.name})).toBeVisible();
-    return extractDashboardEntityId(page.url(), 'channels');
+    await expect(page.getByText('Modèle supprimé.')).toBeVisible();
+    await page.waitForURL(/\/dashboard\/display-templates$/);
 }
 
 test.describe('display templates', () => {
     test.describe.configure({mode: 'serial'});
 
     const createdTemplateIds = createCleanupTracker<string>();
-    const createdChannelIds = createCleanupTracker<string>();
 
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
         createdTemplateIds.clear();
-        createdChannelIds.clear();
     });
 
     test.afterEach(async ({page}) => {
-        for (const channelId of createdChannelIds.unique()) {
-            await deleteChannelById(page, channelId);
-        }
-
         for (const templateId of createdTemplateIds.unique()) {
             await deleteDisplayTemplateById(page, templateId);
         }
 
-        createdChannelIds.clear();
         createdTemplateIds.clear();
     });
 
@@ -233,30 +143,20 @@ test.describe('display templates', () => {
         await selectFieldOption(widgetCard, 'Format', 'HH:mm');
 
         await page.getByRole('main').getByRole('button', {name: 'Enregistrer'}).click();
-        await page.waitForURL(new RegExp(`/dashboard/display-templates/${templateId}$`), {timeout: 15000});
+        const originalPathname = `/dashboard/display-templates/${templateId}`;
+        await page.waitForURL(url => url.pathname === originalPathname);
         await expect(page.getByText('Modèle mis à jour.')).toBeVisible();
         await expect(page.getByRole('heading', {name: updatedName})).toBeVisible();
 
         const duplicateName = `${updatedName} Copie`;
         await fillTextField(page.locator('[data-slot="card"]').filter({hasText: 'Actions'}), 'Nom de la copie', duplicateName);
         await page.getByRole('button', {name: 'Dupliquer'}).click();
-        await expect.poll(() => {
-            const url = new URL(page.url());
-            const duplicateIdFromUrl = url.pathname.match(/^\/dashboard\/display-templates\/([^/]+)$/)?.[1];
-            return duplicateIdFromUrl && duplicateIdFromUrl !== templateId ? duplicateIdFromUrl : null;
-        }, {timeout: 15000}).not.toBeNull();
+        await page.waitForURL(url => url.pathname != originalPathname);
         const duplicateId = extractDashboardEntityId(page.url(), 'display-templates');
-        createdTemplateIds.add(duplicateId);
         await expect(page.getByRole('heading', {name: duplicateName})).toBeVisible();
         await expect(page.getByText('Modèle dupliqué.')).toBeVisible();
 
         await deleteDisplayTemplateById(page, duplicateId);
-        createdTemplateIds.remove(duplicateId);
-        await expect(page.getByText('Modèle supprimé.')).toBeVisible();
-
-        await deleteDisplayTemplateById(page, templateId);
-        createdTemplateIds.remove(templateId);
-        await expect(page.getByText('Modèle supprimé.')).toBeVisible();
     });
 
     test('admin can create a carousel display template and keep its playlist options', async ({page}, testInfo) => {
@@ -285,7 +185,7 @@ test.describe('display templates', () => {
 
         await fillNumberField(playlistCard, 'Espacement', 52);
         await page.getByRole('main').getByRole('button', {name: 'Enregistrer'}).click();
-        await page.waitForURL(new RegExp(`/dashboard/display-templates/${templateId}$`), {timeout: 15000});
+        await page.waitForURL(new RegExp(`/dashboard/display-templates/${templateId}$`));
 
         await page.getByRole('link', {name: 'Modifier'}).click();
         const updatedPlaylistCard = zoneCard(page, 'PLAYLIST');
@@ -304,14 +204,13 @@ test.describe('display templates', () => {
         createdTemplateIds.add(templateId);
 
         const channelName = uniqueE2eName(testInfo.project.name, 'Canal modèle');
-        const channelId = await createChannelWithTemplate(page, {
+        const channelId = await createChannel(page, {
             name: channelName,
             description: 'Canal e2e associé au modèle.',
             templateName,
         });
-        createdChannelIds.add(channelId);
 
-        await safeGoto(page, `/dashboard/display-templates/${templateId}`);
+        await page.goto(`/dashboard/display-templates/${templateId}`);
         await expect(page.getByRole('link', {name: channelName})).toBeVisible();
         await page.getByRole('button', {name: 'Supprimer'}).click();
 
@@ -321,12 +220,11 @@ test.describe('display templates', () => {
         await dialog.getByRole('button', {name: 'Fermer'}).click();
 
         await deleteChannelById(page, channelId);
-        createdChannelIds.remove(channelId);
     });
 
     test('content manager can read templates but cannot create or mutate them', async ({page}) => {
         await login(page, CONTENT_MANAGER_CREDENTIALS.email, CONTENT_MANAGER_CREDENTIALS.password);
-        await ensureTemplatesList(page);
+        await page.goto('/dashboard/display-templates');
 
         await expect(page.getByText('Modèles d\'affichage').first()).toBeVisible();
         await expect(page.getByRole('link', {name: 'Créer'})).toHaveCount(0);
@@ -336,7 +234,7 @@ test.describe('display templates', () => {
         await expect(page.getByRole('link', {name: 'Modifier'})).toHaveCount(0);
         await expect(page.getByRole('button', {name: 'Supprimer'})).toHaveCount(0);
 
-        await safeGoto(page, '/dashboard/display-templates/new');
+        await page.goto('/dashboard/display-templates/new');
         await expect(page).toHaveURL(/\/dashboard$/);
     });
 
@@ -356,7 +254,8 @@ test.describe('display templates', () => {
         await expect(page.getByRole('link', {name: 'Modifier'})).toBeVisible();
         await expect(page.getByRole('button', {name: 'Supprimer'})).toBeVisible();
 
-        await ensureTemplatesList(page);
+        await page.getByRole('link', {name: 'Retour'}).click();
+
         await page.getByRole('button', {name: 'Portée'}).first().click();
         await page.getByRole('menuitemradio', {name: 'Globales'}).click();
         await expect(page.getByRole('link', {name: templateName})).toBeVisible();
@@ -375,17 +274,14 @@ test.describe('display templates', () => {
 
         await page.context().clearCookies();
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
-
-        const listedTemplateId = await findTemplateIdFromList(page, templateName);
-        expect(listedTemplateId).toBe(templateId);
-
-        await page.getByRole('link', {name: templateName}).click();
+        await page.goto(`/dashboard/display-templates/${templateId}`);
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/display-templates/${templateId}`);
         await expect(
             page.getByRole('main').locator('[data-slot="card"]').filter({hasText: 'Informations'})
                 .getByText('Global', {exact: true}).first(),
         ).toBeVisible();
         await expect(page.getByRole('link', {name: 'Modifier'})).toHaveCount(0);
-        await safeGoto(page, `/dashboard/display-templates/${templateId}/edit`);
+        await page.goto(`/dashboard/display-templates/${templateId}/edit`);
         await expect(page).toHaveURL(/\/dashboard$/);
 
         await page.context().clearCookies();

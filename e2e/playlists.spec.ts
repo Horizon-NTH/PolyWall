@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import {
     ADMIN_CREDENTIALS,
@@ -7,67 +7,40 @@ import {
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
 import { createCleanupTracker, extractDashboardEntityId, uniqueE2eName } from './helpers/data';
-import { ensureDashboardPath, safeGoto } from './helpers/navigation';
 import { confirmAlertDialog } from './helpers/ui';
 
 const createdPlaylistIds = createCleanupTracker<string>();
 
-async function filterPlaylists(page: Parameters<typeof login>[0], query: string) {
-    await ensureDashboardPath(page, '/dashboard/playlists');
+async function filterPlaylists(page: Page, query: string) {
     const search = page.getByPlaceholder('Rechercher une playlist...');
     await expect(search).toBeVisible();
     await search.click();
     await search.fill(query);
-    await expect(search).toHaveValue(query);
 }
 
 async function createPlaylist(
-    page: Parameters<typeof login>[0],
+    page: Page,
     params: {
         name: string;
         description: string;
     },
 ) {
-    const createButton = page.getByRole('main').getByRole('button', {name: 'Créer'});
-
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-        await safeGoto(page, '/dashboard/playlists/new');
-        await page.waitForLoadState('networkidle');
-        await page.getByLabel('Nom').fill(params.name);
-        await page.getByLabel('Description').fill(params.description);
-
-        await Promise.all([
-            page.waitForURL(
-                (url) => /^\/dashboard\/playlists\/[^/]+$/.test(url.pathname) && !url.pathname.endsWith('/new'),
-                {timeout: 12000, waitUntil: 'commit'},
-            ).catch(() => null),
-            createButton.click(),
-        ]);
-
-        if (/\/dashboard\/playlists\/(?!new$)([^/]+)$/.test(new URL(page.url()).pathname)) {
-            break;
-        }
-    }
-
-    await expect
-        .poll(() => new URL(page.url()).pathname, {timeout: 20000})
-        .toMatch(/^\/dashboard\/playlists\/(?!new$)[^/]+$/);
-
-    const playlistId = extractDashboardEntityId(page.url(), 'playlists');
+    await page.goto('/dashboard/playlists/new');
+    await page.getByLabel('Nom').fill(params.name);
+    await page.getByLabel('Description').fill(params.description);
+    await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
+    await page.waitForURL((url) => /^\/dashboard\/playlists\/[^/]+$/.test(url.pathname) &&
+        url.pathname !== '/dashboard/playlists/new');
     await expect(page.getByRole('heading', {name: params.name})).toBeVisible();
-    return playlistId;
+    return extractDashboardEntityId(page.url(), 'playlists');
 }
 
-async function deletePlaylistById(page: Parameters<typeof login>[0], playlistId: string) {
-    if (page.isClosed()) return;
+async function deletePlaylistById(page: Page, playlistId: string) {
     await page.goto(`/dashboard/playlists/${playlistId}`);
-
-    const deleteButton = page.getByRole('button', {name: 'Supprimer'}).first();
-    if ((await deleteButton.count()) === 0) return;
-
-    await deleteButton.click();
+    await page.getByRole('button', {name: 'Supprimer'}).click();
     await confirmAlertDialog(page);
-    await page.waitForURL(/\/dashboard\/playlists$/, {timeout: 15000});
+    await expect(page.getByText('Playlist supprimée.')).toBeVisible();
+    await page.waitForURL(/\/dashboard\/playlists$/);
 }
 
 test.describe('playlists', () => {
@@ -88,7 +61,7 @@ test.describe('playlists', () => {
 
     test('super admin must select an organization before accessing playlist pages', async ({page}) => {
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
-        await safeGoto(page, '/dashboard/playlists');
+        await page.goto('/dashboard/playlists');
         await expect(page).toHaveURL(/\/dashboard\/playlists$/);
 
         await expect(
@@ -99,11 +72,11 @@ test.describe('playlists', () => {
 
     test('content manager can access playlists section', async ({page}) => {
         await login(page, CONTENT_MANAGER_CREDENTIALS.email, CONTENT_MANAGER_CREDENTIALS.password);
-        await safeGoto(page, '/dashboard/playlists');
+        await page.goto('/dashboard/playlists');
         await expect(page).toHaveURL(/\/dashboard\/playlists$/);
         await expect(page.getByPlaceholder('Rechercher une playlist...')).toBeVisible();
 
-        await safeGoto(page, '/dashboard/playlists/new');
+        await page.goto('/dashboard/playlists/new');
         await expect(page).toHaveURL(/\/dashboard\/playlists\/new$/);
         await expect(page.getByText('Nouvelle playlist')).toBeVisible();
     });
@@ -117,6 +90,9 @@ test.describe('playlists', () => {
             description: 'Playlist e2e pour tester la liste.',
         });
         createdPlaylistIds.add(playlistId);
+
+        await page.getByRole('link', {name: 'Retour'}).click();
+        await expect(page).toHaveURL(/\/dashboard\/playlists$/);
 
         await filterPlaylists(page, playlistName);
         await expect(page.getByRole('link', {name: playlistName})).toBeVisible();
@@ -149,17 +125,15 @@ test.describe('playlists', () => {
 
         await filterPlaylists(page, playlistName);
         await page.getByRole('button', {name: 'Ouvrir le menu'}).first().click();
-        await Promise.all([
-            page.waitForURL(new RegExp(`/dashboard/playlists/${playlistId}/edit(\\?.*)?$`)),
-            page.getByRole('menuitem', {name: 'Modifier infos'}).click(),
-        ]);
+        await page.getByRole('menuitem', {name: 'Modifier infos'}).click();
+        await expect(page).toHaveURL(new RegExp(`/dashboard/playlists/${playlistId}/edit(\\?.*)?$`));
         await page.getByRole('link', {name: 'Annuler'}).click();
         await expect(page).toHaveURL(new RegExp(`/dashboard/playlists/${playlistId}(\\?.*)?$`));
     });
 
     test('create form supports cancel navigation', async ({page}) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
-        await safeGoto(page, '/dashboard/playlists/new');
+        await page.goto('/dashboard/playlists/new');
         await page.getByLabel('Nom').fill('Brouillon playlist');
         await page.getByLabel('Description').fill('Brouillon pour tester annulation.');
         await page.getByRole('link', {name: 'Annuler'}).click();
@@ -174,7 +148,6 @@ test.describe('playlists', () => {
             name: playlistName,
             description: 'Playlist à modifier et supprimer.',
         });
-        createdPlaylistIds.add(playlistId);
 
         await page.getByRole('link', {name: 'Modifier infos'}).click();
         await expect(page).toHaveURL((url) => url.pathname === `/dashboard/playlists/${playlistId}/edit`);
@@ -190,11 +163,8 @@ test.describe('playlists', () => {
 
         await page.getByRole('button', {name: 'Supprimer'}).first().click();
         await confirmAlertDialog(page);
-        await page.waitForURL(/\/dashboard\/playlists$/, {timeout: 15000});
+        await page.waitForURL(/\/dashboard\/playlists$/);
         await expect(page.getByText('Playlist supprimée.')).toBeVisible();
-
-        await filterPlaylists(page, updatedName);
         await expect(page.getByRole('link', {name: updatedName})).toHaveCount(0);
-        createdPlaylistIds.clear();
     });
 });

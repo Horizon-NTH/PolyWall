@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { appendReturnTo } from '@/lib/return-to';
 import { organizationSchema } from '@/schemas/organization-schema';
 
 type OrganizationFormValues = z.infer<typeof organizationSchema>;
@@ -76,7 +77,7 @@ export function OrganizationForm({
             if (isEdit) {
                 router.push(cancelHref);
             } else {
-                router.push('/dashboard/organizations');
+                router.push(appendReturnTo(`/dashboard/organizations/${result.organizationId}`, cancelHref));
             }
         });
     }

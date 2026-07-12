@@ -11,6 +11,7 @@ import {
     type ManagedUserFormResult,
     type ManagedUserFormValues,
 } from '@/components/users/managed-user-form';
+import { appendReturnTo } from '@/lib/return-to';
 import { userCreateSchema, userUpdateSchema } from '@/schemas/user-schema';
 
 type UserCreateValues = z.infer<typeof userCreateSchema>;
@@ -43,11 +44,11 @@ export function UserForm({
         return createUser(values as UserCreateValues);
     };
 
-    const handleSuccess = () => {
+    const handleSuccess = (_values: ManagedUserFormValues, result: { ok: true; userId?: string }) => {
         if (isEdit) {
             router.push(cancelHref);
         } else {
-            router.push('/dashboard/users');
+            router.push(appendReturnTo(`/dashboard/users/${result.userId ?? ''}`, cancelHref));
         }
     };
 

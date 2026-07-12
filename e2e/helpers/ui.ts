@@ -22,10 +22,6 @@ export async function fillSearchByPlaceholder(page: Page, placeholder: string, q
     await expect(search).toHaveValue(query);
 }
 
-export async function expectCardToBeVisible(page: Page, text: string | RegExp) {
-    const card = page.locator('[data-slot="card"]').filter({
-        has: page.getByText(text, typeof text === 'string' ? {exact: true} : undefined),
-    });
-
-    await expect(card.first()).toBeVisible();
+export async function expectCardToBeVisible(page: Page, text: string, exact: boolean = true) {
+    await expect(page.locator('[data-slot="card-title"]').getByText(text, {exact})).toBeVisible();
 }

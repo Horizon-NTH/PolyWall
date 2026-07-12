@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import {
     ADMIN_CREDENTIALS,
@@ -7,77 +7,57 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
-import { createCleanupTracker, uniqueE2eEmail, uniqueE2eName } from './helpers/data';
-import { ensureDashboardPath } from './helpers/navigation';
-import { confirmAlertDialog, fillSearchByPlaceholder } from './helpers/ui';
+import { createCleanupTracker, extractDashboardEntityId, uniqueE2eEmail, uniqueE2eName } from './helpers/data';
+import { confirmAlertDialog } from './helpers/ui';
 
-const createdUserNames = createCleanupTracker<string>();
+const createdUserIds = createCleanupTracker<string>();
 
-async function filterUsers(page: Parameters<typeof login>[0], query: string) {
-    await ensureDashboardPath(page, '/dashboard/users');
-    await fillSearchByPlaceholder(page, 'Rechercher un utilisateur...', query);
-}
-
-async function getUserIdFromList(page: Parameters<typeof login>[0], name: string) {
-    await page.goto('/dashboard/users');
-    await filterUsers(page, name);
-    const link = page.getByRole('link', {name}).first();
-    await expect(link).toBeVisible();
-    const href = await link.getAttribute('href');
-    await filterUsers(page, '');
-    if (!href) throw new Error(`Missing user link for ${name}`);
-    return new URL(href, 'http://localhost').pathname.split('/').pop() ?? '';
+async function filterUsers(page: Page, query: string) {
+    const search = page.getByPlaceholder('Rechercher un utilisateur...');
+    await expect(search).toBeVisible();
+    await search.click();
+    await search.fill(query);
 }
 
 async function createUser(
-    page: Parameters<typeof login>[0],
-    name: string,
-    email: string,
-    description: string,
+    page: Page,
+    params: {
+        name: string;
+        email: string;
+        description: string;
+    },
 ) {
     await page.goto('/dashboard/users/new');
-    await page.getByLabel('Nom complet').fill(name);
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Description').fill(description);
+    await page.getByLabel('Nom complet').fill(params.name);
+    await page.getByLabel('Email').fill(params.email);
+    await page.getByLabel('Description').fill(params.description);
     await page.getByLabel('Mot de passe initial').fill('DevPassword123!');
     await page.getByLabel('Confirmer le mot de passe').fill('DevPassword123!');
     await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
-    await page.waitForURL('**/dashboard/users');
+    await page.waitForURL((url) => /^\/dashboard\/users\/[^/]+$/.test(url.pathname) &&
+        url.pathname !== '/dashboard/users/new');
+    await expect(page.getByRole('heading', {name: params.name})).toBeVisible();
+    return extractDashboardEntityId(page.url(), 'users');
 }
 
-async function deleteUserByName(page: Parameters<typeof login>[0], name: string) {
-    if (page.isClosed()) return;
-    await ensureDashboardPath(page, '/dashboard/users');
-    await filterUsers(page, name);
-    const link = page.getByRole('link', {name}).first();
-    if (await link.count() === 0) {
-        await filterUsers(page, '');
-        return;
-    }
-
-    const userId = await getUserIdFromList(page, name);
+async function deleteUserById(page: Page, userId: string) {
     await page.goto(`/dashboard/users/${userId}`);
     await page.getByRole('button', {name: 'Supprimer'}).click();
     await confirmAlertDialog(page);
     await expect(page.getByText('Utilisateur supprimé.')).toBeVisible();
-    await page.waitForURL(/\/dashboard\/users$/, {timeout: 15000});
-    await filterUsers(page, name);
-    await expect(page.getByRole('link', {name})).toHaveCount(0);
-    await filterUsers(page, '');
 }
 
 test.describe('users', () => {
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
-        createdUserNames.clear();
+        createdUserIds.clear();
     });
 
     test.afterEach(async ({page}) => {
-        if (createdUserNames.isEmpty) return;
-        for (const name of createdUserNames.unique()) {
-            await deleteUserByName(page, name);
+        for (const userId of createdUserIds.unique()) {
+            await deleteUserById(page, userId);
         }
-        createdUserNames.clear();
+        createdUserIds.clear();
     });
 
     test('blocks content managers access to user pages', async ({page}) => {
@@ -109,8 +89,15 @@ test.describe('users', () => {
 
         const userName = uniqueE2eName(testInfo.project.name, 'User', 'List');
         const userEmail = uniqueE2eEmail(testInfo.project.name, 'user-list');
-        await createUser(page, userName, userEmail, 'Gestionnaire e2e.');
-        createdUserNames.add(userName);
+        const userId = await createUser(page, {
+            name: userName,
+            email: userEmail,
+            description: 'Gestionnaire e2e.',
+        });
+        createdUserIds.add(userId);
+
+        await page.getByRole('link', {name: 'Retour'}).click();
+        await expect(page).toHaveURL(/\/dashboard\/users$/);
 
         await filterUsers(page, userName);
         await expect(page.getByRole('link', {name: userName})).toBeVisible();
@@ -140,13 +127,10 @@ test.describe('users', () => {
         await filterUsers(page, userName);
         const rowAfterReturn = page.getByRole('row', {name: new RegExp(userName)});
         await rowAfterReturn.getByRole('button', {name: 'Ouvrir le menu'}).click();
-        await Promise.all([
-            page.waitForURL(/\/dashboard\/users\/.+\/edit(\?.*)?$/),
-            page.getByRole('menuitem', {name: 'Modifier'}).click(),
-        ]);
-        await expect(page).toHaveURL(/\/dashboard\/users\/.+\/edit(\?.*)?$/);
+        await page.getByRole('menuitem', {name: 'Modifier'}).click();
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/users/${userId}/edit`);
         await page.getByRole('link', {name: 'Annuler'}).click();
-        await expect(page).toHaveURL(/\/dashboard\/users\/.+(\?.*)?$/);
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/users/${userId}`);
     });
 
     test('create, edit, toggle, and delete user flow', async ({page}, testInfo) => {
@@ -154,11 +138,12 @@ test.describe('users', () => {
 
         const userName = uniqueE2eName(testInfo.project.name, 'User', 'Flow');
         const userEmail = uniqueE2eEmail(testInfo.project.name, 'user-flow');
-        await createUser(page, userName, userEmail, 'Utilisateur à modifier.');
-        createdUserNames.add(userName);
-
-        const userId = await getUserIdFromList(page, userName);
-        await page.goto(`/dashboard/users/${userId}`);
+        const userId = await createUser(page, {
+            name: userName,
+            email: userEmail,
+            description: 'Utilisateur à modifier.',
+        });
+        createdUserIds.add(userId);
         await expect(page.getByRole('heading', {name: userName})).toBeVisible();
 
         await page.getByRole('button', {name: 'Désactiver'}).click();
@@ -173,8 +158,7 @@ test.describe('users', () => {
 
         await page.getByRole('button', {name: 'Supprimer'}).click();
         await confirmAlertDialog(page);
-        await page.waitForURL(/\/dashboard\/users$/, {timeout: 15000});
         await expect(page.getByText('Utilisateur supprimé.')).toBeVisible();
-        createdUserNames.clear();
+        createdUserIds.remove(userId);
     });
 });

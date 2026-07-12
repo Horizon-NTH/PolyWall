@@ -11,6 +11,7 @@ import {
     type ManagedUserFormValues,
     type ManagedUserFormResult,
 } from '@/components/users/managed-user-form';
+import { appendReturnTo } from '@/lib/return-to';
 import { adminCreateSchema, adminUpdateSchema } from '@/schemas/admin-schema';
 import { UserRole } from '@/generated/prisma/enums';
 import { adminRoleOptions } from '@/lib/roles';
@@ -53,11 +54,11 @@ export function AdminForm({
         return createAdmin(values as AdminCreateValues);
     };
 
-    const handleSuccess = () => {
+    const handleSuccess = (_values: ManagedUserFormValues, result: { ok: true; adminId?: string }) => {
         if (isEdit) {
             router.push(cancelHref);
         } else {
-            router.push('/dashboard/administrators');
+            router.push(appendReturnTo(`/dashboard/administrators/${result.adminId ?? ''}`, cancelHref));
         }
     };
 

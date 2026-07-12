@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 
 import {
     ADMIN_CREDENTIALS,
@@ -7,101 +7,56 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
-import { createCleanupTracker, uniqueE2eEmail, uniqueE2eName } from './helpers/data';
+import { createCleanupTracker, extractDashboardEntityId, uniqueE2eEmail, uniqueE2eName } from './helpers/data';
 import { confirmAlertDialog } from './helpers/ui';
 
-const createdAdminNames = createCleanupTracker<string>();
+const createdAdminIds = createCleanupTracker<string>();
 
-async function filterAdmins(page: Parameters<typeof login>[0], query: string) {
+async function filterAdmins(page: Page, query: string) {
     const search = page.getByPlaceholder('Rechercher un administrateur...');
+    await expect(search).toBeVisible();
+    await search.click();
     await search.fill(query);
 }
 
-async function getAdminIdFromList(page: Parameters<typeof login>[0], name: string) {
-    if (!page.url().includes('/dashboard/administrators')) {
-        await page.goto('/dashboard/administrators');
-    }
-    await filterAdmins(page, name);
-    const link = page.getByRole('link', {name}).first();
-    await expect(link).toBeVisible();
-    const href = await link.getAttribute('href');
-    await filterAdmins(page, '');
-    if (!href) throw new Error(`Missing admin link for ${name}`);
-    return new URL(href, 'http://localhost').pathname.split('/').pop() ?? '';
-}
-
-async function createAdmin(
-    page: Parameters<typeof login>[0],
-    name: string,
-    email: string,
-    description: string,
-    orgName: string,
-) {
+async function createAdmin(page: Page, params: { name: string, email: string, description: string, orgName: string }) {
     await page.goto('/dashboard/administrators/new');
-    await page.getByLabel('Nom complet').fill(name);
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Description').fill(description);
+    await page.getByLabel('Nom complet').fill(params.name);
+    await page.getByLabel('Email').fill(params.email);
+    await page.getByLabel('Description').fill(params.description);
 
-    const orgTrigger = page
-        .getByRole('combobox')
-        .filter({hasText: 'Sélectionner une organisation'});
-    if (await orgTrigger.count()) {
-        await orgTrigger.first().click();
-    } else {
-        await page.getByText('Sélectionner une organisation').first().click();
-    }
-    await page.getByRole('option', {name: orgName}).click();
+    await page.getByRole('combobox').filter({hasText: 'Sélectionner une organisation'}).click();
+    await page.getByRole('option', {name: params.orgName}).click();
 
     await page.getByLabel('Mot de passe initial').fill('DevPassword123!');
     await page.getByLabel('Confirmer le mot de passe').fill('DevPassword123!');
     await page.getByRole('main').getByRole('button', {name: 'Créer'}).click();
-    await page.waitForURL('**/dashboard/administrators');
+    await page.waitForURL(/\/dashboard\/administrators\/(?!new(?:\/|$))[^/]+(?:\?.*)?$/);
+    const id = extractDashboardEntityId(page.url(), 'administrators');
+    await page.getByRole('link', {name: 'Retour'}).click();
+    return id;
 }
 
-async function deleteAdminByName(page: Parameters<typeof login>[0], name: string) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-            await page.goto('/dashboard/administrators', {waitUntil: 'domcontentloaded'});
-        } catch {
-        }
-        await page.waitForURL(/\/dashboard\/administrators(\/.*)?$/, {timeout: 15000});
-        if (page.url().endsWith('/dashboard/administrators')) {
-            break;
-        }
-    }
-    if (!page.url().endsWith('/dashboard/administrators')) {
-        await page.goto('/dashboard/administrators', {waitUntil: 'domcontentloaded'});
-    }
-    await filterAdmins(page, name);
-    const link = page.getByRole('link', {name}).first();
-    if (await link.count() === 0) {
-        await filterAdmins(page, '');
-        return;
-    }
-
-    const adminId = await getAdminIdFromList(page, name);
+async function deleteAdminById(page: Page, adminId: string) {
     await page.goto(`/dashboard/administrators/${adminId}`);
     await page.getByRole('button', {name: 'Supprimer'}).click();
     await confirmAlertDialog(page);
     await expect(page.getByText('Administrateur supprimé.')).toBeVisible();
-    await page.waitForURL(/\/dashboard\/administrators$/, {timeout: 15000});
-    await filterAdmins(page, name);
-    await expect(page.getByRole('link', {name})).toHaveCount(0);
-    await filterAdmins(page, '');
+    await page.waitForURL(/\/dashboard\/administrators$/);
 }
 
 test.describe('administrators', () => {
     test.beforeEach(async ({context}) => {
         await context.clearCookies();
-        createdAdminNames.clear();
+        createdAdminIds.clear();
     });
 
     test.afterEach(async ({page}) => {
-        if (createdAdminNames.isEmpty) return;
-        for (const name of createdAdminNames.unique()) {
-            await deleteAdminByName(page, name);
+        if (createdAdminIds.isEmpty) return;
+        for (const adminId of createdAdminIds.unique()) {
+            await deleteAdminById(page, adminId);
         }
-        createdAdminNames.clear();
+        createdAdminIds.clear();
     });
 
     [
@@ -123,8 +78,13 @@ test.describe('administrators', () => {
 
         const adminName = uniqueE2eName(testInfo.project.name, 'Admin', 'List');
         const adminEmail = uniqueE2eEmail(testInfo.project.name, 'admin-list');
-        await createAdmin(page, adminName, adminEmail, 'Administrateur e2e.', DEMO_ORG_NAME);
-        createdAdminNames.add(adminName);
+        const adminId = await createAdmin(page, {
+            name: adminName,
+            email: adminEmail,
+            description: 'Administrateur e2e.',
+            orgName: DEMO_ORG_NAME,
+        });
+        createdAdminIds.add(adminId);
 
         await filterAdmins(page, adminName);
         await expect(page.getByRole('link', {name: adminName})).toBeVisible();
@@ -173,11 +133,17 @@ test.describe('administrators', () => {
 
         const adminName = uniqueE2eName(testInfo.project.name, 'Admin', 'Flow');
         const adminEmail = uniqueE2eEmail(testInfo.project.name, 'admin-flow');
-        await createAdmin(page, adminName, adminEmail, 'Administrateur à modifier.', DEMO_ORG_NAME);
-        createdAdminNames.add(adminName);
+        const adminId = await createAdmin(page, {
+            name: adminName,
+            email: adminEmail,
+            description: 'Administrateur à modifier.',
+            orgName: DEMO_ORG_NAME,
+        });
+        createdAdminIds.add(adminId);
 
-        const adminId = await getAdminIdFromList(page, adminName);
-        await page.goto(`/dashboard/administrators/${adminId}`);
+        await filterAdmins(page, adminName);
+        await page.getByRole('link', {name: adminName}).click();
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/administrators/${adminId}`);
         await expect(page.getByRole('heading', {name: adminName})).toBeVisible();
 
         await page.getByRole('button', {name: 'Désactiver'}).click();
@@ -185,6 +151,7 @@ test.describe('administrators', () => {
         await expect(page.getByText('Inactif')).toBeVisible();
 
         await page.getByRole('link', {name: 'Modifier'}).click();
+        await expect(page).toHaveURL((url) => url.pathname === `/dashboard/administrators/${adminId}/edit`);
         await page.getByLabel('Description').fill('Description mise à jour.');
         await page.getByRole('button', {name: 'Enregistrer'}).click();
         await expect(page.getByText('Administrateur mis à jour.')).toBeVisible();
@@ -193,7 +160,7 @@ test.describe('administrators', () => {
         await page.getByRole('button', {name: 'Supprimer'}).click();
         await confirmAlertDialog(page);
         await expect(page.getByText('Administrateur supprimé.')).toBeVisible();
-        await page.waitForURL(/\/dashboard\/administrators$/, {timeout: 15000});
-        createdAdminNames.clear();
+        await page.waitForURL(/\/dashboard\/administrators$/);
+        createdAdminIds.clear();
     });
 });

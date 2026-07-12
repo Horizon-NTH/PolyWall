@@ -5,7 +5,6 @@ import {
     SUPER_ADMIN_CREDENTIALS,
 } from '@/test/fixtures/auth-test-credentials';
 import { login } from './helpers/auth';
-import { safeGoto } from './helpers/navigation';
 import { expectCardToBeVisible } from './helpers/ui';
 
 test.describe('dashboard overview', () => {
@@ -15,7 +14,7 @@ test.describe('dashboard overview', () => {
 
     test('organization admin sees operational dashboard sections', async ({page}) => {
         await login(page, ADMIN_CREDENTIALS.email, ADMIN_CREDENTIALS.password);
-        await safeGoto(page, '/dashboard');
+        await page.goto('/dashboard');
 
         await expect(page).toHaveURL(/\/dashboard$/);
         await expect(page.getByTitle('Tableau de bord')).toBeVisible();
@@ -33,7 +32,7 @@ test.describe('dashboard overview', () => {
 
     test('platform super admin sees platform dashboard without selected organization', async ({page}) => {
         await login(page, SUPER_ADMIN_CREDENTIALS.email, SUPER_ADMIN_CREDENTIALS.password);
-        await safeGoto(page, '/dashboard');
+        await page.goto('/dashboard');
 
         await expect(page).toHaveURL(/\/dashboard$/);
         await expect(page.getByTitle('Tableau de bord')).toBeVisible();
