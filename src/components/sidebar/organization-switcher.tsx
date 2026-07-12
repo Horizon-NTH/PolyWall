@@ -54,8 +54,8 @@ export function OrganizationSwitcher({
     return (
         <SidebarMenuItem>
             <Can I="switch" a="Organization" passThrough>
-                {(allowed) =>
-                    allowed && hasMultipleOrganizations ? (
+                {({isAllowed}) =>
+                    isAllowed && hasMultipleOrganizations ? (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <SidebarMenuButton

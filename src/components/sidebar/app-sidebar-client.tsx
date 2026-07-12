@@ -24,7 +24,7 @@ import {
     SidebarMenu,
 } from '@/components/ui/sidebar';
 import { defineAbilityFor } from '@/lib/casl/ability';
-import { AbilityContext, Can } from '@/lib/casl/ability-context';
+import { AbilityProvider, Can } from '@/lib/casl/ability-context';
 import { UserRole } from '@/generated/prisma/enums';
 
 const sidebarItems = {
@@ -75,7 +75,7 @@ export function AppSidebarClient({
     );
 
     return (
-        <AbilityContext.Provider value={ability}>
+        <AbilityProvider value={ability}>
             <Sidebar variant="inset" {...props}>
                 <SidebarHeader>
                     <SidebarMenu>
@@ -100,6 +100,6 @@ export function AppSidebarClient({
                     <NavUser user={user} />
                 </SidebarFooter>
             </Sidebar>
-        </AbilityContext.Provider>
+        </AbilityProvider>
     );
 }

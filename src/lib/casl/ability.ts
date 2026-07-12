@@ -1,5 +1,5 @@
-import { AbilityBuilder, PureAbility, type ForcedSubject } from '@casl/ability';
-import { createPrismaAbility, PrismaQuery } from '@casl/prisma';
+import { AbilityBuilder, type ForcedSubject } from '@casl/ability';
+import { createPrismaAbility, type PrismaAbility, type PrismaQuery } from '@casl/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { UserRole } from '@/generated/prisma/enums';
 
@@ -18,7 +18,7 @@ export type AppSubject =
     | 'SuperAdminSection'
     | 'OrganizationAdminSection';
 
-export type AppAbility = PureAbility<
+export type AppAbility = PrismaAbility<
     [AppAction, AppSubject | ForcedSubject<AppSubject>],
     PrismaQuery
 >;
