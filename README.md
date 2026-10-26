@@ -1,15 +1,52 @@
 # PolyWall
 
-PolyWall est une application web de gestion d'affichage dynamique pour organiser des medias, playlists, programmations, canaux, ecrans et modeles d'affichage multi-zones.
+PolyWall is a self-hosted digital-signage platform for composing, scheduling, and displaying media across a fleet of browser-based screens.
 
-## Prerequis
+![PolyWall dashboard](docs/assets/screenshots/dashboard.jpg)
 
-- Node.js compatible avec Next.js 16
+The administration interface is currently available in French. The repository and its technical documentation are in English.
+
+## Highlights
+
+- image, video, PDF, and presentation library
+- drag-and-drop playlists
+- default, recurring, and event-based schedules
+- independent channels and secure screen pairing
+- full-screen and multi-zone display templates
+- clock, weather, RSS, and GTFS/GTFS-RT transit widgets
+- organization-level data isolation and role-based permissions
+- asynchronous media processing backed by S3-compatible storage.
+
+## Documentation
+
+The complete documentation lives in [`docs/`](docs/index.md):
+
+- [user guide](docs/user-guide/index.md)
+- [roles and administration](docs/administration/roles-and-permissions.md)
+- [deployment and configuration](docs/operations/deployment.md)
+- [technical architecture](docs/technical/architecture.md)
+- [local development setup](docs/development/local-setup.md).
+
+Preview the documentation site locally with:
+
+```bash
+python3.13 -m venv .venv-docs
+source .venv-docs/bin/activate
+python -m pip install -r requirements-docs.txt
+python -m mkdocs serve
+```
+
+The documentation is then available at `http://127.0.0.1:8000`. Reuse the environment later with `source .venv-docs/bin/activate` before running MkDocs.
+
+## Requirements
+
+- Node.js compatible with Next.js 16
 - pnpm 10.32.1
-- Docker, pour l'environnement local complet
-- `ffmpeg`, Poppler et LibreOffice si le worker media est lance hors Docker
+- Python 3.13 for the documentation site
+- Docker for the complete local environment
+- `ffmpeg`, Poppler, and LibreOffice when running the media worker outside Docker
 
-## Demarrage local
+## Quick start
 
 ```bash
 pnpm install
@@ -17,18 +54,18 @@ cp .env.example .env
 pnpm docker:dev
 ```
 
-Le compose de developpement lance l'application, PostgreSQL, Redis, MinIO et le worker media.
+The development stack starts the application, PostgreSQL, Redis, MinIO, and the media worker.
 
-## Base de donnees
+Initialize the database on first launch:
 
 ```bash
 pnpm exec prisma migrate dev
 pnpm db:seed
 ```
 
-Le seed cree des donnees de demonstration: organisations, utilisateurs, modeles, canaux, ecrans, widgets, medias, playlists et programmations.
+The seed creates demo organizations, users, templates, channels, screens, widgets, media, playlists, and schedules. See [`prisma/SEED.md`](prisma/SEED.md) for the generated accounts and optional demo assets.
 
-## Commandes utiles
+## Quality checks
 
 ```bash
 pnpm dev
@@ -36,19 +73,26 @@ pnpm test
 pnpm typecheck
 pnpm lint
 pnpm e2e
-pnpm audit
 ```
 
-## Affichage ecran
+## Display client
 
-L'interface client des ecrans est disponible sur `/display`. Un ecran genere un identifiant local, saisit un code OTP cree depuis l'administration, puis attend la validation d'un administrateur avant de diffuser le canal associe.
+The screen client is available at `/display`. A device creates a local identifier, submits a temporary pairing code, and waits for an administrator to approve it and assign a channel.
 
-## Worker media
+## Media worker
 
-Le worker traite les fichiers importes, genere les vignettes et rend les PDF/presentations en images exploitables par les ecrans.
+The worker analyzes uploaded files, generates thumbnails, and renders PDFs or presentations into display-ready images.
 
 ```bash
 pnpm worker:media
 ```
 
-En Docker, le worker utilise l'image `Dockerfile.worker`, qui installe les binaires requis pour les videos, PDF et presentations.
+In Docker, `Dockerfile.worker` installs the native dependencies required for videos, PDFs, and presentations.
+
+## Contributing and security
+
+Contributions are welcome through issues and pull requests. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before making a change. Please report vulnerabilities according to [`SECURITY.md`](SECURITY.md), not in a public issue.
+
+## License
+
+PolyWall is available under the [MIT License](LICENSE).

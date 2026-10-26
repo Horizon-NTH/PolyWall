@@ -1,20 +1,20 @@
 # Logging
 
-Le logging serveur utilise `pino` et produit des événements structurés.
+Server-side logging uses `pino` and emits structured events.
 
-Champs principaux:
+Main fields:
 
 - `event`, `action`, `status`
 - `organizationId`, `actorUserId`, `targetId`
 - `durationMs`
-- `error` (message + code Prisma si présent)
+- `error` (message and Prisma code when available)
 
-Variables d'environnement:
+Environment variables:
 
-- `LOG_LEVEL` (par défaut: `debug` en dev, `info` en prod, `silent` en test)
-- `LOG_PRETTY` (`true` pour activer un format lisible en dev)
+- `LOG_LEVEL` (defaults to `debug` in development, `info` in production, and `silent` in tests)
+- `LOG_PRETTY` (`true` enables human-readable development output)
 
-Exemple:
+Example:
 
 ```json
 {

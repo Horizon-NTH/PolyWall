@@ -1,0 +1,106 @@
+site_name: PolyWall
+site_description: User and technical documentation for the PolyWall digital-signage platform
+site_author: PolyWall contributors
+site_url: https://horizon-nth.github.io/PolyWall/
+repo_name: Horizon-NTH/PolyWall
+repo_url: https://github.com/Horizon-NTH/PolyWall
+edit_uri: edit/master/docs/
+
+theme:
+  name: shadcn
+  icon: assets/logo.svg
+  favicon: assets/logo.svg
+  show_title: true
+  show_stargazers: false
+  topbar_sections: false
+  show_datetime: false
+  accent: "#00AEEF"
+  pygments_style:
+    light: shadcn-light
+    dark: github-dark
+
+nav:
+  - Home: index.md
+  - User guide:
+      - Overview: user-guide/index.md
+      - Getting started: user-guide/getting-started.md
+      - Media: user-guide/media.md
+      - Playlists: user-guide/playlists.md
+      - Display templates: user-guide/display-templates.md
+      - Channels: user-guide/channels.md
+      - Schedules: user-guide/schedules.md
+      - Screens and pairing: user-guide/screens.md
+      - Widgets: user-guide/widgets.md
+      - Troubleshooting: user-guide/troubleshooting.md
+  - Administration:
+      - Roles and permissions: administration/roles-and-permissions.md
+      - Organizations and users: administration/organizations-and-users.md
+  - Operations:
+      - Deployment: operations/deployment.md
+      - Configuration: operations/configuration.md
+      - Backup and monitoring: operations/backup-and-monitoring.md
+  - Technical documentation:
+      - Architecture: technical/architecture.md
+      - Data model: technical/data-model.md
+      - Display runtime: technical/display-runtime.md
+      - Media processing: technical/media-processing.md
+      - Routes and interfaces: technical/routes-and-interfaces.md
+      - Security: technical/security.md
+      - Testing and quality: technical/testing.md
+  - Development:
+      - Local setup: development/local-setup.md
+      - Project structure: development/project-structure.md
+      - Contributing: development/contributing.md
+  - Architecture decisions:
+      - Overview: decisions/index.md
+      - Next.js application: decisions/001-nextjs.md
+      - PostgreSQL and Prisma: decisions/002-postgresql-prisma.md
+      - S3 object storage: decisions/003-s3-object-storage.md
+      - Asynchronous processing: decisions/004-asynchronous-processing.md
+  - Reference:
+      - Glossary: reference/glossary.md
+      - Commands: reference/commands.md
+      - Local documentation: reference/local-documentation.md
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search:
+      lang: en
+  - mermaid2:
+      javascript: javascripts/mermaid.min.js
+      arguments:
+        theme: base
+        themeVariables:
+          primaryColor: "#E6F6FC"
+          primaryTextColor: "#003A70"
+          primaryBorderColor: "#00AEEF"
+          lineColor: "#64748B"
+          secondaryColor: "#F8FAFC"
+          tertiaryColor: "#FFFFFF"
+
+extra_css:
+  - stylesheets/extra.css
+
+copyright: PolyWall documentation
