@@ -1,11 +1,11 @@
 # Tests
 
-Les mocks de framework partagés vivent dans `src/test/mocks` et sont chargés par `src/test/setup.ts`.
+Shared framework mocks live in `src/test/mocks` and are loaded by `src/test/setup.ts`.
 
-- `next-navigation.ts` fournit `routerMock`, `setMockPathname` et `setMockSearchParams`.
-- `next-link.tsx` remplace `next/link` par une ancre HTML simple.
-- `sonner.ts` fournit `toastMock`.
-- `auth.ts`, `casl.ts` et `prisma.ts` exposent des helpers de reset pour les tests d'actions serveur.
-- `fixtures/builders.ts` fournit des builders pour les données de table, de planning et de payloads d'actions les plus répétées.
+- `next-navigation.ts` provides `routerMock`, `setMockPathname`, and `setMockSearchParams`.
+- `next-link.tsx` replaces `next/link` with a plain HTML anchor.
+- `sonner.ts` provides `toastMock`.
+- `auth.ts`, `casl.ts`, and `prisma.ts` expose reset helpers for Server Action tests.
+- `fixtures/builders.ts` provides builders for commonly repeated table data, schedule data, and action payloads.
 
-Dans les tests composants, privilégier ces helpers pour les dépendances transversales (`next/navigation`, `next/link`, `sonner`). Garder les mocks métier dans le fichier de test quand ils expriment le scénario testé, par exemple `createUserMock`, `deletePlaylistMock` ou un mock d'action serveur propre au composant.
+In component tests, prefer these helpers for cross-cutting dependencies (`next/navigation`, `next/link`, and `sonner`). Keep domain-specific mocks in the test file when they express the scenario, such as `createUserMock`, `deletePlaylistMock`, or a component-specific Server Action mock.

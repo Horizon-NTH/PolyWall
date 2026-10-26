@@ -21,7 +21,7 @@ describe('weather service', () => {
         vi.mocked(fetch)
             .mockResolvedValueOnce(buildJsonResponse({
                 results: [{
-                    name: 'Dijon',
+                    name: 'Paris',
                     country: 'France',
                     latitude: 47.32,
                     longitude: 5.04,
@@ -46,9 +46,9 @@ describe('weather service', () => {
             }));
 
         const {getWeather} = await import('@/lib/weather/weather-service');
-        const result = await getWeather({city: 'Dijon', displayMode: 'current', forecastDays: 1});
+        const result = await getWeather({city: 'Paris', displayMode: 'current', forecastDays: 1});
 
-        expect(result.locationName).toBe('Dijon');
+        expect(result.locationName).toBe('Paris');
         expect(result.current).toEqual(expect.objectContaining({
             temperature: 21,
             apparentTemperature: 21,

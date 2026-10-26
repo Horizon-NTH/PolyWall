@@ -151,7 +151,7 @@ describe('TransitWidgetConfigurationEditor', () => {
                         id: 'stop-1',
                         name: 'Université',
                         routeIds: ['route-1', 'route-2'],
-                        destinations: ['DIJON Gare', 'TALANT Dullin'],
+                        destinations: ['Gare centrale', 'Campus universitaire'],
                     },
                 ],
                 routes: [
@@ -173,12 +173,12 @@ describe('TransitWidgetConfigurationEditor', () => {
                     },
                 ],
                 destinations: [
-                    {routeId: 'route-1', destination: 'DIJON Gare'},
-                    {routeId: 'route-2', destination: 'TALANT Dullin'},
+                    {routeId: 'route-1', destination: 'Gare centrale'},
+                    {routeId: 'route-2', destination: 'Campus universitaire'},
                 ],
                 groups: [
-                    {stopId: 'stop-1', routeId: 'route-1', destination: 'DIJON Gare'},
-                    {stopId: 'stop-1', routeId: 'route-2', destination: 'TALANT Dullin'},
+                    {stopId: 'stop-1', routeId: 'route-1', destination: 'Gare centrale'},
+                    {stopId: 'stop-1', routeId: 'route-2', destination: 'Campus universitaire'},
                 ],
             });
         }));
@@ -194,13 +194,13 @@ describe('TransitWidgetConfigurationEditor', () => {
         await waitFor(() => expect(screen.getByLabelText(/Université/)).toBeInTheDocument());
         fireEvent.click(screen.getByLabelText(/Université/));
         fireEvent.click(screen.getByLabelText(/T1/));
-        fireEvent.click(screen.getByLabelText('DIJON Gare'));
+        fireEvent.click(screen.getByLabelText('Gare centrale'));
 
         expect(screen.getByText('1 élément')).toBeInTheDocument();
         expect(screen.getByTestId('configuration-json')).toHaveTextContent('"providerId":"pan:test-network"');
         expect(screen.getByTestId('configuration-json')).toHaveTextContent('"stopIds":["stop-1"]');
         expect(screen.getByTestId('configuration-json')).toHaveTextContent('"routeIds":["route-1"]');
-        expect(screen.getByTestId('configuration-json')).toHaveTextContent('"destinations":["DIJON Gare"]');
+        expect(screen.getByTestId('configuration-json')).toHaveTextContent('"destinations":["Gare centrale"]');
     });
 
     it('clears the selected provider when the final typed value is invalid', async () => {

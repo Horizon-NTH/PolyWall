@@ -5,7 +5,7 @@ import { isValidWeatherCity, parseWeatherWidgetConfig } from '@/lib/weather/weat
 describe('weather widget config', () => {
     it('normalizes configuration values', () => {
         expect(parseWeatherWidgetConfig({})).toEqual({
-            city: 'Dijon',
+            city: 'Paris',
             displayMode: 'compact',
             forecastDays: 3,
         });
@@ -15,14 +15,14 @@ describe('weather widget config', () => {
             forecastDays: 7,
         });
         expect(parseWeatherWidgetConfig({displayMode: 'invalid', forecastDays: 0})).toEqual({
-            city: 'Dijon',
+            city: 'Paris',
             displayMode: 'compact',
             forecastDays: 1,
         });
     });
 
     it('validates city names conservatively', () => {
-        expect(isValidWeatherCity('Dijon')).toBe(true);
+        expect(isValidWeatherCity('Paris')).toBe(true);
         expect(isValidWeatherCity('A')).toBe(false);
         expect(isValidWeatherCity(' '.repeat(4))).toBe(false);
     });

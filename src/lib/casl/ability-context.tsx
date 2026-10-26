@@ -1,10 +1,14 @@
 'use client';
 
-import { createContext } from 'react';
-import { createContextualCan } from '@casl/react';
+import {
+    AbilityProvider,
+    Can as CaslCan,
+    type CanProps,
+} from '@casl/react';
 import type { AppAbility } from '@/lib/casl/ability';
 
-export const AbilityContext = createContext<AppAbility>(
-    null as unknown as AppAbility,
-);
-export const Can = createContextualCan(AbilityContext.Consumer);
+export { AbilityProvider };
+
+export function Can(props: CanProps<AppAbility>) {
+    return <CaslCan<AppAbility> {...props} />;
+}

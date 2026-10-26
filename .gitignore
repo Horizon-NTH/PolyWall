@@ -52,3 +52,8 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Documentation
+/site/
+/tmp/
+/.venv-docs/

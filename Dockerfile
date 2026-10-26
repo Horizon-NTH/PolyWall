@@ -1,7 +1,7 @@
 FROM node:22-slim AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends openssl \
-  && rm -rf /var/lib/apt/lists/* \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN corepack enable
 
 FROM base AS deps
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm install --frozen-lockfile
 
 FROM base AS builder
@@ -19,12 +19,14 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 RUN pnpm exec prisma generate
-RUN pnpm run build
+# Build-time validation only. Real credentials are supplied at runtime.
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build \
+    AUTH_SECRET=build-only-placeholder pnpm run build
 
 FROM node:22-slim AS runner
 
 RUN apt-get update && apt-get install -y --no-install-recommends openssl \
-  && rm -rf /var/lib/apt/lists/* \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

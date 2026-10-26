@@ -16,3 +16,8 @@ coverage
 test-results
 .idea
 .DS_Store
+.env*
+.venv-docs
+site
+docs
+tmp

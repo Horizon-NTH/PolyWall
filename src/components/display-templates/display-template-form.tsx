@@ -1025,8 +1025,8 @@ function WidgetConfigurationEditor({
                         Ville
                     </HelpLabel>
                     <Input
-                        placeholder="Dijon"
-                        value={getStringConfig(configurationJson, 'city', 'Dijon')}
+                        placeholder="Paris"
+                        value={getStringConfig(configurationJson, 'city', 'Paris')}
                         onChange={(event) => onChange({...configurationJson, city: event.target.value})}
                     />
                 </Field>

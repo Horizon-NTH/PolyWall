@@ -144,7 +144,7 @@ export const buildTransitDeparture = (
         color: '#be185d',
         textColor: '#ffffff',
     },
-    destination: 'DIJON Gare',
+    destination: 'Gare centrale',
     departureTime: '2026-05-09T10:19:30.000Z',
     realtime: true,
     ...overrides,

@@ -56,7 +56,7 @@ export default async function Page() {
                             <CardHeader>
                                 <CardTitle>Organisation</CardTitle>
                                 <CardDescription>
-                                    Informations liees a votre établissement.
+                                    Informations liees a votre organisation.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="grid gap-3 text-sm">

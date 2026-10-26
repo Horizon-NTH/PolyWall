@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
-import { AbilityContext } from '@/lib/casl/ability-context';
+import { AbilityProvider } from '@/lib/casl/ability-context';
 import { OrganizationSwitcher } from '@/components/sidebar/organization-switcher';
 import type { AppAbility } from '@/lib/casl/ability';
 import { defineAbilityFor } from '@/lib/casl/ability';
@@ -41,12 +41,12 @@ function renderSwitcher({
 
     return render(
         <SidebarProvider>
-            <AbilityContext.Provider value={ability}>
+            <AbilityProvider value={ability}>
                 <OrganizationSwitcher
                     organizations={organizationsOverride}
                     currentOrganizationId={currentOrganizationId}
                 />
-            </AbilityContext.Provider>
+            </AbilityProvider>
         </SidebarProvider>,
     );
 }
