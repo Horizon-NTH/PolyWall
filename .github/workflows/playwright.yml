@@ -1,5 +1,7 @@
 name: Playwright Tests
 on:
+  push:
+    branches: [ master ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
@@ -33,7 +35,7 @@ jobs:
         uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 25.9.0
+          node-version: 24
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -42,7 +44,7 @@ jobs:
       - name: Migrate database
         run: pnpm prisma migrate deploy
       - name: Seed database
-        run: pnpm db:seed
+        run: pnpm db:seed:direct
       - name: Install Playwright Browsers
         run: pnpm exec playwright install --with-deps chromium
       - name: Run Playwright tests

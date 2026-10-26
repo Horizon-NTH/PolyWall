@@ -7,12 +7,29 @@ existing data.
 ## How to run
 
 ```sh
-pnpm prisma db seed
+pnpm db:seed
 ```
+
+This command builds and starts a one-off `media-worker` container, applies
+pending migrations, then runs the seed inside it. The worker image contains
+FFmpeg, Poppler, and LibreOffice, so videos, PDFs, and presentations placed in
+`public/seed/media` can be processed with the same native dependencies as
+uploaded media.
+
+The image is rebuilt before each run so newly added seed files are copied into
+the container.
+
+`pnpm db:seed:worker` applies pending migrations and runs Prisma in the current
+environment. It is the command used inside the development worker container.
+
+`pnpm db:seed:direct` only runs Prisma seed. It is intended for CI and
+deployment workflows that apply migrations in a separate step.
 
 ## Required environment
 
 - `DATABASE_URL` (required): Postgres connection string.
+- Docker with the development Compose services available when using
+  `pnpm db:seed`.
 
 ## Optional environment
 

@@ -19,6 +19,8 @@ The administration interface is currently available in French. The repository an
 
 ## Documentation
 
+Read the [documentation website](https://horizon-nth.github.io/PolyWall/).
+
 The complete documentation lives in [`docs/`](docs/index.md):
 
 - [user guide](docs/user-guide/index.md)
