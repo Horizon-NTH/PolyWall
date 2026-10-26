@@ -14,7 +14,7 @@ export function parseWeatherWidgetConfig(configurationJson: Record<string, unkno
     const displayMode = getStringConfig(configurationJson, 'displayMode', 'compact');
 
     return {
-        city: getStringConfig(configurationJson, 'city', 'Dijon').trim(),
+        city: getStringConfig(configurationJson, 'city', 'Paris').trim(),
         displayMode: DISPLAY_MODES.includes(displayMode as WeatherDisplayMode)
             ? displayMode as WeatherDisplayMode
             : 'compact',

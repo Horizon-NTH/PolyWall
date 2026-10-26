@@ -52,7 +52,7 @@ describe('TransitWidget', () => {
         await flushInitialFetch();
 
         expect(screen.queryByText('Réseau test')).not.toBeInTheDocument();
-        expect(screen.getByText('DIJON Gare')).toBeInTheDocument();
+        expect(screen.getByText('Gare centrale')).toBeInTheDocument();
         expect(screen.getByText('Université')).toBeInTheDocument();
         expect(screen.getByText('4 min')).toBeInTheDocument();
         expect(screen.getByText('11 min')).toBeInTheDocument();
@@ -80,7 +80,7 @@ describe('TransitWidget', () => {
         );
         await flushInitialFetch();
 
-        expect(screen.getByText('DIJON Gare')).toHaveClass('text-slate-950');
+        expect(screen.getByText('Gare centrale')).toHaveClass('text-slate-950');
         expect(screen.getByText('4 min')).toHaveClass('text-slate-950');
     });
 

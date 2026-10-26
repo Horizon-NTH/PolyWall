@@ -55,9 +55,9 @@ function buildStaticFeed() {
             }],
         ]),
         trips: new Map([
-            ['trip-1', {id: 'trip-1', routeId: 'route-1', headsign: 'DIJON Gare', serviceId: 'service-1'}],
-            ['trip-2', {id: 'trip-2', routeId: 'route-1', headsign: 'QUETIGNY Centre', serviceId: 'service-1'}],
-            ['trip-3', {id: 'trip-3', routeId: 'route-2', headsign: 'TALANT Dullin', serviceId: 'service-1'}],
+            ['trip-1', {id: 'trip-1', routeId: 'route-1', headsign: 'Gare centrale', serviceId: 'service-1'}],
+            ['trip-2', {id: 'trip-2', routeId: 'route-1', headsign: 'Centre-ville', serviceId: 'service-1'}],
+            ['trip-3', {id: 'trip-3', routeId: 'route-2', headsign: 'Campus universitaire', serviceId: 'service-1'}],
         ]),
         stopTimesByStopId: new Map([
             ['stop-1', [
@@ -103,13 +103,13 @@ describe('transit index', () => {
                 id: 'stop-2',
                 name: 'Gare',
                 routeIds: ['route-1'],
-                destinations: ['DIJON Gare'],
+                destinations: ['Gare centrale'],
             },
             {
                 id: 'stop-1',
                 name: 'Université',
                 routeIds: ['route-1', 'route-2'],
-                destinations: ['DIJON Gare', 'QUETIGNY Centre', 'TALANT Dullin'],
+                destinations: ['Campus universitaire', 'Centre-ville', 'Gare centrale'],
             },
         ]);
         expect(index.routes).toEqual([
@@ -117,10 +117,10 @@ describe('transit index', () => {
             expect.objectContaining({routeId: 'route-1', shortName: 'T1', color: '#be185d'}),
         ]);
         expect(index.groups).toEqual(expect.arrayContaining([
-            {stopId: 'stop-1', routeId: 'route-1', destination: 'DIJON Gare'},
-            {stopId: 'stop-1', routeId: 'route-1', destination: 'QUETIGNY Centre'},
-            {stopId: 'stop-1', routeId: 'route-2', destination: 'TALANT Dullin'},
-            {stopId: 'stop-2', routeId: 'route-1', destination: 'DIJON Gare'},
+            {stopId: 'stop-1', routeId: 'route-1', destination: 'Gare centrale'},
+            {stopId: 'stop-1', routeId: 'route-1', destination: 'Centre-ville'},
+            {stopId: 'stop-1', routeId: 'route-2', destination: 'Campus universitaire'},
+            {stopId: 'stop-2', routeId: 'route-1', destination: 'Gare centrale'},
         ]));
     });
 });

@@ -5,7 +5,7 @@ import { WeatherWidget } from '@/components/screens/display-weather-widget';
 import { buildDisplayWidgetInstance } from '@/test/fixtures/builders';
 import { type WeatherResult } from '@/lib/weather/weather-types';
 
-function buildWeatherWidget(configurationJson = {city: 'Dijon', displayMode: 'current', forecastDays: 3}) {
+function buildWeatherWidget(configurationJson = {city: 'Paris', displayMode: 'current', forecastDays: 3}) {
     return buildDisplayWidgetInstance({
         id: 'weather-widget-1',
         technicalKey: 'weather',
@@ -22,7 +22,7 @@ async function flushInitialFetch() {
 }
 
 const weatherResult: WeatherResult = {
-    locationName: 'Dijon',
+    locationName: 'Paris',
     country: 'France',
     timezone: 'Europe/Paris',
     fetchedAt: '2026-05-24T10:00:00.000Z',
@@ -74,7 +74,7 @@ describe('WeatherWidget', () => {
         await flushInitialFetch();
 
         expect(screen.getByText('22°')).toBeInTheDocument();
-        expect(screen.getByText('Dijon')).toBeInTheDocument();
+        expect(screen.getByText('Paris')).toBeInTheDocument();
         expect(screen.getByText('Partiellement nuageux')).toBeInTheDocument();
         expect(fetch).toHaveBeenCalledWith(
             '/api/display/widgets/weather?deviceId=device-1&widgetId=weather-widget-1',
@@ -90,7 +90,7 @@ describe('WeatherWidget', () => {
 
         render(
             <WeatherWidget
-                widget={buildWeatherWidget({city: 'Dijon', displayMode: 'forecast', forecastDays: 1})}
+                widget={buildWeatherWidget({city: 'Paris', displayMode: 'forecast', forecastDays: 1})}
                 deviceId="device-1"
             />,
         );

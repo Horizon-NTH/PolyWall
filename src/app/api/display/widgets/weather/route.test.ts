@@ -41,7 +41,7 @@ describe('GET /api/display/widgets/weather', () => {
                         widgetInstance: {
                             id: 'widget-1',
                             configurationJson: {
-                                city: 'Dijon',
+                                city: 'Paris',
                                 displayMode: 'forecast',
                                 forecastDays: 2,
                             },
@@ -50,7 +50,7 @@ describe('GET /api/display/widgets/weather', () => {
                 },
             },
         });
-        mocks.getWeather.mockResolvedValueOnce({locationName: 'Dijon'});
+        mocks.getWeather.mockResolvedValueOnce({locationName: 'Paris'});
 
         const mod = await import('@/app/api/display/widgets/weather/route');
         const response = await mod.GET(
@@ -58,9 +58,9 @@ describe('GET /api/display/widgets/weather', () => {
         );
 
         expect(response.status).toBe(200);
-        expect(await response.json()).toEqual({locationName: 'Dijon'});
+        expect(await response.json()).toEqual({locationName: 'Paris'});
         expect(mocks.getWeather).toHaveBeenCalledWith({
-            city: 'Dijon',
+            city: 'Paris',
             displayMode: 'forecast',
             forecastDays: 2,
         });

@@ -9,7 +9,7 @@ const WIDGET_CATALOG = {
         label: 'Météo',
         description: 'Affiche la météo',
         defaultRefreshPeriodSeconds: 300,
-        defaultConfiguration: {city: 'Dijon', displayMode: 'compact', forecastDays: 3},
+        defaultConfiguration: {city: 'Paris', displayMode: 'compact', forecastDays: 3},
     },
     rss: {
         label: 'Flux RSS',

@@ -29,8 +29,8 @@ function createGtfsZip() {
         ].join('\n')),
         'trips.txt': strToU8([
             'route_id,service_id,trip_id,trip_headsign,direction_id',
-            'route-1,service-1,trip-1,DIJON Gare,0',
-            'route-1,service-1,trip-2,QUETIGNY Centre,1',
+            'route-1,service-1,trip-1,Gare centrale,0',
+            'route-1,service-1,trip-2,Centre-ville,1',
         ].join('\n')),
         'stop_times.txt': strToU8([
             'trip_id,arrival_time,departure_time,stop_id,stop_sequence',
@@ -133,7 +133,7 @@ describe('gtfs transit service', () => {
                     color: '#be185d',
                     textColor: '#ffffff',
                 },
-                destination: 'DIJON Gare',
+                destination: 'Gare centrale',
                 departureTime: '2026-05-16T10:19:00.000Z',
                 realtime: true,
             }],
@@ -159,6 +159,6 @@ describe('gtfs transit service', () => {
             layoutDirection: 'row',
         }, new Date('2026-05-16T10:15:00.000Z'));
 
-        expect(result.departures[0]?.destination).toBe('QUETIGNY Centre');
+        expect(result.departures[0]?.destination).toBe('Centre-ville');
     });
 });
